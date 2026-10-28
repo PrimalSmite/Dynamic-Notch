@@ -399,6 +399,22 @@ PanelWindow {
                     return;
                 }
 
+                if (win.panel === "notifications") {
+                    const ch = (event.text || "").toLowerCase();
+                    if (event.key === Qt.Key_C || event.key === Qt.Key_X || event.key === Qt.Key_Delete
+                        || event.key === 0x06d3 || event.key === 0x06de
+                        || ch === "c" || ch === "с" || ch === "x" || ch === "ч") {
+                        Notifs.clear();
+                        event.accepted = true;
+                        return;
+                    }
+                    if (event.key === Qt.Key_D || event.key === 0x06d7 || ch === "d" || ch === "в") {
+                        Notifs.dnd = !Notifs.dnd;
+                        event.accepted = true;
+                        return;
+                    }
+                }
+
                 switch (event.key) {
                 case Qt.Key_1:
                 case Qt.Key_Slash: win.openPanel("launcher"); event.accepted = true; break;

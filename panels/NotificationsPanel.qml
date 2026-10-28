@@ -9,12 +9,23 @@ Item {
     id: root
     property var host: null
     property bool wantsKeyboard: true
+    focus: true
     implicitWidth: Theme.px(430)
     implicitHeight: col.implicitHeight
 
+    function focusInput() { root.forceActiveFocus(); }
+
     Keys.onPressed: event => {
-        if (event.key === Qt.Key_D) { Notifs.dnd = !Notifs.dnd; event.accepted = true; }
-        else if (event.key === Qt.Key_C || event.key === Qt.Key_Delete) { Notifs.clear(); event.accepted = true; }
+        const ch = (event.text || "").toLowerCase();
+        if (event.key === Qt.Key_D || event.key === 0x06d7 || ch === "d" || ch === "в") {
+            Notifs.dnd = !Notifs.dnd;
+            event.accepted = true;
+        } else if (event.key === Qt.Key_C || event.key === Qt.Key_X || event.key === Qt.Key_Delete
+                   || event.key === 0x06d3 || event.key === 0x06de
+                   || ch === "c" || ch === "с" || ch === "x" || ch === "ч") {
+            Notifs.clear();
+            event.accepted = true;
+        }
     }
 
     Column {
@@ -89,7 +100,7 @@ Item {
                 Text {
                     id: clrText
                     anchors.centerIn: parent
-                    text: "Очистить все"
+                    text: "Очистить все [C]"
                     color: Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(11)
