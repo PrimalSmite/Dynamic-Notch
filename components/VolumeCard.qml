@@ -10,8 +10,8 @@ Rectangle {
     readonly property var sinks: Pipewire.nodes.values.filter(n => n.isSink && !n.isStream && n.audio)
     function nodeName(n) { return n ? (n.description || n.nickname || n.name) : ""; }
 
-    implicitHeight: col.implicitHeight + 28
-    radius: 22
+    implicitHeight: col.implicitHeight + Theme.px(28)
+    radius: Theme.px(22)
     color: Theme.card
 
     PwObjectTracker { objects: root.sinks }
@@ -25,19 +25,17 @@ Rectangle {
     Column {
         id: col
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 12
-
+        anchors.margins: Theme.px(14)
+        spacing: Theme.px(12)
         // Шапка
         Item {
             width: parent.width
-            height: 36
-
+            height: Theme.px(36)
             Rectangle {
                 id: muteBtn
-                width: 36
-                height: 36
-                radius: 18
+                width: Theme.px(36)
+                height: Theme.px(36)
+                radius: Theme.px(18)
                 color: Audio.muted ? Theme.red : Qt.rgba(1, 1, 1, 0.12)
                 scale: muteMa.pressed ? 0.88 : 1
                 Behavior on color { ColorAnimation { duration: 180 } }
@@ -45,7 +43,7 @@ Rectangle {
                 Icon {
                     anchors.centerIn: parent
                     name: Audio.icon
-                    size: 20
+                    size: Theme.px(20)
                 }
                 MouseArea {
                     id: muteMa
@@ -57,16 +55,16 @@ Rectangle {
 
             Column {
                 anchors.left: muteBtn.right
-                anchors.leftMargin: 12
+                anchors.leftMargin: Theme.px(12)
                 anchors.right: pct.left
-                anchors.rightMargin: 12
+                anchors.rightMargin: Theme.px(12)
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 1
+                spacing: Theme.px(1)
                 Text {
                     text: "Громкость"
                     color: Theme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: 14
+                    font.pixelSize: Theme.px(14)
                     font.weight: Font.DemiBold
                 }
                 Text {
@@ -75,7 +73,7 @@ Rectangle {
                     text: Audio.muted ? "Звук выключен" : root.nodeName(Audio.sink)
                     color: Theme.text2
                     font.family: Theme.fontFamily
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.px(11)
                 }
             }
 
@@ -86,7 +84,7 @@ Rectangle {
                 text: Math.round(Audio.volume * 100) + "%"
                 color: Audio.muted ? Theme.text3 : Theme.text
                 font.family: Theme.fontFamily
-                font.pixelSize: 22
+                font.pixelSize: Theme.px(22)
                 font.weight: Font.Bold
                 font.features: { "tnum": 1 }
             }
@@ -95,7 +93,7 @@ Rectangle {
         // Толстый слайдер
         Bar {
             width: parent.width
-            height: 26
+            height: Theme.px(26)
             value: Audio.muted ? 0 : Audio.volume
             tint: Theme.text
             interactive: true
@@ -105,7 +103,7 @@ Rectangle {
         // Выходы (если их больше одного)
         Flow {
             width: parent.width
-            spacing: 6
+            spacing: Theme.px(6)
             visible: root.sinks.length > 1
 
             Repeater {
@@ -114,9 +112,9 @@ Rectangle {
                     id: chip
                     required property var modelData
                     readonly property bool current: modelData === Audio.sink
-                    height: 26
+                    height: Theme.px(26)
                     width: Math.min(chipText.implicitWidth + 22, col.width)
-                    radius: 13
+                    radius: Theme.px(13)
                     color: current ? Theme.text : Qt.rgba(1, 1, 1, 0.1)
                     Behavior on color { ColorAnimation { duration: 180 } }
                     Text {
@@ -127,7 +125,7 @@ Rectangle {
                         text: root.nodeName(chip.modelData)
                         color: chip.current ? "black" : Theme.text
                         font.family: Theme.fontFamily
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.px(11)
                         font.weight: Font.Medium
                     }
                     MouseArea {

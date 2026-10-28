@@ -10,7 +10,7 @@ Item {
     readonly property bool dragging: ma.pressed
     signal moved(real v)
 
-    implicitHeight: 6
+    implicitHeight: Theme.px(6)
     readonly property real clamped: Math.max(0, Math.min(1, value))
 
     Rectangle {
@@ -29,7 +29,7 @@ Item {
     MouseArea {
         id: ma
         anchors.fill: parent
-        anchors.margins: -8
+        anchors.margins: Theme.px(-8)
         enabled: root.interactive
         cursorShape: root.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
         function send(mx) { root.moved(Math.max(0, Math.min(1, (mx + ma.x) / root.width))); }

@@ -14,8 +14,8 @@ Rectangle {
     signal iconClicked()
     signal wheel(int delta)
 
-    implicitHeight: 74
-    radius: 18
+    implicitHeight: Theme.px(74)
+    radius: Theme.px(18)
     color: Theme.card
 
     MouseArea {
@@ -26,22 +26,21 @@ Rectangle {
 
     Column {
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 8
-
+        anchors.margins: Theme.px(12)
+        spacing: Theme.px(8)
         Item {
             width: parent.width
-            height: 20
+            height: Theme.px(20)
             Icon {
                 id: ic
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 name: root.icon
-                size: 18
+                size: Theme.px(18)
                 color: root.tint
                 MouseArea {
                     anchors.fill: parent
-                    anchors.margins: -4
+                    anchors.margins: Theme.px(-4)
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.iconClicked()
                 }
@@ -52,7 +51,7 @@ Rectangle {
                 text: root.value
                 color: Theme.text
                 font.family: Theme.fontFamily
-                font.pixelSize: 13
+                font.pixelSize: Theme.px(13)
                 font.weight: Font.DemiBold
                 font.features: { "tnum": 1 }
             }
@@ -61,11 +60,11 @@ Rectangle {
             text: root.label
             color: Theme.text2
             font.family: Theme.fontFamily
-            font.pixelSize: 11
+            font.pixelSize: Theme.px(11)
         }
         Bar {
             width: parent.width
-            height: 5
+            height: Theme.px(5)
             value: root.level
             tint: root.tint
             interactive: root.interactive

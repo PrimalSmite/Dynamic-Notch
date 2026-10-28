@@ -7,20 +7,19 @@ Rectangle {
     id: root
     readonly property var player: Media.player
 
-    implicitHeight: 96
-    radius: 22
+    implicitHeight: Theme.px(96)
+    radius: Theme.px(22)
     color: Theme.card
 
     Row {
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 14
-
+        anchors.margins: Theme.px(14)
+        spacing: Theme.px(14)
         // Обложка
         ClippingRectangle {
-            width: 68
-            height: 68
-            radius: 16
+            width: Theme.px(68)
+            height: Theme.px(68)
+            radius: Theme.px(16)
             anchors.verticalCenter: parent.verticalCenter
             color: "transparent"
 
@@ -44,17 +43,16 @@ Rectangle {
 
         // Трек + прогресс
         Column {
-            width: parent.width - 68 - ctl.width - 2 * parent.spacing
+            width: parent.width - Theme.px(68) - ctl.width - 2 * parent.spacing
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 3
-
+            spacing: Theme.px(3)
             Text {
                 width: parent.width
                 elide: Text.ElideRight
                 text: root.player?.trackTitle || "Без названия"
                 color: Theme.text
                 font.family: Theme.fontFamily
-                font.pixelSize: 15
+                font.pixelSize: Theme.px(15)
                 font.weight: Font.DemiBold
             }
             Text {
@@ -63,13 +61,13 @@ Rectangle {
                 text: root.player ? (root.player.trackArtist || root.player.identity) : ""
                 color: Theme.text2
                 font.family: Theme.fontFamily
-                font.pixelSize: 12
+                font.pixelSize: Theme.px(12)
             }
             Item { width: 1; height: 6 }
             Bar {
                 id: prog
                 width: parent.width
-                height: 4
+                height: Theme.px(4)
                 visible: root.player?.lengthSupported ?? false
                 value: root.player && root.player.length > 0 ? root.player.position / root.player.length : 0
                 interactive: root.player?.canSeek ?? false
@@ -77,13 +75,13 @@ Rectangle {
             }
             Item {
                 width: parent.width
-                height: 14
+                height: Theme.px(14)
                 visible: prog.visible
                 Text {
                     text: Media.fmt(root.player?.position ?? 0)
                     color: Theme.text3
                     font.family: Theme.fontFamily
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.px(10)
                     font.features: { "tnum": 1 }
                 }
                 Text {
@@ -91,7 +89,7 @@ Rectangle {
                     text: "-" + Media.fmt((root.player?.length ?? 0) - (root.player?.position ?? 0))
                     color: Theme.text3
                     font.family: Theme.fontFamily
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.px(10)
                     font.features: { "tnum": 1 }
                 }
             }
@@ -101,19 +99,18 @@ Rectangle {
         Row {
             id: ctl
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 2
-
+            spacing: Theme.px(2)
             Repeater {
                 model: [
-                    { icon: "skip_previous", act: "prev", size: 26 },
-                    { icon: Media.playing ? "pause" : "play_arrow", act: "toggle", size: 34 },
-                    { icon: "skip_next", act: "next", size: 26 }
+                    { icon: "skip_previous", act: "prev", size: Theme.px(26) },
+                    { icon: Media.playing ? "pause" : "play_arrow", act: "toggle", size: Theme.px(34) },
+                    { icon: "skip_next", act: "next", size: Theme.px(26) }
                 ]
                 Item {
                     id: btn
                     required property var modelData
-                    width: 36
-                    height: 40
+                    width: Theme.px(36)
+                    height: Theme.px(40)
                     Icon {
                         anchors.centerIn: parent
                         name: btn.modelData.icon

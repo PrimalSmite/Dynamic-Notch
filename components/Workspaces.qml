@@ -7,10 +7,10 @@ Row {
     id: root
 
     property var monitor: null           // HyprlandMonitor
-    property real dot: 5
-    property real activeW: 14
-    spacing: 4
-
+    property real dot: Theme.px(5)
+    property real activeW: Theme.px(14)
+    property color activeColor: Theme.text
+    spacing: Theme.px(4)
     readonly property int activeId: monitor?.activeWorkspace?.id ?? 1
     readonly property var wsList: Hyprland.workspaces.values
     readonly property var occupied: {
@@ -48,7 +48,8 @@ Row {
             Rectangle {
                 anchors.fill: parent
                 radius: height / 2
-                color: Theme.text
+                color: d.active ? root.activeColor : Theme.text
+                Behavior on color { ColorAnimation { duration: 200 } }
                 opacity: d.active ? 1 : d.busy ? 0.55 : 0.22
                 scale: ma.containsMouse && !d.active ? 1.25 : 1
                 Behavior on opacity { NumberAnimation { duration: 250 } }
@@ -58,7 +59,7 @@ Row {
             MouseArea {
                 id: ma
                 anchors.fill: parent
-                anchors.margins: -4
+                anchors.margins: Theme.px(-4)
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.go(d.wsId)
