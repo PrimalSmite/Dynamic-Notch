@@ -21,8 +21,9 @@ PanelWindow {
     readonly property var monitor: Hyprland.monitorFor(modelData)
 
     anchors.top: true
-    implicitWidth: Theme.px(1000)
-    implicitHeight: Theme.px(640)
+    anchors.left: true
+    anchors.right: true
+    implicitHeight: modelData ? modelData.height : Theme.px(1080)
     color: "transparent"
 
     exclusiveZone: Theme.compactH
@@ -31,17 +32,34 @@ PanelWindow {
     WlrLayershell.keyboardFocus: (mode === "dashboard" || mode === "panel")
                                  ? WlrKeyboardFocus.Exclusive
                                  : WlrKeyboardFocus.None
-    mask: Region { item: notch }
+    mask: Region { item: (win.mode === "dashboard" || win.mode === "panel") ? outsideCatcher : notch }
+
+    // Инициализируем менеджер HyprlandFocusGrab заранее, чтобы первый захват не терялся
+    Timer {
+        interval: 80
+        running: true
+        onTriggered: {
+            focusGrab.active = true;
+            focusGrab.active = false;
+        }
+    }
 
     // Защита от ложного срабатывания HyprlandFocusGrab в момент перехвата Exclusive-фокуса
     property bool grabArmed: false
     Timer {
         id: grabArmTimer
         interval: 180
-        onTriggered: win.grabArmed = true
+        onTriggered: {
+            if (win.mode === "dashboard" || win.mode === "panel") {
+                win.grabArmed = true;
+                focusGrab.active = false;
+                focusGrab.active = true;
+            }
+        }
     }
 
     HyprlandFocusGrab {
+        id: focusGrab
         windows: [win]
         active: (win.mode === "dashboard" || win.mode === "panel") && win.grabArmed
         onCleared: {
@@ -84,19 +102,21 @@ PanelWindow {
 
     function armGrab() {
         grabArmed = false;
+        focusGrab.active = false;
         grabArmTimer.restart();
     }
 
-    // Открыть отдельную панель прямо в чёлке (без шапки дашборда)
+    // Открыть отдельную панель прямо в чёлке (повторный вызов сворачивает обратно в чёлку)
     function openPanel(name) {
         osd = "";
         if (panel === name) {
-            backToDashboard();
+            if (panel === "auth") Auth.cancel();
+            collapse();
             return;
         }
-        expanded = false;
         panel = name;
         loadedPanel = name;
+        expanded = false;
         armGrab();
         focusActivePanel();
     }
@@ -118,6 +138,7 @@ PanelWindow {
     function collapse() {
         grabArmed = false;
         grabArmTimer.stop();
+        focusGrab.active = false;
         expanded = false;
         panel = "";
     }
@@ -125,6 +146,7 @@ PanelWindow {
     function toggle() {
         osd = "";
         if (mode === "dashboard" || mode === "panel") {
+            if (panel === "auth") Auth.cancel();
             collapse();
         } else {
             panel = "";
@@ -221,6 +243,11 @@ PanelWindow {
     Connections {
         target: IslandIpc
         function onToggleRequested() {
+            if (win.mode === "dashboard" || win.mode === "panel") {
+                if (win.panel === "auth") Auth.cancel();
+                win.collapse();
+                return;
+            }
             if (win.monitor && !win.monitor.focused) return;
             win.toggle();
         }
@@ -229,7 +256,15 @@ PanelWindow {
             win.collapse();
         }
         function onOpenRequested(name) {
-            if (win.monitor && !win.monitor.focused) return;
+            if (win.panel === name) {
+                if (win.panel === "auth") Auth.cancel();
+                win.collapse();
+                return;
+            }
+            if (win.monitor && !win.monitor.focused) {
+                if (win.mode === "dashboard" || win.mode === "panel") win.collapse();
+                return;
+            }
             win.openPanel(name);
         }
         function onCycleRequested(delta) {
@@ -253,6 +288,18 @@ PanelWindow {
     readonly property real activePanelW: activePanelInnerW + 2 * Theme.pad
     readonly property real activePanelH: (panelLoader.item ? panelLoader.item.implicitHeight : Theme.px(200))
                                          + 2 * Theme.pad
+
+    // ───────── Перехват клика мимо открытой панели / дашборда ─────────
+    MouseArea {
+        id: outsideCatcher
+        anchors.fill: parent
+        enabled: win.mode === "dashboard" || win.mode === "panel"
+        acceptedButtons: Qt.AllButtons
+        onPressed: mouse => {
+            if (win.panel === "auth") Auth.cancel();
+            win.collapse();
+        }
+    }
 
     // ───────── Чёлка ─────────
     Item {
@@ -282,6 +329,12 @@ PanelWindow {
         Behavior on bw { Spring {} }
         Behavior on bh { Spring {} }
         Behavior on rad { Spring {} }
+
+        // Блокируем проваливание кликов по «ушкам» чёлки в outsideCatcher
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+        }
 
         NotchShape {
             bodyW: notch.bw
