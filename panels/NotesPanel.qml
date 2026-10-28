@@ -14,7 +14,12 @@ Item {
     property string currentTitle: "Заметка"
     property string currentPath: ""
 
+    implicitWidth: Theme.px(560)
     implicitHeight: row.implicitHeight
+
+    function focusInput() {
+        editor.forceActiveFocus();
+    }
 
     readonly property string notesDir: Quickshell.env("HOME") + "/.local/state/dynamic-island/notes"
 

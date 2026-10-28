@@ -4,7 +4,7 @@ import Quickshell.Widgets
 import qs.services
 import qs.components
 
-// Панель запуска приложений (поиск, закреплённые, частые).
+// Панель запуска приложений в стиле вертикального Notch-списка (как на референсе).
 Item {
     id: root
     property var host: null
@@ -13,14 +13,32 @@ Item {
     property string query: ""
     property int selectedIndex: 0
 
+    implicitWidth: Theme.px(390)
     implicitHeight: col.implicitHeight
+
+    function focusInput() {
+        searchInput.forceActiveFocus();
+    }
 
     onVisibleChanged: {
         if (visible) {
             searchInput.text = "";
             selectedIndex = 0;
+            list.positionViewAtBeginning();
             searchInput.forceActiveFocus();
+            focusTimer.restart();
         }
+    }
+
+    Component.onCompleted: {
+        searchInput.forceActiveFocus();
+        focusTimer.restart();
+    }
+
+    Timer {
+        id: focusTimer
+        interval: 35
+        onTriggered: searchInput.forceActiveFocus()
     }
 
     readonly property var filtered: {
@@ -30,10 +48,8 @@ Item {
         if (q === "") {
             res = all;
             res.sort((a, b) => {
-                const pa = Apps.isPinned(a.id) ? 1000 : 0;
-                const pb = Apps.isPinned(b.id) ? 1000 : 0;
-                const sa = Apps.score(a) + pa;
-                const sb = Apps.score(b) + pb;
+                const sa = Apps.score(a);
+                const sb = Apps.score(b);
                 if (sb !== sa) return sb - sa;
                 return (a.name || "").localeCompare(b.name || "");
             });
@@ -52,7 +68,7 @@ Item {
                 return Apps.score(b) - Apps.score(a);
             });
         }
-        return res.slice(0, 24);
+        return res.slice(0, 40);
     }
 
     function launchSelected() {
@@ -65,22 +81,20 @@ Item {
     Column {
         id: col
         width: parent.width
-        spacing: Theme.px(12)
+        spacing: Theme.px(8)
 
-        // Поле поиска
-        Rectangle {
+        // Строка поиска сверху
+        Item {
             width: parent.width
-            height: Theme.px(42)
-            radius: Theme.px(14)
-            color: Theme.card
+            height: Theme.px(36)
 
             Icon {
                 id: sIcon
                 anchors.left: parent.left
-                anchors.leftMargin: Theme.px(14)
+                anchors.leftMargin: Theme.px(6)
                 anchors.verticalCenter: parent.verticalCenter
                 name: "search"
-                size: Theme.px(19)
+                size: Theme.px(16)
                 color: Theme.text2
             }
 
@@ -89,28 +103,37 @@ Item {
                 anchors.left: sIcon.right
                 anchors.right: clearBtn.left
                 anchors.leftMargin: Theme.px(10)
-                anchors.rightMargin: Theme.px(10)
+                anchors.rightMargin: Theme.px(8)
                 anchors.verticalCenter: parent.verticalCenter
                 color: Theme.text
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.px(14)
+                font.pixelSize: Theme.px(13)
                 selectionColor: Theme.blue
                 clip: true
                 focus: true
                 onTextChanged: {
                     root.query = text;
                     root.selectedIndex = 0;
+                    list.positionViewAtBeginning();
                 }
                 Keys.onReturnPressed: root.launchSelected()
                 Keys.onEnterPressed: root.launchSelected()
-                Keys.onDownPressed: root.selectedIndex = Math.min(root.filtered.length - 1, root.selectedIndex + 4)
-                Keys.onUpPressed: root.selectedIndex = Math.max(0, root.selectedIndex - 4)
-                Keys.onRightPressed: if (cursorPosition === text.length) root.selectedIndex = Math.min(root.filtered.length - 1, root.selectedIndex + 1)
-                Keys.onLeftPressed: if (cursorPosition === 0) root.selectedIndex = Math.max(0, root.selectedIndex - 1)
+                Keys.onDownPressed: {
+                    root.selectedIndex = Math.min(root.filtered.length - 1, root.selectedIndex + 1);
+                    list.positionViewAtIndex(root.selectedIndex, ListView.Contain);
+                }
+                Keys.onUpPressed: {
+                    root.selectedIndex = Math.max(0, root.selectedIndex - 1);
+                    list.positionViewAtIndex(root.selectedIndex, ListView.Contain);
+                }
+                Keys.onEscapePressed: event => {
+                    if (root.host) root.host.collapse();
+                    event.accepted = true;
+                }
 
                 Text {
                     visible: searchInput.text.length === 0
-                    text: "Поиск приложений... (ПКМ — закрепить на панели)"
+                    text: "Search..."
                     color: Theme.text3
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(13)
@@ -120,11 +143,11 @@ Item {
             Item {
                 id: clearBtn
                 anchors.right: parent.right
-                anchors.rightMargin: Theme.px(10)
+                anchors.rightMargin: Theme.px(4)
                 anchors.verticalCenter: parent.verticalCenter
-                width: Theme.px(24); height: width
+                width: Theme.px(22); height: width
                 visible: searchInput.text.length > 0
-                Icon { anchors.centerIn: parent; name: "close"; size: Theme.px(16); color: Theme.text2 }
+                Icon { anchors.centerIn: parent; name: "close"; size: Theme.px(15); color: Theme.text2 }
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
@@ -133,100 +156,108 @@ Item {
             }
         }
 
-        // Сетка приложений (4 колонки)
-        GridView {
-            id: grid
+        // Тонкий разделитель под строкой поиска
+        Rectangle {
             width: parent.width
-            height: Theme.px(292)
-            cellWidth: Math.floor(width / 4)
-            cellHeight: Theme.px(72)
+            height: 1
+            color: Qt.rgba(1, 1, 1, 0.08)
+        }
+
+        // Вертикальный список приложений (6 строк видно сразу)
+        ListView {
+            id: list
+            width: parent.width
+            height: Theme.px(312)
+            spacing: Theme.px(2)
             clip: true
             model: root.filtered
 
-            delegate: Item {
-                id: cell
+            delegate: Rectangle {
+                id: rowItem
                 required property var modelData
                 required property int index
-                width: grid.cellWidth
-                height: grid.cellHeight
+                width: ListView.view.width
+                height: Theme.px(50)
+                radius: Theme.px(11)
 
                 readonly property bool selected: index === root.selectedIndex
-                readonly property bool pinned: Apps.isPinned(modelData.id)
 
+                color: selected ? Qt.rgba(1, 1, 1, 0.11)
+                     : rowMa.containsMouse ? Qt.rgba(1, 1, 1, 0.06)
+                     : "transparent"
+                Behavior on color { ColorAnimation { duration: 120 } }
+
+                // Вертикальная белая капсула слева у выбранного элемента
                 Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: Theme.px(4)
-                    radius: Theme.px(14)
-                    color: cell.selected || cellMa.containsMouse ? Theme.cardHover : Theme.card
-                    border.width: cell.selected ? 1.5 : 0
-                    border.color: Theme.blue
-                    scale: cellMa.pressed ? 0.95 : 1.0
-                    Behavior on scale { Spring {} }
-                    Behavior on color { ColorAnimation { duration: 130 } }
+                    anchors.left: parent.left
+                    anchors.leftMargin: Theme.px(4)
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Theme.px(3)
+                    height: rowItem.selected ? Theme.px(22) : Theme.px(6)
+                    radius: width / 2
+                    color: Theme.text
+                    opacity: rowItem.selected ? 1 : 0
+                    Behavior on height { Spring {} }
+                    Behavior on opacity { NumberAnimation { duration: 130 } }
+                }
 
-                    Row {
-                        anchors.fill: parent
-                        anchors.margins: Theme.px(10)
-                        spacing: Theme.px(10)
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.px(14)
+                    anchors.rightMargin: Theme.px(12)
+                    spacing: Theme.px(12)
+
+                    // Подложка под иконку приложения
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Theme.px(34)
+                        height: width
+                        radius: Theme.px(9)
+                        color: Qt.rgba(1, 1, 1, 0.06)
 
                         IconImage {
-                            anchors.verticalCenter: parent.verticalCenter
-                            implicitSize: Theme.px(34)
-                            source: Quickshell.iconPath(cell.modelData.icon, "application-x-executable")
-                        }
-
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - Theme.px(48)
-                            spacing: Theme.px(2)
-
-                            Row {
-                                width: parent.width
-                                spacing: Theme.px(4)
-                                Text {
-                                    width: parent.width - (cell.pinned ? Theme.px(14) : 0)
-                                    elide: Text.ElideRight
-                                    text: cell.modelData.name || cell.modelData.id
-                                    color: Theme.text
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(13)
-                                    font.weight: Font.DemiBold
-                                }
-                                Icon {
-                                    visible: cell.pinned
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: "push_pin"
-                                    size: Theme.px(12)
-                                    color: Theme.accent
-                                }
-                            }
-
-                            Text {
-                                width: parent.width
-                                elide: Text.ElideRight
-                                text: cell.modelData.genericName || cell.modelData.comment || "Приложение"
-                                color: Theme.text2
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(10)
-                            }
+                            anchors.centerIn: parent
+                            implicitSize: Theme.px(22)
+                            source: Quickshell.iconPath(rowItem.modelData.icon, "application-x-executable")
                         }
                     }
 
-                    MouseArea {
-                        id: cellMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        cursorShape: Qt.PointingHandCursor
-                        onEntered: root.selectedIndex = cell.index
-                        onClicked: mouse => {
-                            if (mouse.button === Qt.RightButton) {
-                                Apps.togglePin(cell.modelData.id);
-                            } else {
-                                Apps.launch(cell.modelData);
-                                if (root.host) root.host.collapse();
-                            }
+                    // Название и описание
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - Theme.px(52)
+                        spacing: Theme.px(1)
+
+                        Text {
+                            width: parent.width
+                            elide: Text.ElideRight
+                            text: rowItem.modelData.name || rowItem.modelData.id
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(13)
+                            font.weight: Font.DemiBold
                         }
+
+                        Text {
+                            width: parent.width
+                            elide: Text.ElideRight
+                            text: rowItem.modelData.genericName || rowItem.modelData.comment || rowItem.modelData.id
+                            color: Theme.text2
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(11)
+                        }
+                    }
+                }
+
+                MouseArea {
+                    id: rowMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onEntered: root.selectedIndex = rowItem.index
+                    onClicked: {
+                        Apps.launch(rowItem.modelData);
+                        if (root.host) root.host.collapse();
                     }
                 }
             }

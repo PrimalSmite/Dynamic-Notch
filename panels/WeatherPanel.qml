@@ -79,12 +79,6 @@ Item {
                         width: parent.width
                     }
                 }
-
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.RightButton
-                    onClicked: Weather.refresh()
-                }
             }
 
             // Почасовой

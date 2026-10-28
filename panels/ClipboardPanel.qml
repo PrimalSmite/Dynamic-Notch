@@ -14,7 +14,12 @@ Item {
     property string query: ""
     property int selectedIndex: 0
 
+    implicitWidth: Theme.px(440)
     implicitHeight: col.implicitHeight
+
+    function focusInput() {
+        searchInput.forceActiveFocus();
+    }
 
     function reload() {
         listProc.running = false;

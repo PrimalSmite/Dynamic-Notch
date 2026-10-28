@@ -36,5 +36,8 @@ Singleton {
             if (Recorder.recording) Recorder.stop();
             else Recorder.start("screen");
         }
+        function askpass(msg: string, actionId: string, replyFile: string): void {
+            Auth.openAskpass(msg, actionId, replyFile);
+        }
     }
 }

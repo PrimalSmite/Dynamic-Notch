@@ -3,14 +3,16 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Widgets
+import Quickshell.Services.SystemTray
 import qs.services
 import qs.components
 
 // «Чёлка» на каждом мониторе.
 // Режимы:
-//   compact  — рабочие столы · время · живые активности (запись, таймер, уведомления) · раскладка
-//   osd      — плашка при смене громкости / раскладки или новом уведомлении
-//   expanded — верхняя строка (как дашборд) + выезжающая под ней панель
+//   compact   — капсулы рабочих столов (слева) · время строго по центру · активности и раскладка (справа)
+//   osd       — плашка при смене громкости / раскладки или новом уведомлении
+//   dashboard — двухрядный компактный дашборд (статус + трей сверху, док иконок снизу)
+//   panel     — отдельная панель (лончер, уведомления, polkit-пароль и т.д.) прямо в чёлке без шапки дашборда
 PanelWindow {
     id: win
 
@@ -19,32 +21,47 @@ PanelWindow {
     readonly property var monitor: Hyprland.monitorFor(modelData)
 
     anchors.top: true
-    implicitWidth: Theme.px(1240)
-    implicitHeight: Theme.px(680)
+    implicitWidth: Theme.px(1000)
+    implicitHeight: Theme.px(640)
     color: "transparent"
 
     exclusiveZone: Theme.compactH
     WlrLayershell.namespace: "dynamic-island"
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: expanded ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: (mode === "dashboard" || mode === "panel")
+                                 ? WlrKeyboardFocus.Exclusive
+                                 : WlrKeyboardFocus.None
     mask: Region { item: notch }
 
-    // клик мимо раскрытой чёлки — свернуть
+    // Защита от ложного срабатывания HyprlandFocusGrab в момент перехвата Exclusive-фокуса
+    property bool grabArmed: false
+    Timer {
+        id: grabArmTimer
+        interval: 180
+        onTriggered: win.grabArmed = true
+    }
+
     HyprlandFocusGrab {
         windows: [win]
-        active: win.expanded
-        onCleared: win.collapse()
+        active: (win.mode === "dashboard" || win.mode === "panel") && win.grabArmed
+        onCleared: {
+            if (!win.grabArmed) return;
+            if (win.panel === "auth") Auth.cancel();
+            win.collapse();
+        }
     }
 
     // ───────── Состояние ─────────
-    property bool expanded: false
-    property string panel: ""           // открытая панель под строкой ("" — только шапка дашборда)
-    property string loadedPanel: ""     // держим содержимое, пока панель закрывается
+    property bool expanded: false       // открыт ли сам дашборд
+    property string panel: ""           // открытая отдельная панель ("" — нет панели)
+    property string loadedPanel: ""     // держим содержимое во время анимации закрытия
     property string osd: ""             // "", "volume", "layout", "notif"
     property string lastOsd: "volume"
-    property var notif: null            // уведомление для всплывашки
-    property string hoveredHint: ""     // подсказка при наведении на иконку док-панели
-    readonly property string mode: expanded ? "expanded" : osd !== "" ? "osd" : "compact"
+    property var notif: null
+    readonly property string mode: panel !== "" ? "panel"
+                                 : expanded ? "dashboard"
+                                 : osd !== "" ? "osd"
+                                 : "compact"
 
     readonly property var panelOrder: [
         "launcher", "notifications", "mixer", "sysmon", "recorder",
@@ -52,46 +69,74 @@ PanelWindow {
     ]
 
     readonly property var dockItems: [
-        { key: "launcher",      icon: "apps",               label: "Приложения",  hint: "1" },
-        { key: "notifications", icon: "notifications",      label: "Уведомления", hint: "2" },
-        { key: "mixer",         icon: "tune",               label: "Микшер",      hint: "3" },
-        { key: "sysmon",        icon: "monitoring",         label: "Система",     hint: "4" },
-        { key: "recorder",      icon: "videocam",           label: "Запись",      hint: "5" },
-        { key: "timer",         icon: "timer",              label: "Таймер",      hint: "6" },
-        { key: "wallpaper",     icon: "wallpaper",          label: "Обои",        hint: "7" },
-        { key: "clipboard",     icon: "content_paste",      label: "Буфер",       hint: "8" },
-        { key: "notes",         icon: "edit_note",          label: "Заметки",     hint: "9" },
-        { key: "settings",      icon: "settings",           label: "Настройки",   hint: "0" },
-        { key: "power",         icon: "power_settings_new", label: "Питание",     hint: "-" }
+        { key: "launcher",      icon: "apps" },
+        { key: "notifications", icon: "notifications" },
+        { key: "mixer",         icon: "tune" },
+        { key: "sysmon",        icon: "monitoring" },
+        { key: "recorder",      icon: "videocam" },
+        { key: "timer",         icon: "timer" },
+        { key: "wallpaper",     icon: "wallpaper" },
+        { key: "clipboard",     icon: "content_paste" },
+        { key: "notes",         icon: "edit_note" },
+        { key: "settings",      icon: "settings" },
+        { key: "power",         icon: "power_settings_new" }
     ]
 
-    // API для панелей (панель получает его как host)
+    function armGrab() {
+        grabArmed = false;
+        grabArmTimer.restart();
+    }
+
+    // Открыть отдельную панель прямо в чёлке (без шапки дашборда)
     function openPanel(name) {
         osd = "";
-        expanded = true;
-        panel = (panel === name) ? "" : name;
-        if (panel !== "") loadedPanel = panel;
-        else body.forceActiveFocus();
+        if (panel === name) {
+            backToDashboard();
+            return;
+        }
+        expanded = false;
+        panel = name;
+        loadedPanel = name;
+        armGrab();
+        focusActivePanel();
     }
-    function closePanel() {
+
+    // Вернуться из открытой панели назад в дашборд (по ПКМ или Backspace)
+    function backToDashboard() {
+        osd = "";
+        if (panel === "auth") Auth.cancel();
         panel = "";
+        expanded = true;
+        armGrab();
         body.forceActiveFocus();
     }
+
+    function closePanel() {
+        backToDashboard();
+    }
+
     function collapse() {
+        grabArmed = false;
+        grabArmTimer.stop();
         expanded = false;
         panel = "";
     }
+
     function toggle() {
         osd = "";
-        if (expanded) collapse();
-        else {
+        if (mode === "dashboard" || mode === "panel") {
+            collapse();
+        } else {
+            panel = "";
             expanded = true;
+            armGrab();
             body.forceActiveFocus();
         }
     }
+
     function cyclePanel(delta) {
         osd = "";
-        expanded = true;
+        expanded = false;
         const list = panelOrder;
         const cur = list.indexOf(panel);
         let next = 0;
@@ -99,7 +144,23 @@ PanelWindow {
         else next = (cur + delta + list.length) % list.length;
         panel = list[next];
         loadedPanel = panel;
+        armGrab();
+        focusActivePanel();
     }
+
+    function focusActivePanel() {
+        if (panelLoader.item) {
+            if (typeof panelLoader.item.focusInput === "function")
+                panelLoader.item.focusInput();
+            else if (panelLoader.item.wantsKeyboard)
+                panelLoader.item.forceActiveFocus();
+            else
+                body.forceActiveFocus();
+        } else {
+            body.forceActiveFocus();
+        }
+    }
+
     function handleRightClick(key) {
         if (key === "notifications") Notifs.dnd = !Notifs.dnd;
         else if (key === "mixer") Audio.toggleMute();
@@ -109,8 +170,9 @@ PanelWindow {
         } else if (key === "timer") Timers.toggleStart();
         else openPanel(key);
     }
+
     function showOsd(kind) {
-        if (expanded || !armed) return;
+        if (mode !== "compact" || !armed) return;
         if (monitor && !monitor.focused) return;
         lastOsd = kind;
         osd = kind;
@@ -118,10 +180,6 @@ PanelWindow {
                           : kind === "layout" ? Theme.layoutOsdMs
                           : Theme.osdMs;
         osdTimer.restart();
-    }
-
-    onExpandedChanged: {
-        if (expanded) body.forceActiveFocus();
     }
 
     onPanelChanged: {
@@ -133,7 +191,7 @@ PanelWindow {
     property bool armed: false
     Timer { interval: 1500; running: true; onTriggered: win.armed = true }
     Timer { id: osdTimer; interval: Theme.osdMs; onTriggered: win.osd = "" }
-    Timer { id: collapseTimer; interval: 650; onTriggered: if (win.panel === "") win.collapse() }
+    Timer { id: collapseTimer; interval: 650; onTriggered: if (win.mode === "dashboard") win.collapse() }
     Timer { id: unloadTimer; interval: 300; onTriggered: if (win.panel === "") win.loadedPanel = "" }
 
     Connections {
@@ -150,15 +208,28 @@ PanelWindow {
         function onPopup(n) { win.notif = n; win.showOsd("notif"); }
     }
     Connections {
+        target: Auth
+        function onRequested() {
+            if (win.monitor && !win.monitor.focused) return;
+            if (win.panel !== "auth") win.openPanel("auth");
+            else win.focusActivePanel();
+        }
+        function onFinished() {
+            if (win.panel === "auth") win.collapse();
+        }
+    }
+    Connections {
         target: IslandIpc
         function onToggleRequested() {
             if (win.monitor && !win.monitor.focused) return;
             win.toggle();
         }
-        function onCloseRequested() { win.collapse(); }
+        function onCloseRequested() {
+            if (win.panel === "auth") Auth.cancel();
+            win.collapse();
+        }
         function onOpenRequested(name) {
             if (win.monitor && !win.monitor.focused) return;
-            if (win.panel === name && win.expanded) { win.collapse(); return; }
             win.openPanel(name);
         }
         function onCycleRequested(delta) {
@@ -170,12 +241,18 @@ PanelWindow {
     SystemClock { id: clock; precision: SystemClock.Seconds }
 
     // ───────── Размеры ─────────
-    readonly property real compactW: Theme.px(15) * 2 + wsCompact.implicitWidth + clockText.implicitWidth
-                                     + rightCompact.implicitWidth + Theme.px(14) * 2
+    // Симметричная ширина свёрнутого Notch, чтобы часы всегда были строго по центру
+    readonly property real sideWingW: Math.max(wsCompact.implicitWidth, rightCompact.implicitWidth)
+    readonly property real compactW: clockText.implicitWidth + 2 * sideWingW + Theme.px(21) * 2
     readonly property real layoutOsdW: Math.max(compactW, layoutOsdRow.implicitWidth + Theme.px(32))
-    readonly property real stripW: Math.max(Theme.px(650),
-                                   Math.max(topRow.implicitWidth, dockBar.implicitWidth) + Theme.px(36))
-    readonly property real panelW: stripW - 2 * Theme.pad
+    readonly property real dashW: Math.max(Theme.px(520),
+                                  Math.max(topRow.implicitWidth, dockBar.implicitWidth) + Theme.px(36))
+    readonly property real activePanelInnerW: (panelLoader.item && panelLoader.item.implicitWidth > 0)
+                                              ? panelLoader.item.implicitWidth
+                                              : Theme.px(600)
+    readonly property real activePanelW: activePanelInnerW + 2 * Theme.pad
+    readonly property real activePanelH: (panelLoader.item ? panelLoader.item.implicitHeight : Theme.px(200))
+                                         + 2 * Theme.pad
 
     // ───────── Чёлка ─────────
     Item {
@@ -188,17 +265,19 @@ PanelWindow {
 
         readonly property bool compactHovered: notchHover.hovered && win.mode === "compact"
 
-        property real bw: win.mode === "expanded" ? win.stripW
+        property real bw: win.mode === "panel" ? win.activePanelW
+                        : win.mode === "dashboard" ? win.dashW
                         : win.mode === "osd" ? (win.lastOsd === "notif" ? Theme.notifW
                                               : win.lastOsd === "layout" ? win.layoutOsdW
                                               : Theme.osdW)
                         : win.compactW + (compactHovered ? Theme.hoverGrowW : 0)
-        property real bh: win.mode === "expanded" ? expandedView.implicitHeight
+        property real bh: win.mode === "panel" ? win.activePanelH
+                        : win.mode === "dashboard" ? Theme.stripH
                         : win.mode === "osd" ? (win.lastOsd === "notif" ? Theme.notifH
                                               : win.lastOsd === "layout" ? Theme.compactH
                                               : Theme.osdH)
                         : Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)
-        property real rad: win.mode === "expanded" ? Theme.expandedRadius
+        property real rad: (win.mode === "dashboard" || win.mode === "panel") ? Theme.expandedRadius
                          : Theme.compactRadius + (compactHovered ? Theme.px(2) : 0)
         Behavior on bw { Spring {} }
         Behavior on bh { Spring {} }
@@ -216,7 +295,7 @@ PanelWindow {
             id: notchHover
             onHoveredChanged: {
                 if (hovered) collapseTimer.stop();
-                else if (win.expanded && win.panel === "") collapseTimer.restart();
+                else if (win.mode === "dashboard") collapseTimer.restart();
             }
         }
 
@@ -228,11 +307,11 @@ PanelWindow {
             clip: true
             focus: true
 
-            // Глобальные горячие клавиши дашборда
+            // Глобальные горячие клавиши (Esc всегда сворачивает обратно в маленький Notch)
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Escape) {
-                    if (win.panel !== "") win.closePanel();
-                    else win.collapse();
+                    if (win.panel === "auth") Auth.cancel();
+                    win.collapse();
                     event.accepted = true;
                     return;
                 }
@@ -248,8 +327,20 @@ PanelWindow {
                 }
 
                 const alt = (event.modifiers & Qt.AltModifier) !== 0;
+                if (win.mode === "panel" && alt && (event.key === Qt.Key_Left || event.key === Qt.Key_Backspace)) {
+                    win.backToDashboard();
+                    event.accepted = true;
+                    return;
+                }
+
                 const textFocused = panelLoader.item && panelLoader.item.wantsTextInput === true && !alt;
                 if (textFocused) return;
+
+                if (win.mode === "panel" && event.key === Qt.Key_Backspace) {
+                    win.backToDashboard();
+                    event.accepted = true;
+                    return;
+                }
 
                 switch (event.key) {
                 case Qt.Key_1:
@@ -268,7 +359,7 @@ PanelWindow {
                 case Qt.Key_C: win.openPanel("calendar"); event.accepted = true; break;
                 case Qt.Key_W: win.openPanel("weather"); event.accepted = true; break;
                 case Qt.Key_M:
-                    if (win.panel === "") { win.openPanel("media"); event.accepted = true; }
+                    if (win.mode === "dashboard") { win.openPanel("media"); event.accepted = true; }
                     break;
                 case Qt.Key_BracketLeft:
                     wsCompact.go(wsCompact.activeId - 1);
@@ -279,7 +370,7 @@ PanelWindow {
                     event.accepted = true;
                     break;
                 case Qt.Key_Space:
-                    if (win.panel === "" || win.panel === "media") {
+                    if (win.mode === "dashboard" || win.panel === "media") {
                         if (Media.player && Media.player.canTogglePlaying) Media.player.togglePlaying();
                         else win.openPanel("launcher");
                         event.accepted = true;
@@ -288,7 +379,7 @@ PanelWindow {
                 }
             }
 
-            // Фон: ЛКМ — раскрыть/свернуть, ПКМ — сразу лаунчер, СКМ — пауза/музыка, колесо — рабочие столы
+            // Фон: ЛКМ — раскрыть дашборд, ПКМ — назад в дашборд (из панели) или лончер (из чёлки), СКМ — пауза/музыка, колесо — рабочие столы
             MouseArea {
                 anchors.fill: parent
                 acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
@@ -299,15 +390,22 @@ PanelWindow {
                         else Audio.toggleMute();
                         return;
                     }
-                    if (mouse.button === Qt.RightButton && win.mode === "compact") {
-                        win.openPanel("launcher");
+                    if (mouse.button === Qt.RightButton) {
+                        if (win.mode === "panel") {
+                            win.backToDashboard();
+                        } else if (win.mode === "compact") {
+                            win.openPanel("launcher");
+                        } else if (win.mode === "dashboard") {
+                            win.collapse();
+                        }
                         return;
                     }
                     if (win.mode === "osd" && win.lastOsd === "notif") win.openPanel("notifications");
-                    else if (win.mode === "expanded") { if (win.panel === "") win.collapse(); }
-                    else win.toggle();
+                    else if (win.mode === "dashboard") win.collapse();
+                    else if (win.mode === "compact") win.toggle();
                 }
                 onWheel: w => {
+                    if (win.mode === "panel") return;
                     acc += w.angleDelta.y;
                     if (Math.abs(acc) < 120) return;
                     wsCompact.go(wsCompact.activeId + (acc > 0 ? -1 : 1));
@@ -315,7 +413,7 @@ PanelWindow {
                 }
             }
 
-            // ═════════ COMPACT ═════════
+            // ═════════ COMPACT (Часы строго по центру, капсулы столов слева, погода и раскладка справа) ═════════
             MorphView {
                 id: compactView
                 shown: win.mode === "compact"
@@ -324,37 +422,39 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
 
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Theme.px(14) + (notch.compactHovered ? Theme.px(2) : 0)
+                Item {
+                    anchors.fill: parent
+                    anchors.leftMargin: Theme.px(16)
+                    anchors.rightMargin: Theme.px(16)
                     scale: notch.compactHovered ? 1.04 : 1.0
-                    Behavior on spacing { Spring {} }
                     Behavior on scale { Spring {} }
 
+                    // Левое крыло: вертикальные капсулы рабочих столов с мягким свечением
                     Workspaces {
                         id: wsCompact
                         monitor: win.monitor
+                        anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
-                    Text {
+                    // Строго по центру: плавно перелистывающиеся часы в стиле Apple
+                    RollingClock {
                         id: clockText
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: Qt.formatTime(clock.date, "HH:mm")
-                        color: Theme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(14)
-                        font.weight: Font.DemiBold
-                        font.features: { "tnum": 1 }
+                        anchors.centerIn: parent
+                        timeString: Qt.formatTime(clock.date, "HH:mm")
+                        fontSize: Theme.px(14)
+                        fontWeight: Font.DemiBold
+                        textColor: Theme.text
                     }
 
-                    // живые активности + раскладка
+                    // Правое крыло: живые активности + погода + раскладка
                     Row {
                         id: rightCompact
+                        anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: Theme.px(8)
+                        spacing: Theme.px(7)
 
-                        // запись экрана (клик — открыть панель записи, ПКМ — стоп)
+                        // запись экрана
                         Row {
                             visible: Recorder.recording
                             anchors.verticalCenter: parent.verticalCenter
@@ -382,7 +482,7 @@ PanelWindow {
                             TapHandler { onTapped: win.openPanel("recorder") }
                         }
 
-                        // таймер / секундомер (клик — открыть таймер)
+                        // таймер / секундомер
                         Row {
                             visible: Timers.running
                             anchors.verticalCenter: parent.verticalCenter
@@ -418,6 +518,32 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             width: Theme.px(6); height: width; radius: width / 2
                             color: Theme.accent
+                        }
+
+                        // Полезный десктопный виджет вместо иконки сети: текущая погода (клик → прогноз погоды)
+                        Row {
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Theme.px(3)
+                            Icon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: Weather.ready ? Weather.icon : "thermostat"
+                                size: Theme.px(13)
+                                color: Weather.ready ? Theme.yellow : Theme.blue
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: Weather.ready && !isNaN(Weather.temp)
+                                      ? (Math.round(Weather.temp) + "°")
+                                      : (SysInfo.cpuTemp > 0 ? Math.round(SysInfo.cpuTemp) + "°" : Math.round(SysInfo.cpu * 100) + "%")
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(12)
+                                font.weight: Font.DemiBold
+                                font.features: { "tnum": 1 }
+                            }
+                            TapHandler {
+                                onTapped: win.openPanel(Weather.ready ? "weather" : "sysmon")
+                            }
                         }
 
                         // раскладка — просто текст, клик переключает
@@ -589,19 +715,17 @@ PanelWindow {
                 }
             }
 
-            // ═════════ EXPANDED (Двухрядный компактный дашборд) ═════════
+            // ═════════ DASHBOARD (Двухрядный компактный дашборд с системным треем) ═════════
             MorphView {
-                id: expandedView
-                shown: win.mode === "expanded"
+                id: dashboardView
+                shown: win.mode === "dashboard"
                 hiddenScale: 0.92
                 transformOrigin: Item.Top
-                width: win.stripW
+                width: win.dashW
+                height: Theme.stripH
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
-                implicitHeight: Theme.stripH + (win.panel !== "" && panelLoader.item
-                                ? panelLoader.item.implicitHeight + Theme.pad : 0)
 
-                // ── Шапка дашборда (2 ряда: статус + док вкладок) ──
                 Column {
                     id: strip
                     width: parent.width
@@ -609,7 +733,7 @@ PanelWindow {
                     topPadding: Theme.px(8)
                     spacing: Theme.px(6)
 
-                    // РЯД 1: Рабочие столы · Часы/Календарь · Погода · Медиа · Раскладка · Закреплённые приложения
+                    // РЯД 1: Рабочие столы · Часы/Календарь · Погода · Медиа · Раскладка · Системный трей
                     Row {
                         id: topRow
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -619,10 +743,6 @@ PanelWindow {
                         Workspaces {
                             anchors.verticalCenter: parent.verticalCenter
                             monitor: win.monitor
-                            dot: Theme.px(7)
-                            activeW: Theme.px(20)
-                            spacing: Theme.px(5)
-                            activeColor: Theme.accent
                         }
 
                         StripDivider {}
@@ -633,27 +753,24 @@ PanelWindow {
                             width: clkRow.implicitWidth + Theme.px(16)
                             height: Theme.px(32)
                             radius: Theme.px(10)
-                            color: win.panel === "calendar" ? Qt.rgba(1, 1, 1, 0.14)
-                                 : clkMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            color: clkMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
 
                             Row {
                                 id: clkRow
                                 anchors.centerIn: parent
                                 spacing: Theme.px(7)
 
-                                Text {
+                                RollingClock {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: Qt.formatTime(clock.date, "HH:mm")
-                                    color: Theme.text
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(17)
-                                    font.weight: Font.Bold
-                                    font.features: { "tnum": 1 }
+                                    timeString: Qt.formatTime(clock.date, "HH:mm")
+                                    fontSize: Theme.px(17)
+                                    fontWeight: Font.Bold
+                                    textColor: Theme.text
                                 }
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: clock.date.toLocaleDateString(Qt.locale("ru_RU"), "ddd d MMM").replace(/\./g, "").toUpperCase()
-                                    color: win.panel === "calendar" ? Theme.accent : Theme.text2
+                                    color: Theme.text2
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.px(10)
                                     font.weight: Font.Bold
@@ -676,8 +793,7 @@ PanelWindow {
                             width: wthRow.implicitWidth + Theme.px(14)
                             height: Theme.px(32)
                             radius: Theme.px(10)
-                            color: win.panel === "weather" ? Qt.rgba(1, 1, 1, 0.14)
-                                 : wthMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            color: wthMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
 
                             Row {
                                 id: wthRow
@@ -687,7 +803,7 @@ PanelWindow {
                                     anchors.verticalCenter: parent.verticalCenter
                                     name: Weather.icon
                                     size: Theme.px(16)
-                                    color: win.panel === "weather" ? Theme.accent : Theme.yellow
+                                    color: Theme.yellow
                                 }
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
@@ -718,8 +834,7 @@ PanelWindow {
                             width: medRow.implicitWidth + Theme.px(14)
                             height: Theme.px(32)
                             radius: Theme.px(10)
-                            color: win.panel === "media" ? Qt.rgba(1, 1, 1, 0.14)
-                                 : medMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.05)
+                            color: medMa.containsMouse ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(1, 1, 1, 0.05)
 
                             Row {
                                 id: medRow
@@ -744,7 +859,7 @@ PanelWindow {
                                     width: Math.min(implicitWidth, Theme.px(100))
                                     elide: Text.ElideRight
                                     text: Media.player?.trackTitle || Media.player?.identity || ""
-                                    color: win.panel === "media" ? Theme.accent : Theme.text
+                                    color: Theme.text
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.px(12)
                                     font.weight: Font.Medium
@@ -795,37 +910,62 @@ PanelWindow {
                             }
                         }
 
-                        StripDivider { visible: Apps.pins.length > 0 }
+                        StripDivider { visible: SystemTray.items.values.length > 0 }
 
-                        // закреплённые приложения (ЛКМ — запуск, ПКМ — открепить)
+                        // Системный трей (вместо закреплённых приложений)
                         Row {
-                            visible: Apps.pins.length > 0
+                            visible: SystemTray.items.values.length > 0
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: Theme.px(8)
+                            spacing: Theme.px(6)
+
                             Repeater {
-                                model: Apps.pins
-                                IconImage {
-                                    id: pin
+                                model: SystemTray.items
+
+                                Rectangle {
+                                    id: trayBtn
                                     required property var modelData
                                     anchors.verticalCenter: parent.verticalCenter
-                                    implicitSize: Theme.px(20)
-                                    source: Quickshell.iconPath(modelData.icon, "application-x-executable")
-                                    scale: pinMa.pressed ? 0.85 : pinMa.containsMouse ? 1.12 : 1
+                                    width: Theme.px(26)
+                                    height: width
+                                    radius: Theme.px(7)
+                                    color: trayMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.05)
+                                    scale: trayMa.pressed ? 0.86 : trayMa.containsMouse ? 1.1 : 1.0
                                     Behavior on scale { Spring {} }
+
+                                    IconImage {
+                                        anchors.centerIn: parent
+                                        implicitSize: Theme.px(17)
+                                        source: {
+                                            const ic = trayBtn.modelData?.icon || "";
+                                            if (!ic) return Quickshell.iconPath("application-x-executable");
+                                            if (ic.indexOf("?path=") >= 0 || ic.indexOf("/") >= 0 || ic.indexOf("image://") === 0) return ic;
+                                            return Quickshell.iconPath(ic, "application-x-executable");
+                                        }
+                                    }
+
                                     MouseArea {
-                                        id: pinMa
+                                        id: trayMa
                                         anchors.fill: parent
-                                        anchors.margins: -Theme.px(3)
                                         hoverEnabled: true
-                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: mouse => {
+                                            const it = trayBtn.modelData;
+                                            if (!it) return;
+                                            const pt = trayBtn.mapToItem(null, trayBtn.width / 2, trayBtn.height);
                                             if (mouse.button === Qt.RightButton) {
-                                                Apps.unpin(pin.modelData.id);
+                                                if (it.hasMenu) it.display(win, Math.round(pt.x), Math.round(pt.y));
+                                                else it.secondaryActivate();
+                                            } else if (mouse.button === Qt.MiddleButton) {
+                                                it.secondaryActivate();
                                             } else {
-                                                Apps.launch(pin.modelData);
-                                                win.collapse();
+                                                if (it.onlyMenu && it.hasMenu) it.display(win, Math.round(pt.x), Math.round(pt.y));
+                                                else it.activate();
                                             }
+                                        }
+                                        onWheel: w => {
+                                            if (trayBtn.modelData)
+                                                trayBtn.modelData.scroll(w.angleDelta.y, false);
                                         }
                                     }
                                 }
@@ -833,11 +973,11 @@ PanelWindow {
                         }
                     }
 
-                    // РЯД 2: Док-панель вкладок и инструментов (колесо мыши листает вкладки, клавиши 1..0/-)
+                    // РЯД 2: Чистая капсула док-иконок (без надписи справа)
                     Rectangle {
                         id: dockBar
                         anchors.horizontalCenter: parent.horizontalCenter
-                        implicitWidth: dockInner.implicitWidth + Theme.px(16)
+                        implicitWidth: dockInner.implicitWidth + Theme.px(14)
                         width: implicitWidth
                         height: Theme.px(36)
                         radius: Theme.px(13)
@@ -863,14 +1003,11 @@ PanelWindow {
                             Repeater {
                                 model: win.dockItems
                                 StripButton {
-                                    id: dBtn
                                     required property var modelData
                                     anchors.verticalCenter: parent.verticalCenter
                                     icon: modelData.key === "notifications" && Notifs.dnd ? "notifications_off"
                                         : modelData.key === "mixer" && Audio.muted ? "volume_off"
                                         : modelData.icon
-                                    label: modelData.label
-                                    hint: modelData.hint
                                     active: win.panel === modelData.key
                                     badge: (modelData.key === "notifications" && Notifs.unread > 0 && !Notifs.dnd)
                                     tint: modelData.key === "recorder" && Recorder.recording ? Theme.red
@@ -878,57 +1015,31 @@ PanelWindow {
                                         : modelData.key === "mixer" && Audio.muted ? Theme.red
                                         : modelData.key === "notifications" && Notifs.dnd ? Theme.purple
                                         : Theme.text
-                                    onHoveredChanged: {
-                                        if (hovered) win.hoveredHint = modelData.label + " [" + modelData.hint + "]";
-                                        else if (win.hoveredHint.indexOf(modelData.label) === 0) win.hoveredHint = "";
-                                    }
                                     onClicked: win.openPanel(modelData.key)
                                     onRightClicked: win.handleRightClick(modelData.key)
-                                }
-                            }
-
-                            StripDivider { height: Theme.px(16) }
-
-                            // Плашка подсказки активной вкладки / хоткея
-                            Item {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: Theme.px(116)
-                                height: Theme.px(26)
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    width: parent.width - Theme.px(8)
-                                    horizontalAlignment: Text.AlignHCenter
-                                    elide: Text.ElideRight
-                                    text: {
-                                        if (win.hoveredHint !== "") return win.hoveredHint;
-                                        for (const it of win.dockItems) {
-                                            if (it.key === win.panel) return it.label + " [" + it.hint + "]";
-                                        }
-                                        if (win.panel === "calendar") return "Календарь [C]";
-                                        if (win.panel === "weather") return "Погода [W]";
-                                        if (win.panel === "media") return "Медиа [M]";
-                                        return "Tab · [1–0]";
-                                    }
-                                    color: win.hoveredHint !== "" || win.panel !== "" ? Theme.text2 : Theme.text3
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(11)
-                                    font.weight: Font.DemiBold
                                 }
                             }
                         }
                     }
                 }
+            }
 
-                // ── Панель ──
+            // ═════════ PANEL (Отдельная панель прямо в чёлке, без шапки дашборда) ═════════
+            MorphView {
+                id: panelView
+                shown: win.mode === "panel"
+                hiddenScale: 0.92
+                transformOrigin: Item.Top
+                width: win.activePanelW
+                height: win.activePanelH
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+
                 Item {
                     id: panelArea
-                    anchors.top: strip.bottom
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: win.panelW
+                    anchors.centerIn: parent
+                    width: win.activePanelInnerW
                     height: panelLoader.item ? panelLoader.item.implicitHeight : 0
-                    opacity: win.panel !== "" ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: win.panel !== "" ? Theme.fadeIn : Theme.fadeOut } }
 
                     Loader {
                         id: panelLoader
@@ -941,15 +1052,25 @@ PanelWindow {
                             if (item.host !== undefined) item.host = win;
                             if (item.width !== undefined) item.width = Qt.binding(() => panelLoader.width);
                             appear.restart();
-                            if (item.wantsKeyboard) item.forceActiveFocus();
-                            else body.forceActiveFocus();
+                            win.focusActivePanel();
                         }
-                        // каждая новая панель появляется с лёгким пружинным подъёмом
                         ParallelAnimation {
                             id: appear
                             NumberAnimation { target: panelLoader; property: "opacity"; from: 0; to: 1; duration: Theme.fadeIn; easing.type: Easing.OutCubic }
                             SpringAnimation { target: panelLoader; property: "scale"; from: 0.96; to: 1; spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.002 }
                         }
+                    }
+                }
+
+                // ПКМ по любой точке открытой панели возвращает назад в дашборд
+                MouseArea {
+                    z: 1000
+                    anchors.fill: parent
+                    acceptedButtons: Qt.RightButton
+                    hoverEnabled: false
+                    onPressed: mouse => {
+                        mouse.accepted = true;
+                        win.backToDashboard();
                     }
                 }
             }
