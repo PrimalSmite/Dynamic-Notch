@@ -326,10 +326,13 @@ PanelWindow {
                         : Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)
         property real rad: (win.mode === "dashboard" || win.mode === "panel") ? Theme.expandedRadius
                          : Theme.compactRadius + (compactHovered ? Theme.px(2) : 0)
-        readonly property real effectiveRad: Math.max(0, Math.min(rad, bh / 2, bw / 2))
+        property real cw: win.compactW + (compactHovered ? Theme.hoverGrowW : 0)
+        property real ch: Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)
         Behavior on bw { Spring {} }
         Behavior on bh { Spring {} }
         Behavior on rad { Spring {} }
+        Behavior on cw { Spring {} }
+        Behavior on ch { Spring {} }
 
         // Блокируем проваливание кликов по «ушкам» чёлки в outsideCatcher
         MouseArea {
@@ -353,21 +356,13 @@ PanelWindow {
             }
         }
 
-        ClippingRectangle {
+        FocusScope {
+            id: body
             x: Theme.notchFillet
             width: notch.bw
             height: notch.bh
-            color: "transparent"
-            topLeftRadius: 0
-            topRightRadius: 0
-            bottomLeftRadius: notch.effectiveRad
-            bottomRightRadius: notch.effectiveRad
-
-            FocusScope {
-                id: body
-                anchors.fill: parent
-                clip: true
-                focus: true
+            clip: true
+            focus: true
 
             // Глобальные горячие клавиши (Esc всегда сворачивает обратно в маленький Notch)
             Keys.onPressed: event => {
@@ -479,8 +474,8 @@ PanelWindow {
             MorphView {
                 id: compactView
                 shown: win.mode === "compact"
-                width: win.compactW + (notch.compactHovered ? Theme.hoverGrowW : 0)
-                height: Theme.compactH + (notch.compactHovered ? Theme.hoverGrowH : 0)
+                width: notch.cw
+                height: notch.ch
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
 
@@ -778,15 +773,22 @@ PanelWindow {
             }
 
             // ═════════ DASHBOARD (Двухрядный компактный дашборд с системным треем) ═════════
-            MorphView {
-                id: dashboardView
-                shown: win.mode === "dashboard"
-                hiddenScale: 0.92
-                transformOrigin: Item.Top
-                width: win.dashW
-                height: Theme.stripH
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
+            Item {
+                anchors.fill: parent
+                anchors.leftMargin: Theme.px(15)
+                anchors.rightMargin: Theme.px(15)
+                anchors.bottomMargin: Theme.px(5)
+                clip: true
+
+                MorphView {
+                    id: dashboardView
+                    shown: win.mode === "dashboard"
+                    hiddenScale: 0.92
+                    transformOrigin: Item.Top
+                    width: win.dashW
+                    height: Theme.stripH
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
 
                 Column {
                     id: strip
@@ -1085,57 +1087,65 @@ PanelWindow {
                     }
                 }
             }
+            }
 
             // ═════════ PANEL (Отдельная панель прямо в чёлке, без шапки дашборда) ═════════
-            MorphView {
-                id: panelView
-                shown: win.mode === "panel"
-                hiddenScale: 0.92
-                transformOrigin: Item.Top
-                width: win.activePanelW
-                height: win.activePanelH
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
+            Item {
+                anchors.fill: parent
+                anchors.leftMargin: Theme.px(11)
+                anchors.rightMargin: Theme.px(11)
+                anchors.bottomMargin: Theme.px(11)
+                clip: true
 
-                Item {
-                    id: panelArea
-                    anchors.centerIn: parent
-                    width: win.activePanelInnerW
-                    height: panelLoader.item ? panelLoader.item.implicitHeight : 0
+                MorphView {
+                    id: panelView
+                    shown: win.mode === "panel"
+                    hiddenScale: 0.92
+                    transformOrigin: Item.Top
+                    width: win.activePanelW
+                    height: win.activePanelH
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
 
-                    Loader {
-                        id: panelLoader
-                        width: parent.width
-                        active: win.loadedPanel !== ""
-                        source: active ? Qt.resolvedUrl("panels/" + win.loadedPanel.charAt(0).toUpperCase()
-                                                        + win.loadedPanel.slice(1) + "Panel.qml") : ""
-                        focus: true
-                        onLoaded: {
-                            if (item.host !== undefined) item.host = win;
-                            if (item.width !== undefined) item.width = Qt.binding(() => panelLoader.width);
-                            appear.restart();
-                            win.focusActivePanel();
+                    Item {
+                        id: panelArea
+                        anchors.centerIn: parent
+                        width: win.activePanelInnerW
+                        height: panelLoader.item ? panelLoader.item.implicitHeight : 0
+
+                        Loader {
+                            id: panelLoader
+                            width: parent.width
+                            active: win.loadedPanel !== ""
+                            source: active ? Qt.resolvedUrl("panels/" + win.loadedPanel.charAt(0).toUpperCase()
+                                                            + win.loadedPanel.slice(1) + "Panel.qml") : ""
+                            focus: true
+                            onLoaded: {
+                                if (item.host !== undefined) item.host = win;
+                                if (item.width !== undefined) item.width = Qt.binding(() => panelLoader.width);
+                                appear.restart();
+                                win.focusActivePanel();
+                            }
+                            ParallelAnimation {
+                                id: appear
+                                NumberAnimation { target: panelLoader; property: "opacity"; from: 0; to: 1; duration: Theme.fadeIn; easing.type: Easing.OutCubic }
+                                SpringAnimation { target: panelLoader; property: "scale"; from: 0.96; to: 1; spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.002 }
+                            }
                         }
-                        ParallelAnimation {
-                            id: appear
-                            NumberAnimation { target: panelLoader; property: "opacity"; from: 0; to: 1; duration: Theme.fadeIn; easing.type: Easing.OutCubic }
-                            SpringAnimation { target: panelLoader; property: "scale"; from: 0.96; to: 1; spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.002 }
+                    }
+
+                    // ПКМ по любой точке открытой панели возвращает назад в дашборд
+                    MouseArea {
+                        z: 1000
+                        anchors.fill: parent
+                        acceptedButtons: Qt.RightButton
+                        hoverEnabled: false
+                        onPressed: mouse => {
+                            mouse.accepted = true;
+                            win.backToDashboard();
                         }
                     }
                 }
-
-                // ПКМ по любой точке открытой панели возвращает назад в дашборд
-                MouseArea {
-                    z: 1000
-                    anchors.fill: parent
-                    acceptedButtons: Qt.RightButton
-                    hoverEnabled: false
-                    onPressed: mouse => {
-                        mouse.accepted = true;
-                        win.backToDashboard();
-                    }
-                }
-            }
             }
         }
     }
