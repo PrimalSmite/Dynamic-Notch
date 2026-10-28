@@ -326,6 +326,7 @@ PanelWindow {
                         : Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)
         property real rad: (win.mode === "dashboard" || win.mode === "panel") ? Theme.expandedRadius
                          : Theme.compactRadius + (compactHovered ? Theme.px(2) : 0)
+        readonly property real effectiveRad: Math.max(0, Math.min(rad, bh / 2, bw / 2))
         Behavior on bw { Spring {} }
         Behavior on bh { Spring {} }
         Behavior on rad { Spring {} }
@@ -352,13 +353,21 @@ PanelWindow {
             }
         }
 
-        FocusScope {
-            id: body
+        ClippingRectangle {
             x: Theme.notchFillet
             width: notch.bw
             height: notch.bh
-            clip: true
-            focus: true
+            color: "transparent"
+            topLeftRadius: 0
+            topRightRadius: 0
+            bottomLeftRadius: notch.effectiveRad
+            bottomRightRadius: notch.effectiveRad
+
+            FocusScope {
+                id: body
+                anchors.fill: parent
+                clip: true
+                focus: true
 
             // Глобальные горячие клавиши (Esc всегда сворачивает обратно в маленький Notch)
             Keys.onPressed: event => {
@@ -470,8 +479,8 @@ PanelWindow {
             MorphView {
                 id: compactView
                 shown: win.mode === "compact"
-                width: notch.bw
-                height: notch.bh
+                width: win.compactW + (notch.compactHovered ? Theme.hoverGrowW : 0)
+                height: Theme.compactH + (notch.compactHovered ? Theme.hoverGrowH : 0)
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
 
@@ -1126,6 +1135,7 @@ PanelWindow {
                         win.backToDashboard();
                     }
                 }
+            }
             }
         }
     }

@@ -28,6 +28,7 @@ Item {
     // размытие включаем только во время перехода — в покое слой не нужен
     layer.enabled: opacity > 0.001 && opacity < 0.999
     layer.effect: MultiEffect {
+        autoPaddingEnabled: false
         blurEnabled: true
         blurMax: 20
         blur: 1 - v.opacity
