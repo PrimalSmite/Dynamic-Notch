@@ -59,7 +59,9 @@ Item {
                     width: dndRow.implicitWidth + Theme.px(20)
                     radius: height / 2
                     color: Notifs.dnd ? Theme.purple : Theme.card
+                    scale: dndMa.pressed ? 0.93 : (dndMa.containsMouse ? 1.03 : 1.0)
                     Behavior on color { ColorAnimation { duration: 160 } }
+                    Behavior on scale { Spring { epsilon: 0.002 } }
 
                     Row {
                         id: dndRow
@@ -80,7 +82,9 @@ Item {
                         }
                     }
                     MouseArea {
+                        id: dndMa
                         anchors.fill: parent
+                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: Notifs.dnd = !Notifs.dnd
                     }
@@ -96,6 +100,8 @@ Item {
                 width: clrText.implicitWidth + Theme.px(22)
                 radius: height / 2
                 color: clrMa.containsMouse ? Theme.cardHover : Theme.card
+                scale: clrMa.pressed ? 0.93 : (clrMa.containsMouse ? 1.03 : 1.0)
+                Behavior on scale { Spring { epsilon: 0.002 } }
 
                 Text {
                     id: clrText
@@ -159,6 +165,8 @@ Item {
                 height: Theme.px(68)
                 radius: Theme.px(16)
                 color: cardMa.containsMouse ? Theme.cardHover : Theme.card
+                scale: cardMa.pressed ? 0.97 : 1.0
+                Behavior on scale { Spring { epsilon: 0.002 } }
 
                 Row {
                     anchors.fill: parent

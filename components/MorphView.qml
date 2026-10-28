@@ -8,11 +8,14 @@ import qs.services
 Item {
     id: v
     property bool shown: false
-    property real hiddenScale: 0.88
+    property real hiddenScale: 0.86
+    property real hiddenY: -Theme.px(10)
+    property real offsetY: shown ? 0 : hiddenY
 
     enabled: shown
     opacity: shown ? 1 : 0
     scale: shown ? 1 : hiddenScale
+    transform: Translate { y: v.offsetY }
 
     Behavior on opacity {
         SequentialAnimation {
@@ -23,7 +26,8 @@ Item {
             }
         }
     }
-    Behavior on scale { Spring {} }
+    Behavior on scale { Spring { epsilon: 0.002 } }
+    Behavior on offsetY { Spring { epsilon: 0.05 } }
 
     // размытие включаем только во время перехода — в покое слой не нужен
     layer.enabled: opacity > 0.001 && opacity < 0.999

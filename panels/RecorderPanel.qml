@@ -77,6 +77,8 @@ Item {
                                 color: active ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.06)
                                 border.width: active ? 1.5 : 0
                                 border.color: Theme.text
+                                scale: tgtMa.pressed ? 0.93 : (tgtMa.containsMouse ? 1.03 : 1.0)
+                                Behavior on scale { Spring { epsilon: 0.002 } }
 
                                 Row {
                                     anchors.centerIn: parent
@@ -92,7 +94,9 @@ Item {
                                     }
                                 }
                                 MouseArea {
+                                    id: tgtMa
                                     anchors.fill: parent
+                                    hoverEnabled: true
                                     enabled: !Recorder.recording
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: Recorder.target = tgtBtn.modelData.key
@@ -109,8 +113,8 @@ Item {
                         height: Theme.px(42)
                         radius: height / 2
                         color: Recorder.recording ? Theme.text : Theme.red
-                        scale: recMa.pressed ? 0.92 : 1.0
-                        Behavior on scale { Spring {} }
+                        scale: recMa.pressed ? 0.92 : (recMa.containsMouse ? 1.03 : 1.0)
+                        Behavior on scale { Spring { epsilon: 0.002 } }
 
                         Row {
                             anchors.centerIn: parent
@@ -134,6 +138,7 @@ Item {
                         MouseArea {
                             id: recMa
                             anchors.fill: parent
+                            hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: root.toggleRec()
                         }
@@ -160,6 +165,8 @@ Item {
                             height: Theme.px(34)
                             radius: Theme.px(11)
                             color: modelData.on ? Theme.blue : Qt.rgba(1, 1, 1, 0.08)
+                            scale: optMa.pressed ? 0.92 : (optMa.containsMouse ? 1.03 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.002 } }
 
                             Row {
                                 id: optRow
@@ -176,7 +183,9 @@ Item {
                                 }
                             }
                             MouseArea {
+                                id: optMa
                                 anchors.fill: parent
+                                hoverEnabled: true
                                 enabled: !Recorder.recording
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {

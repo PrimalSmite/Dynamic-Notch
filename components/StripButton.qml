@@ -21,6 +21,9 @@ Item {
 
     readonly property bool hovered: ma.containsMouse
 
+    scale: ma.pressed ? 0.90 : ma.containsMouse ? 1.05 : 1.0
+    Behavior on scale { Spring { epsilon: 0.002 } }
+
     Rectangle {
         anchors.fill: parent
         radius: Theme.px(9)
@@ -37,9 +40,9 @@ Item {
         font.pixelSize: root.size
         color: root.active ? Theme.text : root.tint
         opacity: root.active || ma.containsMouse ? 1 : 0.76
-        scale: ma.pressed ? 0.84 : ma.containsMouse ? 1.08 : 1
+        scale: ma.pressed ? 0.88 : ma.containsMouse ? 1.06 : 1.0
         Behavior on opacity { NumberAnimation { duration: 140 } }
-        Behavior on scale { Spring {} }
+        Behavior on scale { Spring { epsilon: 0.002 } }
     }
 
     Rectangle {

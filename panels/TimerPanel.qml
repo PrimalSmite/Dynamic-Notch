@@ -76,14 +76,12 @@ Item {
                 Column {
                     anchors.centerIn: parent
                     spacing: Theme.px(2)
-                    Text {
+                    RollingClock {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: Timers.display
-                        color: Theme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(24)
-                        font.weight: Font.Bold
-                        font.features: { "tnum": 1 }
+                        timeString: Timers.display
+                        fontSize: Theme.px(24)
+                        fontWeight: Font.Bold
+                        textColor: Theme.text
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -136,6 +134,8 @@ Item {
                             width: mRow.implicitWidth + Theme.px(20)
                             radius: height / 2
                             color: active ? Theme.orange : Qt.rgba(1, 1, 1, 0.08)
+                            scale: mTabMa.pressed ? 0.93 : (mTabMa.containsMouse ? 1.03 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.002 } }
 
                             Row {
                                 id: mRow
@@ -157,7 +157,9 @@ Item {
                                 }
                             }
                             MouseArea {
+                                id: mTabMa
                                 anchors.fill: parent
+                                hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     Timers.running = false;
@@ -194,6 +196,8 @@ Item {
                             radius: Theme.px(10)
                             color: (Timers.totalSec === modelData.sec && modelData.sec > 0)
                                    ? Qt.rgba(1, 1, 1, 0.2) : Qt.rgba(1, 1, 1, 0.07)
+                            scale: pChipMa.pressed ? 0.91 : (pChipMa.containsMouse ? 1.04 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.002 } }
 
                             Text {
                                 id: pTxt
@@ -205,7 +209,9 @@ Item {
                                 font.weight: Font.DemiBold
                             }
                             MouseArea {
+                                id: pChipMa
                                 anchors.fill: parent
+                                hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     if (pChip.modelData.sec === -1) Timers.addSeconds(60);
@@ -225,8 +231,8 @@ Item {
                         height: Theme.px(38)
                         radius: height / 2
                         color: Timers.running && !Timers.paused ? Theme.orange : Theme.green
-                        scale: stMa.pressed ? 0.93 : 1.0
-                        Behavior on scale { Spring {} }
+                        scale: stMa.pressed ? 0.93 : (stMa.containsMouse ? 1.03 : 1.0)
+                        Behavior on scale { Spring { epsilon: 0.002 } }
 
                         Row {
                             anchors.centerIn: parent
@@ -249,6 +255,7 @@ Item {
                         MouseArea {
                             id: stMa
                             anchors.fill: parent
+                            hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: Timers.toggleStart()
                         }
@@ -259,6 +266,8 @@ Item {
                         height: Theme.px(38)
                         radius: height / 2
                         color: Qt.rgba(1, 1, 1, 0.1)
+                        scale: parentMa.pressed ? 0.93 : (parentMa.containsMouse ? 1.03 : 1.0)
+                        Behavior on scale { Spring { epsilon: 0.002 } }
                         Text {
                             anchors.centerIn: parent
                             text: "Сброс [R]"
@@ -270,6 +279,7 @@ Item {
                         MouseArea {
                             id: parentMa
                             anchors.fill: parent
+                            hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: Timers.reset()
                         }

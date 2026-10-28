@@ -194,7 +194,7 @@ PanelWindow {
     }
 
     function showOsd(kind) {
-        if (mode !== "compact" || !armed) return;
+        if ((mode !== "compact" && mode !== "osd") || !armed) return;
         if (monitor && !monitor.focused) return;
         lastOsd = kind;
         osd = kind;
@@ -490,6 +490,9 @@ PanelWindow {
             MorphView {
                 id: compactView
                 shown: win.mode === "compact"
+                hiddenScale: 0.85
+                hiddenY: -Theme.px(6)
+                transformOrigin: Item.Top
                 width: notch.cw
                 height: notch.ch
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -500,7 +503,7 @@ PanelWindow {
                     anchors.leftMargin: Theme.px(16)
                     anchors.rightMargin: Theme.px(16)
                     scale: notch.compactHovered ? 1.04 : 1.0
-                    Behavior on scale { Spring {} }
+                    Behavior on scale { Spring { epsilon: 0.002 } }
 
                     // Левое крыло: вертикальные капсулы рабочих столов с мягким свечением
                     Workspaces {
@@ -527,53 +530,87 @@ PanelWindow {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: Theme.px(7)
 
-                        // запись экрана
+                        // запись экрана (пульсирующий ореол + дыхание масштаба + перелистывание цифр)
                         Row {
                             visible: Recorder.recording
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: Theme.px(4)
-                            Rectangle {
+                            spacing: Theme.px(5)
+
+                            Item {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: Theme.px(7); height: width; radius: width / 2
-                                color: Theme.red
-                                SequentialAnimation on opacity {
-                                    running: Recorder.recording
-                                    loops: Animation.Infinite
-                                    NumberAnimation { to: 0.3; duration: 700; easing.type: Easing.InOutSine }
-                                    NumberAnimation { to: 1; duration: 700; easing.type: Easing.InOutSine }
+                                width: Theme.px(10); height: width
+
+                                // Расходящийся ореол (Halo)
+                                Rectangle {
+                                    id: recHalo
+                                    anchors.centerIn: parent
+                                    width: Theme.px(7); height: width; radius: width / 2
+                                    color: Theme.red
+                                    opacity: 0
+                                    scale: 1
+                                    ParallelAnimation {
+                                        running: Recorder.recording
+                                        loops: Animation.Infinite
+                                        NumberAnimation { target: recHalo; property: "scale"; from: 0.9; to: 2.3; duration: 1400; easing.type: Easing.OutCubic }
+                                        NumberAnimation { target: recHalo; property: "opacity"; from: 0.55; to: 0.0; duration: 1400; easing.type: Easing.OutCubic }
+                                    }
+                                }
+
+                                // Ядро индикатора с синусоидальным дыханием масштаба
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: Theme.px(7); height: width; radius: width / 2
+                                    color: Theme.red
+                                    SequentialAnimation on scale {
+                                        running: Recorder.recording
+                                        loops: Animation.Infinite
+                                        NumberAnimation { to: 1.16; duration: 700; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 0.88; duration: 700; easing.type: Easing.InOutSine }
+                                    }
                                 }
                             }
-                            Text {
+
+                            RollingClock {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: Recorder.elapsedText
-                                color: Theme.red
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(12)
-                                font.weight: Font.DemiBold
-                                font.features: { "tnum": 1 }
+                                timeString: Recorder.elapsedText
+                                fontSize: Theme.px(12)
+                                fontWeight: Font.DemiBold
+                                textColor: Theme.red
                             }
                             TapHandler { onTapped: win.openPanel("recorder") }
                         }
 
-                        // таймер / секундомер
+                        // таймер / секундомер (с микро-импульсом иконки и перелистыванием секунд)
                         Row {
                             visible: Timers.running
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: Theme.px(3)
                             Icon {
+                                id: timerCompactIcon
                                 anchors.verticalCenter: parent.verticalCenter
                                 name: Timers.mode === "stopwatch" ? "timer_play" : "timer"
                                 size: Theme.px(13)
                                 color: Theme.orange
+                                SpringAnimation {
+                                    id: timerTickPulse
+                                    target: timerCompactIcon
+                                    property: "scale"
+                                    from: 1.18
+                                    to: 1.0
+                                    spring: Theme.springK
+                                    damping: Theme.springDamp
+                                    epsilon: 0.003
+                                }
                             }
-                            Text {
+                            RollingClock {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: Timers.display
-                                color: Theme.orange
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(12)
-                                font.weight: Font.DemiBold
-                                font.features: { "tnum": 1 }
+                                timeString: Timers.display
+                                fontSize: Theme.px(12)
+                                fontWeight: Font.DemiBold
+                                textColor: Theme.orange
+                                onTimeStringChanged: {
+                                    if (Timers.running) timerTickPulse.restart();
+                                }
                             }
                             TapHandler { onTapped: win.openPanel("timer") }
                         }
@@ -643,6 +680,9 @@ PanelWindow {
             MorphView {
                 id: osdView
                 shown: win.mode === "osd"
+                hiddenScale: 0.86
+                hiddenY: -Theme.px(8)
+                transformOrigin: Item.Top
                 width: win.lastOsd === "notif" ? Theme.notifW
                      : win.lastOsd === "layout" ? win.layoutOsdW
                      : Theme.osdW
@@ -799,7 +839,8 @@ PanelWindow {
                 MorphView {
                     id: dashboardView
                     shown: win.mode === "dashboard"
-                    hiddenScale: 0.92
+                    hiddenScale: 0.85
+                    hiddenY: -Theme.px(12)
                     transformOrigin: Item.Top
                     width: win.dashW
                     height: Theme.stripH
@@ -834,6 +875,8 @@ PanelWindow {
                             height: Theme.px(32)
                             radius: Theme.px(10)
                             color: clkMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            scale: clkMa.pressed ? 0.93 : (clkMa.containsMouse ? 1.03 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.002 } }
 
                             Row {
                                 id: clkRow
@@ -874,6 +917,8 @@ PanelWindow {
                             height: Theme.px(32)
                             radius: Theme.px(10)
                             color: wthMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            scale: wthMa.pressed ? 0.93 : (wthMa.containsMouse ? 1.03 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.002 } }
 
                             Row {
                                 id: wthRow
@@ -915,6 +960,8 @@ PanelWindow {
                             height: Theme.px(32)
                             radius: Theme.px(10)
                             color: medMa.containsMouse ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(1, 1, 1, 0.05)
+                            scale: medMa.pressed ? 0.94 : (medMa.containsMouse ? 1.02 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.002 } }
 
                             Row {
                                 id: medRow
@@ -972,6 +1019,8 @@ PanelWindow {
                             height: Theme.px(24)
                             radius: Theme.px(7)
                             color: kbMa.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.07)
+                            scale: kbMa.pressed ? 0.90 : (kbMa.containsMouse ? 1.05 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.002 } }
                             Text {
                                 id: kbTxt
                                 anchors.centerIn: parent
@@ -1010,7 +1059,7 @@ PanelWindow {
                                     radius: Theme.px(7)
                                     color: trayMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.05)
                                     scale: trayMa.pressed ? 0.86 : trayMa.containsMouse ? 1.1 : 1.0
-                                    Behavior on scale { Spring {} }
+                                    Behavior on scale { Spring { epsilon: 0.002 } }
 
                                     IconImage {
                                         anchors.centerIn: parent
@@ -1116,7 +1165,8 @@ PanelWindow {
                 MorphView {
                     id: panelView
                     shown: win.mode === "panel"
-                    hiddenScale: 0.92
+                    hiddenScale: 0.85
+                    hiddenY: -Theme.px(12)
                     transformOrigin: Item.Top
                     width: win.activePanelW
                     height: win.activePanelH
