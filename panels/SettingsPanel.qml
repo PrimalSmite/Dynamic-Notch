@@ -41,7 +41,10 @@ Item {
     readonly property string userName: Quickshell.env("USER") || "user"
     readonly property string hostName: Quickshell.env("HOSTNAME") || "archlinux"
 
-    PwObjectTracker { objects: root.sinks }
+    readonly property PwNode defaultSource: Pipewire.defaultAudioSource
+    readonly property bool micMuted: defaultSource && defaultSource.audio ? defaultSource.audio.muted : false
+
+    PwObjectTracker { objects: (root.defaultSource ? [root.defaultSource] : []).concat(root.sinks) }
 
     Component.onCompleted: {
         refreshHardwareStatus();
@@ -49,8 +52,8 @@ Item {
 
     Timer {
         id: statusPoller
-        interval: 3000
-        running: true
+        interval: 10000
+        running: root.visible
         repeat: true
         onTriggered: root.refreshHardwareStatus()
     }
@@ -62,24 +65,14 @@ Item {
     }
 
     function refreshHardwareStatus() {
-        micProc.running = true;
+        lanProc.running = false;
         lanProc.running = true;
     }
 
     // ── Фоновые процессы опроса ──
     Process {
-        id: micProc
-        command: ["sh", "-c", "command -v wpctl >/dev/null 2>&1 && wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null || true"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.micMuted = text.indexOf("[MUTED]") >= 0;
-            }
-        }
-    }
-
-    Process {
         id: lanProc
-        command: ["sh", "-c", "ip -4 -brief addr show scope global 2>/dev/null | awk '$1 ~ /^en|^eth/ {print $1, $3}' | head -n 1"]
+        command: ["sh", "-c", "ip -4 -brief addr show scope global 2>/dev/null | awk '$1 ~ /^en|^eth|^wl/ {print $1, $3}' | head -n 1"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const parts = text.trim().split(/\s+/);
@@ -192,8 +185,11 @@ Item {
     }
 
     function toggleMic() {
-        root.micMuted = !root.micMuted;
-        Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]);
+        if (defaultSource && defaultSource.audio) {
+            defaultSource.audio.muted = !defaultSource.audio.muted;
+        } else {
+            Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]);
+        }
     }
 
     function takeScreenshotRegion() {
@@ -222,14 +218,6 @@ Item {
             const val = Math.round(root.brightness * 100);
             Quickshell.execDetached(["sh", "-c", "command -v brightnessctl >/dev/null 2>&1 && brightnessctl set " + val + "% >/dev/null 2>&1; command -v ddcutil >/dev/null 2>&1 && ddcutil setvcp 10 " + val + " --noverify >/dev/null 2>&1 &"]);
         }
-    }
-
-    // ── Перехват клика вне выпадающего меню аудио ──
-    MouseArea {
-        anchors.fill: parent
-        z: 950
-        enabled: root.audioMenuOpen
-        onClicked: root.audioMenuOpen = false
     }
 
     // ── Основная разметка ──
@@ -344,8 +332,9 @@ Item {
             }
         }
 
-        // 2. Главная матрица связи и оборудования ПК (2×2 крупные карточки)
+        // 2. Главная матрица связи и оборудования ПК (2×2 крупные карточки + выпадающий список аудио)
         Column {
+            id: hwCol
             width: parent.width
             spacing: Theme.px(8)
             readonly property real tileW: (width - Theme.px(8)) / 2
@@ -354,7 +343,6 @@ Item {
             Item {
                 width: parent.width
                 height: Theme.px(64)
-                z: 40
 
                 // Карточка 1: Проводной Ethernet (LAN)
                 Rectangle {
@@ -384,7 +372,7 @@ Item {
                                 anchors.centerIn: parent
                                 name: root.ipCopied ? "check" : "lan"
                                 size: Theme.px(18)
-                                color: root.ipCopied ? "#000000" : Theme.accent
+                                color: root.ipCopied ? "#000000" : Theme.controlFill
                             }
                         }
 
@@ -449,20 +437,19 @@ Item {
                     }
                 }
 
-                // Карточка 2: Аудиовыход (PipeWire Sink с выпадающим меню)
+                // Карточка 2: Аудиовыход (PipeWire Sink с раскрывающимся меню)
                 Rectangle {
                     id: audioTile
                     anchors.right: parent.right
                     width: parent.parent.tileW
                     height: parent.height
                     radius: Theme.px(16)
-                    color: (audioMa.containsMouse || root.audioMenuOpen) ? Theme.cardHover : Theme.card
+                    color: root.audioMenuOpen ? Qt.rgba(1, 1, 1, 0.14) : (audioMa.containsMouse ? Theme.cardHover : Theme.card)
                     border.width: root.audioMenuOpen ? 1 : 0
-                    border.color: Theme.accent
+                    border.color: Qt.rgba(1, 1, 1, 0.35)
                     scale: audioMa.pressed ? 0.95 : 1.0
                     Behavior on scale { Spring {} }
                     Behavior on color { ColorAnimation { duration: 160 } }
-                    z: 50
 
                     Row {
                         anchors.fill: parent
@@ -472,30 +459,29 @@ Item {
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             width: Theme.px(34); height: width; radius: width / 2
-                            color: Audio.muted ? Qt.rgba(Theme.alert.r, Theme.alert.g, Theme.alert.b, 0.2) : Qt.rgba(1, 1, 1, 0.1)
+                            color: Audio.muted
+                                ? Qt.rgba(Theme.alert.r, Theme.alert.g, Theme.alert.b, 0.2)
+                                : (root.audioMenuOpen ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.1))
 
                             Icon {
                                 anchors.centerIn: parent
                                 name: Audio.muted ? "volume_off" : root.sinkIcon(Audio.sink)
                                 size: Theme.px(18)
-                                color: Audio.muted ? Theme.alert : Theme.text
+                                color: Audio.muted ? Theme.alert : (root.audioMenuOpen ? "#000000" : Theme.text)
                             }
                         }
 
                         Column {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - Theme.px(64)
+                            width: parent.width - Theme.px(70)
                             spacing: Theme.px(1)
 
-                            Row {
-                                spacing: Theme.px(4)
-                                Text {
-                                    text: "Аудиовыход"
-                                    color: Theme.text
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(12)
-                                    font.weight: Font.Bold
-                                }
+                            Text {
+                                text: "Аудиовыход"
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(12)
+                                font.weight: Font.Bold
                             }
 
                             Text {
@@ -510,7 +496,7 @@ Item {
                             Text {
                                 width: parent.width
                                 elide: Text.ElideRight
-                                text: Audio.muted ? "Звук выключен" : (Math.round(Audio.volume * 100) + "% · выбор устройства")
+                                text: Audio.muted ? "Звук выключен" : (Math.round(Audio.volume * 100) + "% · Устройства")
                                 color: Audio.muted ? Theme.alert : Theme.text3
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.px(9)
@@ -518,14 +504,20 @@ Item {
                             }
                         }
 
-                        // Стрелка раскрытия выпадающего списка
-                        Icon {
+                        // Стрелка раскрытия списка в круглой капсуле
+                        Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
-                            name: "expand_more"
-                            size: Theme.px(18)
-                            color: root.audioMenuOpen ? Theme.accent : Theme.text3
-                            rotation: root.audioMenuOpen ? 180 : 0
-                            Behavior on rotation { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                            width: Theme.px(22); height: width; radius: width / 2
+                            color: root.audioMenuOpen ? Qt.rgba(1, 1, 1, 0.2) : Qt.rgba(1, 1, 1, 0.06)
+
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "expand_more"
+                                size: Theme.px(15)
+                                color: root.audioMenuOpen ? Theme.controlFill : Theme.text2
+                                rotation: root.audioMenuOpen ? 180 : 0
+                                Behavior on rotation { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                            }
                         }
                     }
 
@@ -535,6 +527,183 @@ Item {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.audioMenuOpen = !root.audioMenuOpen
+                    }
+                }
+            }
+
+            // Выпадающий блок выбора аудиоустройств (раскрывается плавно без перекрытия элементов)
+            Rectangle {
+                id: audioDrawer
+                width: parent.width
+                visible: height > 0
+                height: root.audioMenuOpen ? (dropCol.implicitHeight + Theme.px(20)) : 0
+                radius: Theme.px(16)
+                color: Qt.rgba(1, 1, 1, 0.05)
+                border.width: root.audioMenuOpen ? 1 : 0
+                border.color: Theme.divider
+                clip: true
+                opacity: root.audioMenuOpen ? 1.0 : 0.0
+                Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+                Behavior on opacity { NumberAnimation { duration: 160 } }
+
+                Column {
+                    id: dropCol
+                    width: parent.width - Theme.px(20)
+                    x: Theme.px(10)
+                    y: Theme.px(10)
+                    spacing: Theme.px(5)
+
+                    // Шапка списка устройств + быстрый переход в Pavucontrol
+                    Item {
+                        width: parent.width
+                        height: Theme.px(20)
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.leftMargin: Theme.px(4)
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Theme.px(6)
+
+                            Icon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: "speaker_group"
+                                size: Theme.px(13)
+                                color: Theme.text2
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "УСТРОЙСТВО ВЫВОДА ЗВУКА"
+                                color: Theme.text3
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(9)
+                                font.weight: Font.Bold
+                                font.letterSpacing: 0.5
+                            }
+                        }
+
+                        Rectangle {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: pavuHdrRow.implicitWidth + Theme.px(12)
+                            height: Theme.px(20)
+                            radius: Theme.px(6)
+                            color: pavuHdrMa.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.06)
+
+                            Row {
+                                id: pavuHdrRow
+                                anchors.centerIn: parent
+                                spacing: Theme.px(4)
+                                Icon {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    name: "tune"
+                                    size: Theme.px(11)
+                                    color: Theme.text2
+                                }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "Микшер"
+                                    color: Theme.text2
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(9)
+                                    font.weight: Font.DemiBold
+                                }
+                            }
+                            MouseArea {
+                                id: pavuHdrMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    Quickshell.execDetached(["pavucontrol"]);
+                                    root.audioMenuOpen = false;
+                                }
+                            }
+                        }
+                    }
+
+                    Repeater {
+                        model: root.sinks
+                        Rectangle {
+                            id: sinkItem
+                            required property var modelData
+                            required property int index
+                            width: parent.width
+                            height: Theme.px(36)
+                            radius: Theme.px(10)
+                            readonly property bool isCurrent: root.isDefaultSink(modelData)
+                            color: isCurrent
+                                ? Theme.controlFill
+                                : (sinkItemMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.04))
+                            scale: sinkItemMa.pressed ? 0.98 : 1.0
+                            Behavior on color { ColorAnimation { duration: 140 } }
+                            Behavior on scale { Spring { epsilon: 0.002 } }
+
+                            Item {
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.px(10)
+                                anchors.rightMargin: Theme.px(10)
+
+                                Icon {
+                                    id: sIcon
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    name: root.sinkIcon(sinkItem.modelData)
+                                    size: Theme.px(16)
+                                    color: sinkItem.isCurrent ? "#000000" : Theme.text2
+                                }
+
+                                Text {
+                                    anchors.left: sIcon.right
+                                    anchors.leftMargin: Theme.px(8)
+                                    anchors.right: sBadge.left
+                                    anchors.rightMargin: Theme.px(8)
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    elide: Text.ElideRight
+                                    text: root.cleanSinkName(sinkItem.modelData)
+                                    color: sinkItem.isCurrent ? "#000000" : Theme.text
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(11)
+                                    font.weight: sinkItem.isCurrent ? Font.Bold : Font.Medium
+                                }
+
+                                Row {
+                                    id: sBadge
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: Theme.px(4)
+
+                                    Text {
+                                        visible: sinkItem.isCurrent
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "Активно"
+                                        color: "#000000"
+                                        opacity: 0.65
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.px(9)
+                                        font.weight: Font.Bold
+                                    }
+
+                                    Icon {
+                                        visible: sinkItem.isCurrent
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: "check_circle"
+                                        size: Theme.px(15)
+                                        color: "#000000"
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: sinkItemMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    Pipewire.preferredDefaultAudioSink = sinkItem.modelData;
+                                    root.audioMenuOpen = false;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -782,7 +951,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         name: "tune"
                         size: Theme.px(16)
-                        color: Theme.accent
+                        color: Theme.controlFill
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
@@ -1287,7 +1456,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         name: "photo_camera"
                         size: Theme.px(16)
-                        color: Theme.accent
+                        color: Theme.controlFill
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
@@ -1475,137 +1644,6 @@ Item {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.openUserTerminal()
-                }
-            }
-        }
-    }
-
-    // ── Выпадающее меню выбора аудиовыхода (плавающее поверх всего интерфейса) ──
-    Rectangle {
-        id: audioDropdown
-        z: 1000
-        y: audioTile.mapToItem(root, 0, 0).y + audioTile.height + Theme.px(6)
-        anchors.right: parent.right
-        anchors.rightMargin: 0
-        width: Math.max(audioTile.width, Theme.px(260))
-        implicitHeight: dropCol.implicitHeight + Theme.px(16)
-        radius: Theme.px(16)
-        color: "#18181b"
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.16)
-
-        opacity: root.audioMenuOpen ? 1.0 : 0.0
-        visible: opacity > 0
-        scale: root.audioMenuOpen ? 1.0 : 0.94
-        transformOrigin: Item.TopRight
-        Behavior on opacity { NumberAnimation { duration: 150 } }
-        Behavior on scale { Spring { spring: 280; damping: 22 } }
-
-        Column {
-            id: dropCol
-            width: parent.width - Theme.px(16)
-            x: Theme.px(8)
-            y: Theme.px(8)
-            spacing: Theme.px(4)
-
-            Text {
-                x: Theme.px(6)
-                y: Theme.px(4)
-                text: "ВЫБЕРИТЕ УСТРОЙСТВО ВЫВОДА"
-                color: Theme.text3
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.px(9)
-                font.weight: Font.Bold
-                font.letterSpacing: 0.5
-            }
-
-            Repeater {
-                model: root.sinks
-                Rectangle {
-                    required property var modelData
-                    required property int index
-                    width: parent.width
-                    height: Theme.px(38)
-                    radius: Theme.px(10)
-                    readonly property bool isCurrent: root.isDefaultSink(modelData)
-                    color: isCurrent ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18) : (sinkItemMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0))
-                    border.width: isCurrent ? 1 : 0
-                    border.color: Theme.accent
-
-                    Row {
-                        anchors.fill: parent
-                        anchors.leftMargin: Theme.px(10)
-                        anchors.rightMargin: Theme.px(10)
-                        spacing: Theme.px(8)
-
-                        Icon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: root.sinkIcon(modelData)
-                            size: Theme.px(16)
-                            color: isCurrent ? Theme.accent : Theme.text2
-                        }
-
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - Theme.px(50)
-                            elide: Text.ElideRight
-                            text: root.cleanSinkName(modelData)
-                            color: isCurrent ? Theme.text : Theme.text2
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.px(11)
-                            font.weight: isCurrent ? Font.Bold : Font.Normal
-                        }
-
-                        Icon {
-                            visible: isCurrent
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: "check"
-                            size: Theme.px(16)
-                            color: Theme.accent
-                        }
-                    }
-
-                    MouseArea {
-                        id: sinkItemMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            Pipewire.preferredDefaultAudioSink = modelData;
-                            root.audioMenuOpen = false;
-                        }
-                    }
-                }
-            }
-
-            // Разделитель
-            Rectangle {
-                width: parent.width
-                height: 1
-                color: Theme.divider
-            }
-
-            // Пункт: Открыть Pavucontrol
-            Rectangle {
-                width: parent.width
-                height: Theme.px(34)
-                radius: Theme.px(10)
-                color: pavuItemMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.03)
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Theme.px(6)
-                    Icon { name: "tune"; size: Theme.px(14); color: Theme.text2 }
-                    Text { text: "Открыть Pavucontrol"; color: Theme.text2; font.family: Theme.fontFamily; font.pixelSize: Theme.px(10); font.weight: Font.Medium }
-                }
-                MouseArea {
-                    id: pavuItemMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        Quickshell.execDetached(["pavucontrol"]);
-                        root.audioMenuOpen = false;
-                    }
                 }
             }
         }

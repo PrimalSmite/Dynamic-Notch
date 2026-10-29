@@ -117,14 +117,17 @@ Singleton {
         }
     }
 
+    property int activeClients: 0
+
     function refreshProcs() {
+        if (activeClients <= 0) return;
         psProc.running = false;
         psProc.running = true;
     }
 
     Process {
         id: psProc
-        running: true
+        running: false
         command: ["sh", "-c", "LC_ALL=C df -BG / | awk 'NR==2{print $3\"/\"$2\" \"$5}'; LC_ALL=C ps -eo pid,comm,%cpu,%mem --sort=-%cpu | head -n 6 | tail -n 5"]
         stdout: StdioCollector {
             onStreamFinished: {
@@ -158,9 +161,10 @@ Singleton {
     }
 
     Timer {
-        interval: 4000
-        running: true
+        interval: 3500
+        running: root.activeClients > 0
         repeat: true
+        triggeredOnStart: true
         onTriggered: root.refreshProcs()
     }
 }

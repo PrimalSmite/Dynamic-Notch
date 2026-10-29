@@ -10,6 +10,7 @@ Row {
     property int fontSize: Theme.px(14)
     property int fontWeight: Font.DemiBold
     property color textColor: Theme.text
+    property bool animated: true
 
     spacing: 0
 
@@ -33,7 +34,14 @@ Row {
                 if (ch === currentCh) return;
                 prevCh = currentCh;
                 currentCh = ch;
-                rollAnim.restart();
+                if (root.animated) {
+                    rollAnim.restart();
+                } else {
+                    newTxt.y = 0;
+                    newTxt.opacity = 1;
+                    newTxt.scale = 1;
+                    oldTxt.opacity = 0;
+                }
             }
 
             // Уходящая цифра (плавно уходит вверх с лёгким уменьшением и размытием)

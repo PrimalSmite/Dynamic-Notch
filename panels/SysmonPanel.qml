@@ -9,6 +9,9 @@ Item {
     implicitWidth: Theme.px(420)
     implicitHeight: col.implicitHeight
 
+    Component.onCompleted: SysInfo.activeClients++
+    Component.onDestruction: SysInfo.activeClients = Math.max(0, SysInfo.activeClients - 1)
+
     Connections {
         target: SysInfo
         function onCpuHistoryChanged() { sparkCanvas.requestPaint(); }

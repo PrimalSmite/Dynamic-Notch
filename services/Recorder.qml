@@ -25,11 +25,25 @@ Singleton {
 
     readonly property string outDir: Quickshell.env("HOME") + "/Videos/Recordings"
 
-    property string quality: "ultra"     // "ultra" | "very_high"
+    property int bitrateKbps: 30000      // 30 Мбит/с (максимальная чёткость без артефактов сжатия)
     property string codec: "auto"        // "auto" | "hevc" | "h264"
+    property bool selectingRegion: false
+    property string pendingMonitor: "screen"
 
     function start(monitorName) {
-        if (recording) return;
+        if (recording || selectingRegion) return;
+        pendingMonitor = monitorName || "screen";
+
+        if (target === "region") {
+            selectingRegion = true;
+            slurpProc.running = false;
+            slurpProc.running = true;
+        } else {
+            launchRecorder(pendingMonitor);
+        }
+    }
+
+    function launchRecorder(captureTarget) {
         const ts = Qt.formatDateTime(new Date(), "yyyy-MM-dd_HH-mm-ss");
         const out = outDir + "/rec_" + ts + ".mp4";
         lastFile = out;
@@ -40,17 +54,12 @@ Singleton {
         else if (audioMic) audioArgs = "-a default_input";
 
         const cursorArg = showCursor ? "-cursor yes" : "-cursor no";
-        const mon = monitorName || "screen";
-        const qualArgs = "-q " + quality + " -tune quality -k " + codec;
+        // Высокий битрейт 30 Мбит/с (CBR), полный цветовой диапазон ПК (0-255), постоянный фреймрейт (CFR)
+        // и автоматический фоллбэк на кодирование процессором, если видеопамять GPU занята игрой.
+        const qualArgs = "-bm cbr -q " + bitrateKbps + " -cr full -fm cfr -tune quality -k " + codec + " -fallback-cpu-encoding yes";
 
-        let cmd = "";
-        if (target === "region") {
-            cmd = "mkdir -p '" + outDir + "' && sleep 0.25 && REG=$(slurp -f '%wx%h+%x+%y') && [ -n \"$REG\" ] && exec gpu-screen-recorder -w \"$REG\" -f "
-                + fps + " " + qualArgs + " " + cursorArg + " " + audioArgs + " -o '" + out + "'";
-        } else {
-            cmd = "mkdir -p '" + outDir + "' && exec gpu-screen-recorder -w " + mon + " -f "
-                + fps + " " + qualArgs + " " + cursorArg + " " + audioArgs + " -o '" + out + "'";
-        }
+        const cmd = "mkdir -p '" + outDir + "' && exec gpu-screen-recorder -w \"" + captureTarget + "\" -f "
+            + fps + " " + qualArgs + " " + cursorArg + " " + audioArgs + " -o '" + out + "'";
 
         elapsed = 0;
         recProc.command = ["sh", "-c", cmd];
@@ -59,6 +68,11 @@ Singleton {
     }
 
     function stop() {
+        if (selectingRegion) {
+            Quickshell.execDetached(["pkill", "-x", "slurp"]);
+            selectingRegion = false;
+            return;
+        }
         if (!recording) return;
         Quickshell.execDetached(["pkill", "-INT", "-f", "gpu-screen-recorder"]);
     }
@@ -68,12 +82,39 @@ Singleton {
         listProc.running = true;
     }
 
+    // Выбор прямоугольной области через slurp в формате WxH+X+Y, который требует gpu-screen-recorder
+    Process {
+        id: slurpProc
+        command: ["sh", "-c", "sleep 0.2 && slurp -f '%wx%h+%x+%y' 2>/dev/null || true"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                root.selectingRegion = false;
+                const reg = text.trim();
+                if (reg.length > 0 && reg.indexOf("x") > 0 && reg.indexOf("+") > 0) {
+                    // Проверяем, что ширина и высота не нулевые
+                    const dims = reg.split("+")[0].split("x");
+                    const w = parseInt(dims[0], 10) || 0;
+                    const h = parseInt(dims[1], 10) || 0;
+                    if (w >= 16 && h >= 16) {
+                        root.launchRecorder(reg);
+                    }
+                }
+            }
+        }
+        onExited: (code, status) => {
+            if (code !== 0) {
+                root.selectingRegion = false;
+            }
+        }
+    }
+
     Process {
         id: recProc
         onExited: (code, status) => {
+            const wasElapsed = root.elapsed;
             root.recording = false;
-            if (root.elapsed >= 1 && root.lastFile) {
-                Quickshell.execDetached(["notify-send", "-a", "Запись экрана", "Видео сохранено", root.lastFile]);
+            if (code === 0 && wasElapsed >= 1 && root.lastFile) {
+                Quickshell.execDetached(["notify-send", "-a", "Запись экрана", "Видео сохранено (30 Мбит/с)", root.lastFile]);
             }
             root.refreshRecent();
         }

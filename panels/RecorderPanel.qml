@@ -18,8 +18,8 @@ Item {
             Recorder.stop();
         } else {
             const mon = (root.host && root.host.monitor && root.host.monitor.name) ? root.host.monitor.name : "screen";
-            Recorder.start(mon);
             if (root.host) root.host.collapse();
+            Recorder.start(mon);
         }
     }
 

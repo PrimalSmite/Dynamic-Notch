@@ -263,7 +263,7 @@ Item {
                 cellWidth: Math.floor(width / 4)
                 cellHeight: Theme.px(120)
                 clip: true
-                cacheBuffer: Theme.px(360)
+                cacheBuffer: Theme.px(60)
                 model: root.walls
 
                 delegate: Item {
@@ -292,7 +292,8 @@ Item {
                             source: Wallpapers.fileUrl(wCell.modelData)
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
-                            sourceSize: Qt.size(280, 160)
+                            sourceSize: Qt.size(Math.round(wGrid.cellWidth * 1.2), Math.round(wGrid.cellHeight * 1.2))
+                            cache: true
                         }
 
                         // Бейдж активных обоев
