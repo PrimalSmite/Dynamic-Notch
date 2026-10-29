@@ -113,7 +113,7 @@ Singleton {
         onExited: (code, status) => {
             const wasElapsed = root.elapsed;
             root.recording = false;
-            if (code === 0 && wasElapsed >= 1 && root.lastFile) {
+            if ((code === 0 || code === 130) && wasElapsed >= 1 && root.lastFile) {
                 Quickshell.execDetached(["notify-send", "-a", "Запись экрана", "Видео сохранено (30 Мбит/с)", root.lastFile]);
             }
             root.refreshRecent();

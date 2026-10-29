@@ -206,7 +206,7 @@ Item {
                     radius: height / 2
                     color: cancelMa.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
                     scale: cancelMa.pressed ? 0.94 : 1.0
-                    Behavior on scale { Spring {} }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
 
                     Text {
                         id: cancelTxt
@@ -236,7 +236,7 @@ Item {
                     radius: height / 2
                     color: authMa.containsMouse ? Qt.lighter(root.teal, 1.08) : root.teal
                     scale: authMa.pressed ? 0.94 : 1.0
-                    Behavior on scale { Spring {} }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
 
                     Text {
                         id: authTxt

@@ -329,11 +329,11 @@ PanelWindow {
                          : Theme.compactRadius + (compactHovered ? Theme.px(2) : 0)
         property real cw: win.compactW + (compactHovered ? Theme.hoverGrowW : 0)
         property real ch: Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)
-        Behavior on bw { Spring {} }
-        Behavior on bh { Spring {} }
-        Behavior on rad { Spring {} }
-        Behavior on cw { Spring {} }
-        Behavior on ch { Spring {} }
+        Behavior on bw { Spring { epsilon: 0.5 } }
+        Behavior on bh { Spring { epsilon: 0.5 } }
+        Behavior on rad { Spring { epsilon: 0.2 } }
+        Behavior on cw { Spring { epsilon: 0.5 } }
+        Behavior on ch { Spring { epsilon: 0.5 } }
 
         // Блокируем проваливание кликов по «ушкам» чёлки в outsideCatcher
         MouseArea {
@@ -503,7 +503,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     spacing: Theme.px(11)
                     scale: notch.compactHovered ? 1.04 : 1.0
-                    Behavior on scale { Spring { epsilon: 0.002 } }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
 
                     // Левая часть: вертикальные капсулы рабочих столов
                     Workspaces {
@@ -597,7 +597,7 @@ PanelWindow {
                                     to: 1.0
                                     spring: Theme.springK
                                     damping: Theme.springDamp
-                                    epsilon: 0.003
+                                    epsilon: 0.01
                                 }
                             }
                             RollingClock {
@@ -923,7 +923,7 @@ PanelWindow {
                             radius: Theme.px(10)
                             color: clkMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
                             scale: clkMa.pressed ? 0.93 : (clkMa.containsMouse ? 1.03 : 1.0)
-                            Behavior on scale { Spring { epsilon: 0.002 } }
+                            Behavior on scale { Spring { epsilon: 0.01 } }
 
                             Row {
                                 id: clkRow
@@ -965,7 +965,7 @@ PanelWindow {
                             radius: Theme.px(10)
                             color: wthMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
                             scale: wthMa.pressed ? 0.93 : (wthMa.containsMouse ? 1.03 : 1.0)
-                            Behavior on scale { Spring { epsilon: 0.002 } }
+                            Behavior on scale { Spring { epsilon: 0.01 } }
 
                             Row {
                                 id: wthRow
@@ -1009,7 +1009,7 @@ PanelWindow {
                             radius: Theme.px(7)
                             color: kbMa.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.07)
                             scale: kbMa.pressed ? 0.90 : (kbMa.containsMouse ? 1.05 : 1.0)
-                            Behavior on scale { Spring { epsilon: 0.002 } }
+                            Behavior on scale { Spring { epsilon: 0.01 } }
                             Text {
                                 id: kbTxt
                                 anchors.centerIn: parent
@@ -1048,7 +1048,7 @@ PanelWindow {
                                     radius: Theme.px(7)
                                     color: trayMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.05)
                                     scale: trayMa.pressed ? 0.86 : trayMa.containsMouse ? 1.1 : 1.0
-                                    Behavior on scale { Spring { epsilon: 0.002 } }
+                                    Behavior on scale { Spring { epsilon: 0.01 } }
 
                                     IconImage {
                                         anchors.centerIn: parent
@@ -1184,7 +1184,7 @@ PanelWindow {
                             ParallelAnimation {
                                 id: appear
                                 NumberAnimation { target: panelLoader; property: "opacity"; from: 0; to: 1; duration: Theme.fadeIn; easing.type: Easing.OutCubic }
-                                SpringAnimation { target: panelLoader; property: "scale"; from: 0.96; to: 1; spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.002 }
+                                SpringAnimation { target: panelLoader; property: "scale"; from: 0.96; to: 1; spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.01 }
                             }
                         }
                     }

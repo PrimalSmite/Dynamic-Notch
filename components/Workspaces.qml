@@ -43,8 +43,8 @@ Row {
             anchors.verticalCenter: parent.verticalCenter
             width: active ? root.activeW : root.pillW
             height: active ? root.activeH : root.pillH
-            Behavior on width { Spring {} }
-            Behavior on height { Spring {} }
+            Behavior on width { Spring { epsilon: 0.5 } }
+            Behavior on height { Spring { epsilon: 0.5 } }
 
             // Внешний мягкий ореол свечения (только у активной капсулы)
             Rectangle {
@@ -77,7 +77,7 @@ Row {
                 opacity: d.active ? 1 : d.busy ? 0.45 : 0.24
                 scale: ma.containsMouse && !d.active ? 1.18 : 1
                 Behavior on opacity { NumberAnimation { duration: 220 } }
-                Behavior on scale { Spring {} }
+                Behavior on scale { Spring { epsilon: 0.01 } }
             }
 
             MouseArea {

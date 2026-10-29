@@ -69,7 +69,7 @@ Item {
                     radius: Theme.px(20)
                     color: isArmed ? modelData.color : (pMa.containsMouse ? Theme.cardHover : Theme.card)
                     scale: pMa.pressed ? 0.93 : 1.0
-                    Behavior on scale { Spring {} }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
                     Behavior on color { ColorAnimation { duration: 150 } }
 
                     Column {

@@ -92,7 +92,7 @@ Singleton {
         }
         if (manualActive) {
             if (manualReplyFile !== "") {
-                Quickshell.execDetached(["rm", "-f", manualReplyFile]);
+                Quickshell.execDetached(["sh", "-c", "printf '\\n' > \"$1\" 2>/dev/null; rm -f \"$1\"", "_", manualReplyFile]);
             }
             manualActive = false;
             manualReplyFile = "";

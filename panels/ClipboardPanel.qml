@@ -37,7 +37,7 @@ Item {
 
     Process {
         id: listProc
-        running: true
+        running: false
         command: ["sh", "-c", "cliphist list 2>/dev/null | head -n 60"]
         stdout: StdioCollector {
             onStreamFinished: {
@@ -48,7 +48,7 @@ Item {
                     const id = tab >= 0 ? ln.slice(0, tab) : "";
                     const body = tab >= 0 ? ln.slice(tab + 1) : ln;
                     const isImg = body.indexOf("[[ binary data") === 0;
-                    parsed.push({ raw: ln, id: id, text: body, isImg: isImg });
+                    parsed.push({ raw: ln, id: id, text: body, lower: body.toLowerCase(), isImg: isImg });
                 }
                 root.items = parsed;
             }
@@ -58,7 +58,7 @@ Item {
     readonly property var filtered: {
         const q = query.trim().toLowerCase();
         if (!q) return items;
-        return items.filter(it => it.text.toLowerCase().indexOf(q) >= 0);
+        return items.filter(it => it.lower.indexOf(q) >= 0);
     }
 
     function copyItem(it) {

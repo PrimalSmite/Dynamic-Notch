@@ -66,7 +66,7 @@ Item {
                     color: active ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.08)
                     scale: mTabMa.pressed ? 0.94 : (mTabMa.containsMouse ? 1.02 : 1.0)
                     Behavior on color { ColorAnimation { duration: 160 } }
-                    Behavior on scale { Spring { epsilon: 0.002 } }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
 
                     Row {
                         anchors.centerIn: parent
@@ -113,6 +113,8 @@ Item {
                 anchors.centerIn: parent
                 width: Theme.px(130)
                 height: width
+                renderTarget: Canvas.FramebufferObject
+                renderStrategy: Canvas.Threaded
                 Component.onCompleted: requestPaint()
                 onPaint: {
                     const ctx = getContext("2d");
@@ -208,7 +210,7 @@ Item {
                         color: (Timers.totalSec === modelData.sec && modelData.sec > 0)
                                ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(1, 1, 1, 0.07)
                         scale: pChipMa1.pressed ? 0.92 : (pChipMa1.containsMouse ? 1.04 : 1.0)
-                        Behavior on scale { Spring { epsilon: 0.002 } }
+                        Behavior on scale { Spring { epsilon: 0.01 } }
 
                         Text {
                             anchors.centerIn: parent
@@ -248,7 +250,7 @@ Item {
                         color: (Timers.totalSec === modelData.sec && modelData.sec > 0)
                                ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(1, 1, 1, 0.07)
                         scale: pChipMa2.pressed ? 0.92 : (pChipMa2.containsMouse ? 1.04 : 1.0)
-                        Behavior on scale { Spring { epsilon: 0.002 } }
+                        Behavior on scale { Spring { epsilon: 0.01 } }
 
                         Text {
                             anchors.centerIn: parent
@@ -286,7 +288,7 @@ Item {
                 color: Timers.running && !Timers.paused ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.12)
                 scale: stMa.pressed ? 0.93 : (stMa.containsMouse ? 1.03 : 1.0)
                 Behavior on color { ColorAnimation { duration: 160 } }
-                Behavior on scale { Spring { epsilon: 0.002 } }
+                Behavior on scale { Spring { epsilon: 0.01 } }
 
                 Row {
                     anchors.centerIn: parent
@@ -323,7 +325,7 @@ Item {
                 radius: height / 2
                 color: Qt.rgba(1, 1, 1, 0.08)
                 scale: rstMa.pressed ? 0.93 : (rstMa.containsMouse ? 1.03 : 1.0)
-                Behavior on scale { Spring { epsilon: 0.002 } }
+                Behavior on scale { Spring { epsilon: 0.01 } }
 
                 Row {
                     anchors.centerIn: parent

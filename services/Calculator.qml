@@ -13,7 +13,7 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    readonly property string homeDir: Quickshell.env("HOME") || "/home/illidan"
+    readonly property string homeDir: Quickshell.env("HOME") || ("/home/" + (Quickshell.env("USER") || "user"))
     readonly property string stateDir: homeDir + "/.local/state/dynamic-island"
     readonly property string historyPath: stateDir + "/calc-history.json"
 
@@ -43,8 +43,11 @@ Singleton {
         id: initProc
         command: ["sh", "-c", "mkdir -p \"$1\" && [ -f \"$2\" ] || printf '[]' > \"$2\"", "sh", root.stateDir, root.historyPath]
         onExited: {
-            historyFile.path = root.historyPath;
-            historyFile.reload();
+            if (historyFile.path === root.historyPath) {
+                historyFile.reload();
+            } else {
+                historyFile.path = root.historyPath;
+            }
         }
     }
 
@@ -200,8 +203,8 @@ Singleton {
                 continue;
             }
 
-            // Числа (включая 0xFF, 0b1010, десятичные и экспоненциальную запись 1e-5)
-            if (/[0-9]/.test(ch) || (ch === "." && i + 1 < len && /[0-9]/.test(s[i + 1]))) {
+            // Числа (включая 0xFF, 0b1010, десятичные с . или , и экспоненциальную запись 1e-5)
+            if (/[0-9]/.test(ch) || ((ch === "." || ch === ",") && i + 1 < len && /[0-9]/.test(s[i + 1]))) {
                 let numStr = "";
                 if (ch === "0" && i + 1 < len && (s[i + 1] === "x" || s[i + 1] === "X")) {
                     numStr = "0x";
@@ -224,9 +227,18 @@ Singleton {
                 }
 
                 let hasDot = false;
-                while (i < len && (/[0-9]/.test(s[i]) || (!hasDot && s[i] === "."))) {
-                    if (s[i] === ".") hasDot = true;
-                    numStr += s[i++];
+                while (i < len) {
+                    const c = s[i];
+                    if (/[0-9]/.test(c)) {
+                        numStr += c;
+                        i++;
+                    } else if (!hasDot && (c === "." || (c === "," && i + 1 < len && /[0-9]/.test(s[i + 1])))) {
+                        hasDot = true;
+                        numStr += ".";
+                        i++;
+                    } else {
+                        break;
+                    }
                 }
                 // Экспоненциальная нотация (например, 1.5e-3)
                 if (i < len && (s[i] === "e" || s[i] === "E")) {
@@ -532,7 +544,7 @@ Singleton {
         if (q.endsWith("=")) q = q.slice(0, -1).trim();
         if (!q) return empty;
 
-        // Заменяем десятичную запятую на точку, если это не функция с аргументами
+        // Токенизируем выражение (с поддержкой десятичной запятой/точки, функций и констант)
         const tokens = _tokenize(q);
         if (!tokens || tokens.length === 0) return empty;
 

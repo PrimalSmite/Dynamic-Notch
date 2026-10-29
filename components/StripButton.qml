@@ -66,7 +66,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Theme.px(2)
         opacity: root.active ? 1 : 0
-        Behavior on width { Spring {} }
+        Behavior on width { Spring { epsilon: 0.5 } }
         Behavior on opacity { NumberAnimation { duration: 140 } }
     }
 

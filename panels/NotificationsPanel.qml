@@ -61,7 +61,7 @@ Item {
                     color: Notifs.dnd ? Theme.purple : Theme.card
                     scale: dndMa.pressed ? 0.93 : (dndMa.containsMouse ? 1.03 : 1.0)
                     Behavior on color { ColorAnimation { duration: 160 } }
-                    Behavior on scale { Spring { epsilon: 0.002 } }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
 
                     Row {
                         id: dndRow
@@ -101,7 +101,7 @@ Item {
                 radius: height / 2
                 color: clrMa.containsMouse ? Theme.cardHover : Theme.card
                 scale: clrMa.pressed ? 0.93 : (clrMa.containsMouse ? 1.03 : 1.0)
-                Behavior on scale { Spring { epsilon: 0.002 } }
+                Behavior on scale { Spring { epsilon: 0.01 } }
 
                 Text {
                     id: clrText
@@ -166,7 +166,7 @@ Item {
                 radius: Theme.px(16)
                 color: cardMa.containsMouse ? Theme.cardHover : Theme.card
                 scale: cardMa.pressed ? 0.97 : 1.0
-                Behavior on scale { Spring { epsilon: 0.002 } }
+                Behavior on scale { Spring { epsilon: 0.01 } }
 
                 Row {
                     anchors.fill: parent

@@ -64,7 +64,7 @@ Item {
                     color: active ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.08)
                     scale: tgtMa.pressed ? 0.94 : (tgtMa.containsMouse ? 1.02 : 1.0)
                     Behavior on color { ColorAnimation { duration: 160 } }
-                    Behavior on scale { Spring { epsilon: 0.002 } }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
 
                     Row {
                         anchors.centerIn: parent
@@ -133,7 +133,7 @@ Item {
                         color: modelData.on ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.06)
                         scale: oMa1.pressed ? 0.94 : (oMa1.containsMouse ? 1.02 : 1.0)
                         Behavior on color { ColorAnimation { duration: 160 } }
-                        Behavior on scale { Spring { epsilon: 0.002 } }
+                        Behavior on scale { Spring { epsilon: 0.01 } }
 
                         Row {
                             anchors.centerIn: parent
@@ -181,7 +181,7 @@ Item {
                         color: modelData.on ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.06)
                         scale: oMa2.pressed ? 0.94 : (oMa2.containsMouse ? 1.02 : 1.0)
                         Behavior on color { ColorAnimation { duration: 160 } }
-                        Behavior on scale { Spring { epsilon: 0.002 } }
+                        Behavior on scale { Spring { epsilon: 0.01 } }
 
                         Row {
                             anchors.centerIn: parent
@@ -222,7 +222,7 @@ Item {
             color: Recorder.recording ? Theme.controlFill : Theme.alert
             scale: recMa.pressed ? 0.94 : (recMa.containsMouse ? 1.02 : 1.0)
             Behavior on color { ColorAnimation { duration: 160 } }
-            Behavior on scale { Spring { epsilon: 0.002 } }
+            Behavior on scale { Spring { epsilon: 0.01 } }
 
             Row {
                 anchors.centerIn: parent

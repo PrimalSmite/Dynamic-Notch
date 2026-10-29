@@ -170,7 +170,7 @@ Item {
         if (keepAwake) {
             Quickshell.execDetached(["sh", "-c", "systemd-inhibit --what=idle --who='DynamicIsland' --why='KeepAwake' sleep infinity >/dev/null 2>&1 & echo $! > /tmp/di-keepawake.pid"]);
         } else {
-            Quickshell.execDetached(["sh", "-c", "[ -f /tmp/di-keepawake.pid ] && kill $(cat /tmp/di-keepawake.pid) 2>/dev/null; rm -f /tmp/di-keepawake.pid"]);
+            Quickshell.execDetached(["sh", "-c", "[ -f /tmp/di-keepawake.pid ] && { PID=$(cat /tmp/di-keepawake.pid); pkill -P \"$PID\" 2>/dev/null; kill \"$PID\" 2>/dev/null; rm -f /tmp/di-keepawake.pid; }"]);
         }
     }
 
@@ -203,7 +203,7 @@ Item {
 
     function lockScreen() {
         if (host) host.collapse();
-        Quickshell.execDetached(["sh", "-c", "/home/illidan/.local/share/quickshell/ukishima/scripts/lock.sh 2>/dev/null || hyprctl dispatch dpms off"]);
+        Quickshell.execDetached(["sh", "-c", "\"$HOME/.local/share/quickshell/ukishima/scripts/lock.sh\" 2>/dev/null || hyprlock 2>/dev/null || loginctl lock-session 2>/dev/null || hyprctl dispatch dpms off"]);
     }
 
     function reloadHyprland() {
@@ -287,7 +287,7 @@ Item {
                     width: Theme.px(30); height: width; radius: width / 2
                     color: relMa.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.08)
                     scale: relMa.pressed ? 0.90 : 1.0
-                    Behavior on scale { Spring { epsilon: 0.002 } }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
 
                     Icon {
                         anchors.centerIn: parent
@@ -311,7 +311,7 @@ Item {
                     width: Theme.px(30); height: width; radius: width / 2
                     color: lockMa.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.08)
                     scale: lockMa.pressed ? 0.90 : 1.0
-                    Behavior on scale { Spring { epsilon: 0.002 } }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
 
                     Icon {
                         anchors.centerIn: parent
@@ -354,7 +354,7 @@ Item {
                     border.width: root.ipCopied ? 1 : 0
                     border.color: Theme.ok
                     scale: lanMa.pressed ? 0.94 : 1.0
-                    Behavior on scale { Spring {} }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
                     Behavior on color { ColorAnimation { duration: 160 } }
 
                     Row {
@@ -447,7 +447,7 @@ Item {
                     border.width: root.audioMenuOpen ? 1 : 0
                     border.color: Qt.rgba(1, 1, 1, 0.35)
                     scale: audioMa.pressed ? 0.95 : 1.0
-                    Behavior on scale { Spring {} }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
                     Behavior on color { ColorAnimation { duration: 160 } }
 
                     Row {
@@ -635,7 +635,7 @@ Item {
                                 : (sinkItemMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.04))
                             scale: sinkItemMa.pressed ? 0.98 : 1.0
                             Behavior on color { ColorAnimation { duration: 140 } }
-                            Behavior on scale { Spring { epsilon: 0.002 } }
+                            Behavior on scale { Spring { epsilon: 0.01 } }
 
                             Item {
                                 anchors.fill: parent
@@ -721,7 +721,7 @@ Item {
                     border.width: 1
                     border.color: root.nightLight ? Qt.rgba(Theme.warn.r, Theme.warn.g, Theme.warn.b, 0.55) : Theme.divider
                     scale: nlMa.pressed ? 0.94 : 1.0
-                    Behavior on scale { Spring {} }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
                     Behavior on color { ColorAnimation { duration: 160 } }
 
                     Row {
@@ -784,7 +784,7 @@ Item {
                     border.width: 1
                     border.color: Notifs.dnd ? Qt.rgba(Theme.purple.r, Theme.purple.g, Theme.purple.b, 0.55) : Theme.divider
                     scale: dndMa.pressed ? 0.94 : 1.0
-                    Behavior on scale { Spring {} }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
                     Behavior on color { ColorAnimation { duration: 160 } }
 
                     Row {
@@ -1280,7 +1280,7 @@ Item {
                 radius: Theme.px(12)
                 color: root.gameMode ? Theme.controlFill : (gmMa.containsMouse ? Theme.cardHover : Theme.card)
                 scale: gmMa.pressed ? 0.92 : 1.0
-                Behavior on scale { Spring {} }
+                Behavior on scale { Spring { epsilon: 0.01 } }
                 Behavior on color { ColorAnimation { duration: 140 } }
 
                 Row {
@@ -1318,7 +1318,7 @@ Item {
                 radius: Theme.px(12)
                 color: root.keepAwake ? Theme.controlFill : (awakeMa.containsMouse ? Theme.cardHover : Theme.card)
                 scale: awakeMa.pressed ? 0.92 : 1.0
-                Behavior on scale { Spring {} }
+                Behavior on scale { Spring { epsilon: 0.01 } }
                 Behavior on color { ColorAnimation { duration: 140 } }
 
                 Row {
@@ -1358,7 +1358,7 @@ Item {
                 border.width: root.micMuted ? 1 : 0
                 border.color: Theme.alert
                 scale: micMa.pressed ? 0.92 : 1.0
-                Behavior on scale { Spring {} }
+                Behavior on scale { Spring { epsilon: 0.01 } }
                 Behavior on color { ColorAnimation { duration: 140 } }
 
                 Row {
@@ -1398,7 +1398,7 @@ Item {
                 border.width: Recorder.recording ? 1 : 0
                 border.color: Theme.alert
                 scale: recMa.pressed ? 0.92 : 1.0
-                Behavior on scale { Spring {} }
+                Behavior on scale { Spring { epsilon: 0.01 } }
                 Behavior on color { ColorAnimation { duration: 140 } }
 
                 Row {
@@ -1479,7 +1479,7 @@ Item {
                         radius: Theme.px(12)
                         color: scRegMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05)
                         scale: scRegMa.pressed ? 0.95 : 1.0
-                        Behavior on scale { Spring { epsilon: 0.002 } }
+                        Behavior on scale { Spring { epsilon: 0.01 } }
 
                         Row {
                             anchors.fill: parent
@@ -1530,7 +1530,7 @@ Item {
                         radius: Theme.px(12)
                         color: scFullMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05)
                         scale: scFullMa.pressed ? 0.95 : 1.0
-                        Behavior on scale { Spring { epsilon: 0.002 } }
+                        Behavior on scale { Spring { epsilon: 0.01 } }
 
                         Row {
                             anchors.fill: parent

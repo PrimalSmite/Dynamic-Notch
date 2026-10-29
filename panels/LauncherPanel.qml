@@ -316,7 +316,7 @@ Item {
                 height: calcCard.focusedCard ? Theme.px(34) : Theme.px(16)
                 radius: width / 2
                 color: calcCard.justCopied ? Theme.ok : Theme.orange
-                Behavior on height { Spring {} }
+                Behavior on height { Spring { epsilon: 0.5 } }
                 Behavior on color { ColorAnimation { duration: 140 } }
             }
 
@@ -771,7 +771,7 @@ Item {
                     radius: width / 2
                     color: Theme.text
                     opacity: rowItem.selected ? 1 : 0
-                    Behavior on height { Spring {} }
+                    Behavior on height { Spring { epsilon: 0.5 } }
                     Behavior on opacity { NumberAnimation { duration: 130 } }
                 }
 
@@ -792,7 +792,7 @@ Item {
                         IconImage {
                             anchors.centerIn: parent
                             implicitSize: Theme.px(22)
-                            source: Quickshell.iconPath(rowItem.modelData.icon, "application-x-executable")
+                            source: Quickshell.iconPath(rowItem.modelData.icon || "application-x-executable", "application-x-executable")
                         }
                     }
 

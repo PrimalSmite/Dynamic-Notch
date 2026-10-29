@@ -284,7 +284,7 @@ Item {
                         border.width: wCell.active ? 2.5 : (wCell.selected ? 2 : 0)
                         border.color: wCell.active ? Theme.green : Theme.blue
                         scale: wMa.pressed ? 0.94 : wMa.containsMouse ? 1.02 : 1.0
-                        Behavior on scale { Spring {} }
+                        Behavior on scale { Spring { epsilon: 0.01 } }
 
                         Image {
                             id: thumbImg

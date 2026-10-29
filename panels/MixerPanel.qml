@@ -58,7 +58,8 @@ Item {
     function streamIcon(n) {
         if (!n) return "";
         const p = n.properties || {};
-        const ic = p["application.icon-name"] || p["application.process.binary"] || n.name || "";
+        const raw = p["application.icon-name"] || p["application.process.binary"] || n.name || "audio-x-generic";
+        const ic = String(raw).toLowerCase();
         return Quickshell.iconPath(ic, "audio-x-generic");
     }
 
@@ -164,7 +165,7 @@ Item {
                             width: Theme.px(28); height: width; radius: width / 2
                             color: prevMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
                             scale: prevMa.pressed ? 0.88 : 1.0
-                            Behavior on scale { Spring { epsilon: 0.002 } }
+                            Behavior on scale { Spring { epsilon: 0.01 } }
 
                             Icon {
                                 anchors.centerIn: parent
@@ -187,7 +188,7 @@ Item {
                             width: Theme.px(30); height: width; radius: width / 2
                             color: Theme.controlFill
                             scale: playMa.pressed ? 0.88 : (playMa.containsMouse ? 1.05 : 1.0)
-                            Behavior on scale { Spring { epsilon: 0.002 } }
+                            Behavior on scale { Spring { epsilon: 0.01 } }
 
                             Icon {
                                 anchors.centerIn: parent
@@ -210,7 +211,7 @@ Item {
                             width: Theme.px(28); height: width; radius: width / 2
                             color: nextMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
                             scale: nextMa.pressed ? 0.88 : 1.0
-                            Behavior on scale { Spring { epsilon: 0.002 } }
+                            Behavior on scale { Spring { epsilon: 0.01 } }
 
                             Icon {
                                 anchors.centerIn: parent
@@ -315,7 +316,7 @@ Item {
                     color: root.sourceMuted ? Theme.alert : Qt.rgba(1, 1, 1, 0.10)
                     scale: micMa.pressed ? 0.88 : (micMa.containsMouse ? 1.05 : 1.0)
                     Behavior on color { ColorAnimation { duration: 160 } }
-                    Behavior on scale { Spring { epsilon: 0.002 } }
+                    Behavior on scale { Spring { epsilon: 0.01 } }
 
                     Icon {
                         anchors.centerIn: parent
@@ -469,7 +470,7 @@ Item {
                                         color: sRow.muted ? Theme.alert : Qt.rgba(1, 1, 1, 0.08)
                                         scale: sIconMa.pressed ? 0.90 : 1.0
                                         Behavior on color { ColorAnimation { duration: 160 } }
-                                        Behavior on scale { Spring { epsilon: 0.002 } }
+                                        Behavior on scale { Spring { epsilon: 0.01 } }
 
                                         IconImage {
                                             anchors.centerIn: parent
