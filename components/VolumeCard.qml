@@ -59,7 +59,7 @@ Rectangle {
                 width: Theme.px(32)
                 height: Theme.px(32)
                 radius: Theme.px(10)
-                color: Audio.muted ? Theme.red : Qt.rgba(1, 1, 1, 0.10)
+                color: Audio.muted ? Theme.alert : Qt.rgba(1, 1, 1, 0.10)
                 scale: muteMa.pressed ? 0.90 : (muteMa.containsMouse ? 1.04 : 1.0)
                 Behavior on color { ColorAnimation { duration: 160 } }
                 Behavior on scale { Spring { epsilon: 0.002 } }
@@ -68,7 +68,7 @@ Rectangle {
                     anchors.centerIn: parent
                     name: Audio.icon
                     size: Theme.px(17)
-                    color: Audio.muted ? "white" : Theme.text
+                    color: Audio.muted ? "white" : Theme.controlFill
                 }
                 MouseArea {
                     id: muteMa
@@ -98,7 +98,7 @@ Rectangle {
                     width: parent.width
                     elide: Text.ElideRight
                     text: Audio.muted ? "Звук отключён [M]" : root.cleanSinkName(Audio.sink)
-                    color: Theme.text2
+                    color: Audio.muted ? Theme.alert : Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(11)
                 }
@@ -109,7 +109,7 @@ Rectangle {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 text: Math.round(Audio.volume * 100) + "%"
-                color: Audio.muted ? Theme.red : Theme.text
+                color: Audio.muted ? Theme.alert : Theme.controlFill
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.px(17)
                 font.weight: Font.Bold
@@ -122,7 +122,7 @@ Rectangle {
             width: parent.width
             height: Theme.px(12)
             value: Audio.muted ? 0 : Audio.volume
-            tint: Audio.muted ? Theme.red : Theme.text
+            tint: Audio.muted ? Theme.alert : Theme.controlFill
             interactive: true
             onMoved: v => Audio.setVolume(v)
         }

@@ -8,7 +8,7 @@ Rectangle {
     property string label: ""
     property string value: ""
     property real level: 0
-    property color tint: Theme.blue
+    property color tint: Theme.controlFill
     property bool interactive: false
     signal moved(real v)
     signal iconClicked()

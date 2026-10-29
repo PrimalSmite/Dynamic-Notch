@@ -9,6 +9,7 @@ Item {
     property bool wantsKeyboard: true
     property var viewDate: new Date()
 
+    implicitWidth: Theme.px(510)
     implicitHeight: row.implicitHeight
 
     Keys.onPressed: event => {

@@ -54,8 +54,19 @@ Singleton {
     readonly property color text3: Qt.rgba(1, 1, 1, 0.28)
     readonly property color card: Qt.rgba(1, 1, 1, 0.08)
     readonly property color cardHover: Qt.rgba(1, 1, 1, 0.13)
-    readonly property color track: Qt.rgba(1, 1, 1, 0.14)
-    readonly property color divider: Qt.rgba(1, 1, 1, 0.12)
+    readonly property color track: Qt.rgba(1, 1, 1, 0.12)
+    readonly property color divider: Qt.rgba(1, 1, 1, 0.10)
+
+    // ── Премиальная база контролов (нейтральная матово-белая основа) ──
+    readonly property color controlFill: "#FFFFFF"
+    readonly property color controlTrack: Qt.rgba(1, 1, 1, 0.12)
+    readonly property color controlMuted: Qt.rgba(1, 1, 1, 0.25)
+
+    // ── Семантические акценты (строго для состояний и предупреждений) ──
+    readonly property color warn: "#FF9F0A"         // Внимание / Нагрев / Высокая нагрузка
+    readonly property color alert: "#FF453A"        // Ошибка / Mute / Критический порог
+    readonly property color ok: "#30D158"           // Успех / Нормальное состояние
+
     readonly property color blue: "#0A84FF"
     readonly property color green: "#30D158"
     readonly property color orange: "#FF9F0A"

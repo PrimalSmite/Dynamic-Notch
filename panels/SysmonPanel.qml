@@ -6,6 +6,7 @@ import qs.components
 Item {
     id: root
     property var host: null
+    implicitWidth: Theme.px(420)
     implicitHeight: col.implicitHeight
 
     Connections {
@@ -16,80 +17,92 @@ Item {
     Column {
         id: col
         width: parent.width
-        spacing: Theme.px(10)
+        spacing: Theme.px(8)
 
-        // Верхние 4 плитки
-        Row {
+        // Сетка 2×2 системных показателей
+        Column {
             width: parent.width
-            spacing: Theme.px(10)
-            readonly property real tileW: (width - 3 * spacing) / 4
+            spacing: Theme.px(8)
+            readonly property real tileW: (width - Theme.px(8)) / 2
 
-            StatTile {
-                width: parent.tileW
-                icon: "memory"
-                label: "Процессор" + (SysInfo.cpuTemp >= 0 ? " · " + SysInfo.cpuTemp + "°C" : "")
-                value: Math.round(SysInfo.cpu * 100) + "%"
-                level: SysInfo.cpu
-                tint: SysInfo.cpu > 0.85 ? Theme.red : SysInfo.cpu > 0.6 ? Theme.orange : Theme.blue
+            // Ряд 1: Процессор и Память
+            Row {
+                width: parent.width
+                spacing: Theme.px(8)
+
+                StatTile {
+                    width: parent.parent.tileW
+                    icon: "memory"
+                    label: "Процессор" + (SysInfo.cpuTemp >= 0 ? " · " + SysInfo.cpuTemp + "°C" : "")
+                    value: Math.round(SysInfo.cpu * 100) + "%"
+                    level: SysInfo.cpu
+                    tint: SysInfo.cpu > 0.85 ? Theme.alert : SysInfo.cpu > 0.65 ? Theme.warn : Theme.controlFill
+                }
+
+                StatTile {
+                    width: parent.parent.tileW
+                    icon: "memory_alt"
+                    label: "Память · " + SysInfo.memTotalGb.toFixed(0) + " ГБ"
+                    value: SysInfo.memUsedGb.toFixed(1) + " ГБ"
+                    level: SysInfo.mem
+                    tint: SysInfo.mem > 0.85 ? Theme.alert : SysInfo.mem > 0.75 ? Theme.warn : Theme.controlFill
+                }
             }
 
-            StatTile {
-                width: parent.tileW
-                icon: "memory_alt"
-                label: "Память · " + SysInfo.memTotalGb.toFixed(0) + " ГБ"
-                value: SysInfo.memUsedGb.toFixed(1) + " ГБ"
-                level: SysInfo.mem
-                tint: SysInfo.mem > 0.85 ? Theme.red : Theme.purple
-            }
+            // Ряд 2: Диск и Сеть
+            Row {
+                width: parent.width
+                spacing: Theme.px(8)
 
-            StatTile {
-                width: parent.tileW
-                icon: "hard_drive"
-                label: "Диск / · " + (SysInfo.diskText || "--")
-                value: Math.round(SysInfo.disk * 100) + "%"
-                level: SysInfo.disk
-                tint: Theme.green
-            }
+                StatTile {
+                    width: parent.parent.tileW
+                    icon: "hard_drive"
+                    label: "Диск / · " + (SysInfo.diskText || "--")
+                    value: Math.round(SysInfo.disk * 100) + "%"
+                    level: SysInfo.disk
+                    tint: SysInfo.disk > 0.90 ? Theme.alert : SysInfo.disk > 0.80 ? Theme.warn : Theme.controlFill
+                }
 
-            // Сеть и аптайм
-            Rectangle {
-                width: parent.tileW
-                height: Theme.px(74)
-                radius: Theme.px(18)
-                color: Theme.card
+                // Сеть и аптайм
+                Rectangle {
+                    width: parent.parent.tileW
+                    height: Theme.px(74)
+                    radius: Theme.px(18)
+                    color: Theme.card
 
-                Column {
-                    anchors.fill: parent
-                    anchors.margins: Theme.px(12)
-                    spacing: Theme.px(4)
+                    Column {
+                        anchors.fill: parent
+                        anchors.margins: Theme.px(12)
+                        spacing: Theme.px(4)
 
-                    Row {
-                        width: parent.width
-                        spacing: Theme.px(6)
-                        Icon { name: "swap_vert"; size: Theme.px(18); color: Theme.orange }
+                        Row {
+                            width: parent.width
+                            spacing: Theme.px(6)
+                            Icon { name: "swap_vert"; size: Theme.px(18); color: Theme.controlFill }
+                            Text {
+                                text: "Сеть · " + (SysInfo.uptime || "")
+                                color: Theme.text2
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                elide: Text.ElideRight
+                            }
+                        }
+
                         Text {
-                            text: "Сеть · " + (SysInfo.uptime || "")
+                            text: "↓ " + SysInfo.netDown
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(12)
+                            font.weight: Font.DemiBold
+                            font.features: { "tnum": 1 }
+                        }
+                        Text {
+                            text: "↑ " + SysInfo.netUp
                             color: Theme.text2
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(11)
-                            elide: Text.ElideRight
+                            font.features: { "tnum": 1 }
                         }
-                    }
-
-                    Text {
-                        text: "↓ " + SysInfo.netDown
-                        color: Theme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(12)
-                        font.weight: Font.DemiBold
-                        font.features: { "tnum": 1 }
-                    }
-                    Text {
-                        text: "↑ " + SysInfo.netUp
-                        color: Theme.text2
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(11)
-                        font.features: { "tnum": 1 }
                     }
                 }
             }
@@ -136,14 +149,16 @@ Item {
                                 if (i === 0) ctx.moveTo(x, y);
                                 else ctx.lineTo(x, y);
                             }
-                            ctx.strokeStyle = "#0A84FF";
-                            ctx.lineWidth = 2.2;
+                            const isCrit = SysInfo.cpu > 0.85;
+                            const isWarn = SysInfo.cpu > 0.65;
+                            ctx.strokeStyle = isCrit ? "#FF453A" : (isWarn ? "#FF9F0A" : Qt.rgba(1, 1, 1, 0.85));
+                            ctx.lineWidth = 2.0;
                             ctx.stroke();
 
                             ctx.lineTo(width, height);
                             ctx.lineTo(0, height);
                             ctx.closePath();
-                            ctx.fillStyle = Qt.rgba(0.04, 0.52, 1.0, 0.18);
+                            ctx.fillStyle = isCrit ? Qt.rgba(1, 0.27, 0.23, 0.18) : (isWarn ? Qt.rgba(1, 0.62, 0.04, 0.14) : Qt.rgba(1, 1, 1, 0.08));
                             ctx.fill();
                         }
                     }
@@ -191,7 +206,7 @@ Item {
                                 anchors.right: memT.left
                                 anchors.rightMargin: Theme.px(14)
                                 text: modelData.cpu
-                                color: Theme.blue
+                                color: Theme.text
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.px(11)
                                 font.weight: Font.DemiBold

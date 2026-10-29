@@ -7,6 +7,7 @@ Item {
     id: root
     property var host: null
     property bool wantsKeyboard: true
+    implicitWidth: Theme.px(540)
     implicitHeight: col.implicitHeight
 
     Keys.onPressed: event => {

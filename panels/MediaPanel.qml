@@ -6,6 +6,7 @@ import qs.components
 Item {
     id: root
     property var host: null
+    implicitWidth: Theme.px(390)
     implicitHeight: col.implicitHeight
 
     Column {

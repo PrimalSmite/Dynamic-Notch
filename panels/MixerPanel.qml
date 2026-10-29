@@ -107,7 +107,7 @@ Item {
                     width: Theme.px(26)
                     height: Theme.px(26)
                     radius: Theme.px(8)
-                    color: root.sourceMuted ? Theme.red : Qt.rgba(1, 1, 1, 0.10)
+                    color: root.sourceMuted ? Theme.alert : Qt.rgba(1, 1, 1, 0.10)
                     scale: micMa.pressed ? 0.88 : (micMa.containsMouse ? 1.05 : 1.0)
                     Behavior on color { ColorAnimation { duration: 160 } }
                     Behavior on scale { Spring { epsilon: 0.002 } }
@@ -116,7 +116,7 @@ Item {
                         anchors.centerIn: parent
                         name: root.sourceMuted ? "mic_off" : "mic"
                         size: Theme.px(15)
-                        color: root.sourceMuted ? "white" : Theme.text
+                        color: root.sourceMuted ? "white" : Theme.controlFill
                     }
                     MouseArea {
                         id: micMa
@@ -132,7 +132,7 @@ Item {
                     width: Theme.px(68)
                     elide: Text.ElideRight
                     text: "Микрофон"
-                    color: root.sourceMuted ? Theme.red : Theme.text2
+                    color: root.sourceMuted ? Theme.alert : Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(11)
                     font.weight: Font.DemiBold
@@ -143,7 +143,7 @@ Item {
                     width: parent.width - Theme.px(155)
                     height: Theme.px(6)
                     value: root.sourceMuted ? 0 : root.sourceVol
-                    tint: root.sourceMuted ? Theme.red : Theme.orange
+                    tint: root.sourceMuted ? Theme.alert : Theme.controlFill
                     interactive: true
                     onMoved: v => {
                         if (!root.sourceReady) return;
@@ -157,7 +157,7 @@ Item {
                     width: Theme.px(36)
                     horizontalAlignment: Text.AlignRight
                     text: Math.round(root.sourceVol * 100) + "%"
-                    color: root.sourceMuted ? Theme.red : Theme.text2
+                    color: root.sourceMuted ? Theme.alert : Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(11)
                     font.weight: Font.DemiBold
@@ -261,7 +261,7 @@ Item {
                                         width: Theme.px(22)
                                         height: Theme.px(22)
                                         radius: Theme.px(6)
-                                        color: sRow.muted ? Theme.red : Qt.rgba(1, 1, 1, 0.08)
+                                        color: sRow.muted ? Theme.alert : Qt.rgba(1, 1, 1, 0.08)
                                         scale: sIconMa.pressed ? 0.90 : 1.0
                                         Behavior on color { ColorAnimation { duration: 160 } }
                                         Behavior on scale { Spring { epsilon: 0.002 } }
@@ -309,7 +309,7 @@ Item {
                                         width: parent.width - Theme.px(165)
                                         height: Theme.px(5)
                                         value: sRow.muted ? 0 : sRow.vol
-                                        tint: sRow.muted ? Theme.red : Theme.green
+                                        tint: sRow.muted ? Theme.alert : Theme.controlFill
                                         interactive: true
                                         onMoved: v => {
                                             if (!sRow.modelData.audio) return;

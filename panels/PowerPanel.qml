@@ -10,22 +10,24 @@ Item {
     property bool wantsKeyboard: true
     property string armedKey: ""
 
+    implicitWidth: Theme.px(390)
     implicitHeight: col.implicitHeight
 
     readonly property var actions: [
-        { key: "lock", label: "Блокировка [L]", icon: "lock", color: Theme.blue, confirm: false, cmd: "hyprlock 2>/dev/null || loginctl lock-session" },
+        { key: "lock", label: "Блок [L]", icon: "lock", color: Theme.blue, confirm: false, cmd: "hyprlock 2>/dev/null || loginctl lock-session" },
         { key: "suspend", label: "Сон [S]", icon: "bedtime", color: Theme.purple, confirm: true, cmd: "systemctl suspend" },
         { key: "logout", label: "Выйти [E]", icon: "logout", color: Theme.orange, confirm: true, cmd: "hyprctl dispatch exit" },
         { key: "reboot", label: "Рестарт [R]", icon: "restart_alt", color: Theme.yellow, confirm: true, cmd: "systemctl reboot" },
-        { key: "poweroff", label: "Выкл [P]", icon: "power_settings_new", color: Theme.red, confirm: true, cmd: "systemctl poweroff" }
+        { key: "poweroff", label: "Выкл [P]", icon: "power_settings_new", color: Theme.alert, confirm: true, cmd: "systemctl poweroff" }
     ]
 
     Keys.onPressed: event => {
-        if (event.key === Qt.Key_L) { trigger(actions[0]); event.accepted = true; }
-        else if (event.key === Qt.Key_S) { trigger(actions[1]); event.accepted = true; }
-        else if (event.key === Qt.Key_E) { trigger(actions[2]); event.accepted = true; }
-        else if (event.key === Qt.Key_R) { trigger(actions[3]); event.accepted = true; }
-        else if (event.key === Qt.Key_P) { trigger(actions[4]); event.accepted = true; }
+        const t = (event.text || "").toLowerCase();
+        if (event.key === Qt.Key_L || t === "l" || t === "д") { trigger(actions[0]); event.accepted = true; }
+        else if (event.key === Qt.Key_S || t === "s" || t === "ы") { trigger(actions[1]); event.accepted = true; }
+        else if (event.key === Qt.Key_E || t === "e" || t === "у") { trigger(actions[2]); event.accepted = true; }
+        else if (event.key === Qt.Key_R || t === "r" || t === "к") { trigger(actions[3]); event.accepted = true; }
+        else if (event.key === Qt.Key_P || t === "p" || t === "з") { trigger(actions[4]); event.accepted = true; }
     }
 
     Timer {
