@@ -33,7 +33,7 @@ Rectangle {
             }
             Image {
                 anchors.fill: parent
-                source: root.player?.trackArtUrl ?? ""
+                source: (root.player && root.player.trackArtUrl) ? root.player.trackArtUrl : ""
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 sourceSize: Qt.size(136, 136)
@@ -49,7 +49,7 @@ Rectangle {
             Text {
                 width: parent.width
                 elide: Text.ElideRight
-                text: root.player?.trackTitle || "Без названия"
+                text: (root.player && root.player.trackTitle) ? root.player.trackTitle : "Без названия"
                 color: Theme.text
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.px(15)
@@ -68,9 +68,9 @@ Rectangle {
                 id: prog
                 width: parent.width
                 height: Theme.px(4)
-                visible: root.player?.lengthSupported ?? false
+                visible: root.player ? root.player.lengthSupported : false
                 value: root.player && root.player.length > 0 ? root.player.position / root.player.length : 0
-                interactive: root.player?.canSeek ?? false
+                interactive: root.player ? root.player.canSeek : false
                 onMoved: v => { if (root.player) root.player.position = v * root.player.length; }
             }
             Item {
@@ -78,7 +78,7 @@ Rectangle {
                 height: Theme.px(14)
                 visible: prog.visible
                 Text {
-                    text: Media.fmt(root.player?.position ?? 0)
+                    text: Media.fmt((root.player && root.player.position) ? root.player.position : 0)
                     color: Theme.text3
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(10)
@@ -86,7 +86,7 @@ Rectangle {
                 }
                 Text {
                     anchors.right: parent.right
-                    text: "-" + Media.fmt((root.player?.length ?? 0) - (root.player?.position ?? 0))
+                    text: "-" + Media.fmt(((root.player && root.player.length) ? root.player.length : 0) - ((root.player && root.player.position) ? root.player.position : 0))
                     color: Theme.text3
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(10)

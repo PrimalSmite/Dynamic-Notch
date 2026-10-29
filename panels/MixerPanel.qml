@@ -74,6 +74,211 @@ Item {
         width: parent.width
         spacing: Theme.px(8)
 
+        // 0. Интегрированный компактный медиаплеер (Центр звука и медиа)
+        Rectangle {
+            visible: Media.player !== null
+            width: parent.width
+            height: medCardCol.implicitHeight + Theme.px(20)
+            radius: Theme.px(16)
+            color: Theme.card
+
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.NoButton
+                onWheel: w => Audio.step(w.angleDelta.y > 0 ? 0.03 : -0.03)
+            }
+
+            Column {
+                id: medCardCol
+                width: parent.width - Theme.px(20)
+                x: Theme.px(10)
+                y: Theme.px(10)
+                spacing: Theme.px(8)
+
+                // Верхний ряд: обложка, название/артист, кнопки управления
+                Row {
+                    width: parent.width
+                    spacing: Theme.px(10)
+
+                    // Обложка трека
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Theme.px(38)
+                        height: Theme.px(38)
+                        radius: Theme.px(10)
+                        color: Qt.rgba(1, 1, 1, 0.10)
+                        clip: true
+
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "music_note"
+                            size: Theme.px(20)
+                            color: Theme.text2
+                            visible: !medArt.visible
+                        }
+
+                        Image {
+                            id: medArt
+                            anchors.fill: parent
+                            source: Media.trackArtUrl
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            visible: status === Image.Ready && source !== ""
+                        }
+                    }
+
+                    // Название и артист
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - Theme.px(38) - medCtlRow.implicitWidth - 2 * Theme.px(10)
+                        spacing: Theme.px(1)
+
+                        Text {
+                            width: parent.width
+                            elide: Text.ElideRight
+                            text: Media.trackTitle !== "" ? Media.trackTitle : "Без названия"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(12)
+                            font.weight: Font.DemiBold
+                        }
+                        Text {
+                            width: parent.width
+                            elide: Text.ElideRight
+                            text: Media.trackArtist
+                            color: Theme.text2
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(10)
+                        }
+                    }
+
+                    // Кнопки управления (Назад, Плей/Пауза, Вперед)
+                    Row {
+                        id: medCtlRow
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Theme.px(4)
+
+                        // Предыдущий трек
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(28); height: width; radius: width / 2
+                            color: prevMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+                            scale: prevMa.pressed ? 0.88 : 1.0
+                            Behavior on scale { Spring { epsilon: 0.002 } }
+
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "skip_previous"
+                                size: Theme.px(17)
+                                color: Theme.text
+                            }
+                            MouseArea {
+                                id: prevMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: Media.prev()
+                            }
+                        }
+
+                        // Плей / Пауза (акцентная матово-белая круглая кнопка)
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(30); height: width; radius: width / 2
+                            color: Theme.controlFill
+                            scale: playMa.pressed ? 0.88 : (playMa.containsMouse ? 1.05 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.002 } }
+
+                            Icon {
+                                anchors.centerIn: parent
+                                name: Media.playing ? "pause" : "play_arrow"
+                                size: Theme.px(18)
+                                color: "black"
+                            }
+                            MouseArea {
+                                id: playMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: Media.togglePlay()
+                            }
+                        }
+
+                        // Следующий трек
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(28); height: width; radius: width / 2
+                            color: nextMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+                            scale: nextMa.pressed ? 0.88 : 1.0
+                            Behavior on scale { Spring { epsilon: 0.002 } }
+
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "skip_next"
+                                size: Theme.px(17)
+                                color: Theme.text
+                            }
+                            MouseArea {
+                                id: nextMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: Media.next()
+                            }
+                        }
+                    }
+                }
+
+                // Нижняя полоска: Прогресс трека (если поддерживается плеером)
+                Item {
+                    visible: Media.player && Media.player.lengthSupported
+                    width: parent.width
+                    height: Theme.px(14)
+
+                    Bar {
+                        id: mediaSeek
+                        anchors.left: parent.left
+                        anchors.right: timeRow.left
+                        anchors.rightMargin: Theme.px(8)
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: Theme.px(4)
+                        value: Media.player && Media.player.length > 0 ? Media.player.position / Media.player.length : 0
+                        tint: Theme.controlFill
+                        interactive: Media.player && Media.player.canSeek
+                        onMoved: v => { if (Media.player) Media.player.position = v * Media.player.length; }
+                    }
+
+                    Row {
+                        id: timeRow
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Theme.px(2)
+
+                        Text {
+                            text: Media.fmt(Media.player ? Media.player.position : 0)
+                            color: Theme.text3
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(9)
+                            font.features: { "tnum": 1 }
+                        }
+                        Text {
+                            text: "/"
+                            color: Theme.text3
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(9)
+                        }
+                        Text {
+                            text: Media.fmt(Media.player ? Media.player.length : 0)
+                            color: Theme.text3
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(9)
+                            font.features: { "tnum": 1 }
+                        }
+                    }
+                }
+            }
+        }
+
         // 1. Основной выход звука + селектор устройств
         VolumeCard {
             width: parent.width

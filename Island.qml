@@ -89,8 +89,8 @@ PanelWindow {
     readonly property var dockItems: [
         { key: "launcher",      icon: "apps" },
         { key: "notifications", icon: "notifications" },
-        { key: "mixer",         icon: "tune" },
-        { key: "sysmon",        icon: "monitoring" },
+        { key: "mixer",         icon: "volume_up" },
+        { key: "sysmon",        icon: "speed" },
         { key: "recorder",      icon: "videocam" },
         { key: "timer",         icon: "timer" },
         { key: "wallpaper",     icon: "wallpaper" },
@@ -188,7 +188,7 @@ PanelWindow {
         else if (key === "mixer") Audio.toggleMute();
         else if (key === "recorder") {
             if (Recorder.recording) Recorder.stop();
-            else Recorder.start(win.monitor?.name || "screen");
+            else Recorder.start((win.monitor && win.monitor.name) ? win.monitor.name : "screen");
         } else if (key === "timer") Timers.toggleStart();
         else openPanel(key);
     }
@@ -196,6 +196,8 @@ PanelWindow {
     function showOsd(kind) {
         if ((mode !== "compact" && mode !== "osd") || !armed) return;
         if (monitor && !monitor.focused) return;
+        if (kind === "volume" && !IslandPrefs.showVolumeOsd) return;
+        if (kind === "layout" && !IslandPrefs.showLayoutOsd) return;
         lastOsd = kind;
         osd = kind;
         osdTimer.interval = kind === "notif" ? Theme.notifMs
@@ -276,9 +278,8 @@ PanelWindow {
     SystemClock { id: clock; precision: SystemClock.Seconds }
 
     // ───────── Размеры ─────────
-    // Симметричная ширина свёрнутого Notch, чтобы часы всегда были строго по центру
-    readonly property real sideWingW: Math.max(wsCompact.implicitWidth, rightCompact.implicitWidth)
-    readonly property real compactW: clockText.implicitWidth + 2 * sideWingW + Theme.px(21) * 2
+    // Равномерная ширина свёрнутого Notch с гармоничными отступами без пустот
+    readonly property real compactW: wsCompact.implicitWidth + clockText.implicitWidth + rightCompact.implicitWidth + Theme.px(11) * 2 + Theme.px(16) * 2
     readonly property real layoutOsdW: Math.max(compactW, layoutOsdRow.implicitWidth + Theme.px(32))
     readonly property real dashW: Math.max(Theme.px(520),
                                   Math.max(topRow.implicitWidth, dockBar.implicitWidth) + Theme.px(36))
@@ -352,7 +353,7 @@ PanelWindow {
             id: notchHover
             onHoveredChanged: {
                 if (hovered) collapseTimer.stop();
-                else if (win.mode === "dashboard") collapseTimer.restart();
+                else if (win.mode === "dashboard" && IslandPrefs.autoCollapse) collapseTimer.restart();
             }
         }
 
@@ -432,7 +433,7 @@ PanelWindow {
                 case Qt.Key_C: win.openPanel("calendar"); event.accepted = true; break;
                 case Qt.Key_W: win.openPanel("weather"); event.accepted = true; break;
                 case Qt.Key_M:
-                    if (win.mode === "dashboard") { win.openPanel("media"); event.accepted = true; }
+                    if (win.mode === "dashboard") { win.openPanel("mixer"); event.accepted = true; }
                     break;
                 case Qt.Key_BracketLeft:
                     wsCompact.go(wsCompact.activeId - 1);
@@ -443,8 +444,8 @@ PanelWindow {
                     event.accepted = true;
                     break;
                 case Qt.Key_Space:
-                    if (win.mode === "dashboard" || win.panel === "media") {
-                        if (Media.player && Media.player.canTogglePlaying) Media.player.togglePlaying();
+                    if (win.mode === "dashboard" || win.panel === "media" || win.panel === "mixer") {
+                        if (Media.player) Media.togglePlay();
                         else win.openPanel("launcher");
                         event.accepted = true;
                     }
@@ -498,35 +499,32 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
 
-                Item {
-                    anchors.fill: parent
-                    anchors.leftMargin: Theme.px(16)
-                    anchors.rightMargin: Theme.px(16)
+                Row {
+                    anchors.centerIn: parent
+                    spacing: Theme.px(11)
                     scale: notch.compactHovered ? 1.04 : 1.0
                     Behavior on scale { Spring { epsilon: 0.002 } }
 
-                    // Левое крыло: вертикальные капсулы рабочих столов с мягким свечением
+                    // Левая часть: вертикальные капсулы рабочих столов
                     Workspaces {
                         id: wsCompact
                         monitor: win.monitor
-                        anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
-                    // Строго по центру: плавно перелистывающиеся часы в стиле Apple
+                    // Центр: перелистывающиеся часы
                     RollingClock {
                         id: clockText
-                        anchors.centerIn: parent
-                        timeString: Qt.formatTime(clock.date, "HH:mm")
+                        anchors.verticalCenter: parent.verticalCenter
+                        timeString: Qt.formatTime(clock.date, IslandPrefs.showSeconds ? "HH:mm:ss" : "HH:mm")
                         fontSize: Theme.px(14)
                         fontWeight: Font.DemiBold
                         textColor: Theme.text
                     }
 
-                    // Правое крыло: живые активности + погода + раскладка
+                    // Правая часть: живые активности + виджет + раскладка
                     Row {
                         id: rightCompact
-                        anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: Theme.px(7)
 
@@ -615,6 +613,7 @@ PanelWindow {
                             TapHandler { onTapped: win.openPanel("timer") }
                         }
 
+
                         // непрочитанные уведомления / не беспокоить
                         Icon {
                             visible: Notifs.dnd
@@ -630,17 +629,22 @@ PanelWindow {
                             color: Theme.accent
                         }
 
-                        // Полезный десктопный виджет вместо иконки сети: текущая погода (клик → прогноз погоды)
+                        // Настраиваемый виджет чёлки (Погода / ЦП / Сеть / Выкл)
                         Row {
+                            visible: IslandPrefs.compactWidget !== "none"
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: Theme.px(3)
+
+                            // 1. Погода
                             Icon {
+                                visible: IslandPrefs.compactWidget === "weather"
                                 anchors.verticalCenter: parent.verticalCenter
                                 name: Weather.ready ? Weather.icon : "thermostat"
                                 size: Theme.px(13)
                                 color: Weather.ready ? Theme.yellow : Theme.blue
                             }
                             Text {
+                                visible: IslandPrefs.compactWidget === "weather"
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: Weather.ready && !isNaN(Weather.temp)
                                       ? (Math.round(Weather.temp) + "°")
@@ -651,8 +655,50 @@ PanelWindow {
                                 font.weight: Font.DemiBold
                                 font.features: { "tnum": 1 }
                             }
+
+                            // 2. ЦП и температура
+                            Icon {
+                                visible: IslandPrefs.compactWidget === "cpu"
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: "memory"
+                                size: Theme.px(13)
+                                color: Theme.text2
+                            }
+                            Text {
+                                visible: IslandPrefs.compactWidget === "cpu"
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: Math.round(SysInfo.cpu * 100) + "%" + (SysInfo.cpuTemp > 0 ? " · " + SysInfo.cpuTemp + "°" : "")
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(12)
+                                font.weight: Font.DemiBold
+                                font.features: { "tnum": 1 }
+                            }
+
+                            // 3. Сеть (LAN загрузка)
+                            Icon {
+                                visible: IslandPrefs.compactWidget === "net"
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: "swap_vert"
+                                size: Theme.px(13)
+                                color: Theme.accent
+                            }
+                            Text {
+                                visible: IslandPrefs.compactWidget === "net"
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: SysInfo.netDown
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(12)
+                                font.weight: Font.DemiBold
+                                font.features: { "tnum": 1 }
+                            }
+
                             TapHandler {
-                                onTapped: win.openPanel(Weather.ready ? "weather" : "sysmon")
+                                onTapped: {
+                                    if (IslandPrefs.compactWidget === "weather" && Weather.ready) win.openPanel("weather");
+                                    else win.openPanel("sysmon");
+                                }
                             }
                         }
 
@@ -885,7 +931,7 @@ PanelWindow {
 
                                 RollingClock {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    timeString: Qt.formatTime(clock.date, "HH:mm")
+                                    timeString: Qt.formatTime(clock.date, IslandPrefs.showSeconds ? "HH:mm:ss" : "HH:mm")
                                     fontSize: Theme.px(17)
                                     fontWeight: Font.Bold
                                     textColor: Theme.text
@@ -952,64 +998,6 @@ PanelWindow {
                             }
                         }
 
-                        // сейчас играет → медиа [M] (ПКМ / СКМ — пауза, колесо — громкость)
-                        Rectangle {
-                            visible: Media.player !== null
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: medRow.implicitWidth + Theme.px(14)
-                            height: Theme.px(32)
-                            radius: Theme.px(10)
-                            color: medMa.containsMouse ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(1, 1, 1, 0.05)
-                            scale: medMa.pressed ? 0.94 : (medMa.containsMouse ? 1.02 : 1.0)
-                            Behavior on scale { Spring { epsilon: 0.002 } }
-
-                            Row {
-                                id: medRow
-                                anchors.centerIn: parent
-                                spacing: Theme.px(6)
-                                ClippingRectangle {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: Theme.px(20); height: width
-                                    radius: Theme.px(5)
-                                    color: Theme.pink
-                                    Icon { anchors.centerIn: parent; name: "music_note"; size: Theme.px(12) }
-                                    Image {
-                                        anchors.fill: parent
-                                        source: Media.player?.trackArtUrl ?? ""
-                                        fillMode: Image.PreserveAspectCrop
-                                        sourceSize: Qt.size(64, 64)
-                                        visible: status === Image.Ready
-                                    }
-                                }
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: Math.min(implicitWidth, Theme.px(100))
-                                    elide: Text.ElideRight
-                                    text: Media.player?.trackTitle || Media.player?.identity || ""
-                                    color: Theme.text
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(12)
-                                    font.weight: Font.Medium
-                                }
-                            }
-                            MouseArea {
-                                id: medMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: mouse => {
-                                    if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton) {
-                                        if (Media.player && Media.player.canTogglePlaying) Media.player.togglePlaying();
-                                    } else {
-                                        win.openPanel("media");
-                                    }
-                                }
-                                onWheel: w => {
-                                    Audio.step(w.angleDelta.y > 0 ? 0.03 : -0.03);
-                                }
-                            }
-                        }
 
                         // быстрый индикатор раскладки
                         Rectangle {
@@ -1065,7 +1053,7 @@ PanelWindow {
                                         anchors.centerIn: parent
                                         implicitSize: Theme.px(17)
                                         source: {
-                                            const ic = trayBtn.modelData?.icon || "";
+                                            const ic = (trayBtn.modelData && trayBtn.modelData.icon) ? trayBtn.modelData.icon : "";
                                             if (!ic) return Quickshell.iconPath("application-x-executable");
                                             if (ic.indexOf("?path=") >= 0 || ic.indexOf("/") >= 0 || ic.indexOf("image://") === 0) return ic;
                                             return Quickshell.iconPath(ic, "application-x-executable");
@@ -1135,7 +1123,7 @@ PanelWindow {
                                     required property var modelData
                                     anchors.verticalCenter: parent.verticalCenter
                                     icon: modelData.key === "notifications" && Notifs.dnd ? "notifications_off"
-                                        : modelData.key === "mixer" && Audio.muted ? "volume_off"
+                                        : modelData.key === "mixer" ? Audio.icon
                                         : modelData.icon
                                     active: win.panel === modelData.key
                                     badge: (modelData.key === "notifications" && Notifs.unread > 0 && !Notifs.dnd)

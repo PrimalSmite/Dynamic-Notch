@@ -25,6 +25,9 @@ Singleton {
 
     readonly property string outDir: Quickshell.env("HOME") + "/Videos/Recordings"
 
+    property string quality: "ultra"     // "ultra" | "very_high"
+    property string codec: "auto"        // "auto" | "hevc" | "h264"
+
     function start(monitorName) {
         if (recording) return;
         const ts = Qt.formatDateTime(new Date(), "yyyy-MM-dd_HH-mm-ss");
@@ -38,14 +41,15 @@ Singleton {
 
         const cursorArg = showCursor ? "-cursor yes" : "-cursor no";
         const mon = monitorName || "screen";
+        const qualArgs = "-q " + quality + " -tune quality -k " + codec;
 
         let cmd = "";
         if (target === "region") {
-            cmd = "mkdir -p '" + outDir + "' && REG=$(slurp) && [ -n \"$REG\" ] && exec gpu-screen-recorder -w region -region \"$REG\" -f "
-                + fps + " " + cursorArg + " " + audioArgs + " -o '" + out + "'";
+            cmd = "mkdir -p '" + outDir + "' && sleep 0.25 && REG=$(slurp -f '%wx%h+%x+%y') && [ -n \"$REG\" ] && exec gpu-screen-recorder -w \"$REG\" -f "
+                + fps + " " + qualArgs + " " + cursorArg + " " + audioArgs + " -o '" + out + "'";
         } else {
             cmd = "mkdir -p '" + outDir + "' && exec gpu-screen-recorder -w " + mon + " -f "
-                + fps + " " + cursorArg + " " + audioArgs + " -o '" + out + "'";
+                + fps + " " + qualArgs + " " + cursorArg + " " + audioArgs + " -o '" + out + "'";
         }
 
         elapsed = 0;

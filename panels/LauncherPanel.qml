@@ -283,17 +283,19 @@ Item {
             readonly property bool focusedCard: root.selectedIndex === -1
             readonly property bool justCopied: Calculator.lastCopied !== "" && Calculator.lastCopied === root.calcResult.formatted
 
-            color: focusedCard
-                   ? Qt.rgba(Theme.orange.r, Theme.orange.g, Theme.orange.b, 0.14)
-                   : Qt.rgba(1, 1, 1, 0.06)
+            color: justCopied
+                   ? Qt.rgba(Theme.ok.r, Theme.ok.g, Theme.ok.b, 0.22)
+                   : (focusedCard
+                      ? Qt.rgba(Theme.orange.r, Theme.orange.g, Theme.orange.b, 0.14)
+                      : Qt.rgba(1, 1, 1, 0.06))
             border.width: 1
             border.color: justCopied
-                          ? Qt.rgba(Theme.green.r, Theme.green.g, Theme.green.b, 0.55)
+                          ? Qt.rgba(Theme.ok.r, Theme.ok.g, Theme.ok.b, 0.65)
                           : (focusedCard
                              ? Qt.rgba(Theme.orange.r, Theme.orange.g, Theme.orange.b, 0.45)
                              : Qt.rgba(1, 1, 1, 0.1))
-            Behavior on color { ColorAnimation { duration: 140 } }
-            Behavior on border.color { ColorAnimation { duration: 140 } }
+            Behavior on color { ColorAnimation { duration: 160 } }
+            Behavior on border.color { ColorAnimation { duration: 160 } }
 
             // Левая акцентная капсула
             Rectangle {
@@ -303,7 +305,7 @@ Item {
                 width: Theme.px(3)
                 height: calcCard.focusedCard ? Theme.px(34) : Theme.px(16)
                 radius: width / 2
-                color: calcCard.justCopied ? Theme.green : Theme.orange
+                color: calcCard.justCopied ? Theme.ok : Theme.orange
                 Behavior on height { Spring {} }
                 Behavior on color { ColorAnimation { duration: 140 } }
             }
