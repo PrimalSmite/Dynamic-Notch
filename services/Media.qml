@@ -16,13 +16,12 @@ Singleton {
     property string trackArtist: ""
     property string trackArtUrl: ""
 
-    // Периодическая синхронизация для надёжного отслеживания появления/исчезновения плееров и смены треков
+    // Периодическая синхронизация позиции трека во время воспроизведения
     Timer {
         id: pollTimer
-        interval: 500
-        running: true
+        interval: 1000
+        running: root.playing
         repeat: true
-        triggeredOnStart: true
         onTriggered: root.sync()
     }
 

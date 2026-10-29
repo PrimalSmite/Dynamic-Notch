@@ -140,6 +140,8 @@ Item {
                         id: sparkCanvas
                         width: parent.width
                         height: parent.height - Theme.px(22)
+                        renderTarget: Canvas.FramebufferObject
+                        renderStrategy: Canvas.Threaded
                         onPaint: {
                             const ctx = getContext("2d");
                             ctx.clearRect(0, 0, width, height);

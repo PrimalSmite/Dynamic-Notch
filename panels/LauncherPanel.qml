@@ -47,34 +47,44 @@ Item {
         onTriggered: searchInput.forceActiveFocus()
     }
 
+    readonly property var defaultSortedApps: {
+        const all = Apps.allEntries.slice();
+        all.sort((a, b) => {
+            const sa = Apps.score(a);
+            const sb = Apps.score(b);
+            if (sb !== sa) return sb - sa;
+            return (a.name || "").localeCompare(b.name || "");
+        });
+        return all;
+    }
+
     readonly property var filtered: {
         const q = query.trim().toLowerCase();
-        const all = Apps.allEntries.slice();
-        let res = [];
-        if (q === "") {
-            res = all;
-            res.sort((a, b) => {
-                const sa = Apps.score(a);
-                const sb = Apps.score(b);
-                if (sb !== sa) return sb - sa;
-                return (a.name || "").localeCompare(b.name || "");
-            });
-        } else {
-            for (const e of all) {
-                const name = (e.name || "").toLowerCase();
-                const gen = (e.genericName || "").toLowerCase();
-                const id = (e.id || "").toLowerCase();
-                if (name.indexOf(q) >= 0 || gen.indexOf(q) >= 0 || id.indexOf(q) >= 0)
-                    res.push(e);
+        if (q === "") return defaultSortedApps.slice(0, 40);
+
+        const all = Apps.allEntries;
+        const matches = [];
+        for (let i = 0; i < all.length; i++) {
+            const e = all[i];
+            const name = (e.name || "").toLowerCase();
+            const gen = (e.genericName || "").toLowerCase();
+            const id = (e.id || "").toLowerCase();
+            if (name.indexOf(q) >= 0 || gen.indexOf(q) >= 0 || id.indexOf(q) >= 0) {
+                matches.push({
+                    entry: e,
+                    starts: name.startsWith(q) ? 1 : 0,
+                    score: Apps.score(e)
+                });
             }
-            res.sort((a, b) => {
-                const na = (a.name || "").toLowerCase().startsWith(q) ? 1 : 0;
-                const nb = (b.name || "").toLowerCase().startsWith(q) ? 1 : 0;
-                if (nb !== na) return nb - na;
-                return Apps.score(b) - Apps.score(a);
-            });
         }
-        return res.slice(0, 40);
+        matches.sort((a, b) => {
+            if (b.starts !== a.starts) return b.starts - a.starts;
+            return b.score - a.score;
+        });
+        const res = [];
+        const limit = Math.min(40, matches.length);
+        for (let i = 0; i < limit; i++) res.push(matches[i].entry);
+        return res;
     }
 
     function triggerPrimaryAction() {

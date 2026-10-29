@@ -50,6 +50,8 @@ Singleton {
         return (kb / 1024).toFixed(1) + " МБ/с";
     }
 
+    property int _uptimeCounter: 0
+
     function update() {
         statF.reload();
         const f = statF.text().split("\n")[0].trim().split(/\s+/).slice(1).map(Number);
@@ -59,9 +61,11 @@ Singleton {
             const dt = total - _prevTotal;
             if (_prevTotal > 0 && dt > 0) {
                 cpu = Math.max(0, Math.min(1, 1 - (idle - _prevIdle) / dt));
-                const hist = cpuHistory.slice(1);
-                hist.push(cpu);
-                cpuHistory = hist;
+                if (root.activeClients > 0) {
+                    const hist = cpuHistory.slice(1);
+                    hist.push(cpu);
+                    cpuHistory = hist;
+                }
             }
             _prevTotal = total;
             _prevIdle = idle;
@@ -69,17 +73,21 @@ Singleton {
 
         memF.reload();
         const m = memF.text();
-        const get = k => {
-            const r = new RegExp("^" + k + ":\\s+(\\d+)", "m").exec(m);
-            return r ? Number(r[1]) : 0;
-        };
-        const total = get("MemTotal"), avail = get("MemAvailable");
+        let total = 0, avail = 0, stotal = 0, sfree = 0;
+        const mlines = m.split("\n");
+        for (let i = 0; i < mlines.length; i++) {
+            const ln = mlines[i];
+            if (ln.startsWith("MemTotal:")) total = parseInt(ln.slice(9).trim(), 10) || 0;
+            else if (ln.startsWith("MemAvailable:")) avail = parseInt(ln.slice(13).trim(), 10) || 0;
+            else if (ln.startsWith("SwapTotal:")) stotal = parseInt(ln.slice(10).trim(), 10) || 0;
+            else if (ln.startsWith("SwapFree:")) sfree = parseInt(ln.slice(9).trim(), 10) || 0;
+            if (total > 0 && avail > 0 && stotal > 0 && sfree > 0) break;
+        }
         if (total > 0) {
             mem = (total - avail) / total;
             memUsedGb = (total - avail) / 1048576;
             memTotalGb = total / 1048576;
         }
-        const stotal = get("SwapTotal"), sfree = get("SwapFree");
         if (stotal > 0) {
             swap = (stotal - sfree) / stotal;
             swapUsedGb = (stotal - sfree) / 1048576;
@@ -103,12 +111,16 @@ Singleton {
         _prevRx = rx;
         _prevTx = tx;
 
-        upF.reload();
-        const upSec = parseFloat(upF.text().split(" ")[0]) || 0;
-        const d = Math.floor(upSec / 86400);
-        const h = Math.floor((upSec % 86400) / 3600);
-        const mn = Math.floor((upSec % 3600) / 60);
-        uptime = (d > 0 ? d + "д " : "") + (h > 0 ? h + "ч " : "") + mn + "м";
+        // Аптайм меняется с точностью до минут, обновляем раз в 30 секунд (15 тиков по 2с)
+        if (++_uptimeCounter >= 15 || uptime === "") {
+            _uptimeCounter = 0;
+            upF.reload();
+            const upSec = parseFloat(upF.text().split(" ")[0]) || 0;
+            const d = Math.floor(upSec / 86400);
+            const h = Math.floor((upSec % 86400) / 3600);
+            const mn = Math.floor((upSec % 3600) / 60);
+            uptime = (d > 0 ? d + "д " : "") + (h > 0 ? h + "ч " : "") + mn + "м";
+        }
 
         if (_tempPath !== "") {
             tempF.reload();

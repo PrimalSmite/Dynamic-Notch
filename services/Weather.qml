@@ -94,7 +94,7 @@ Singleton {
                             if (d.hourly.time[i] >= nowIso) { startIdx = i; break; }
                         }
                         const hrs = [];
-                        for (let i = startIdx; i < Math.min(startIdx + 10, d.hourly.time.length); i++) {
+                        for (let i = startIdx; i < Math.min(startIdx + 7, d.hourly.time.length); i++) {
                             const tStr = d.hourly.time[i].split("T")[1] || "00:00";
                             const hi = root.codeInfo(d.hourly.weather_code[i], d.hourly.is_day ? d.hourly.is_day[i] === 1 : true);
                             hrs.push({

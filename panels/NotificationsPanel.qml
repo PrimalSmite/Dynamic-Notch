@@ -182,6 +182,8 @@ Item {
                         Image {
                             anchors.fill: parent
                             fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            sourceSize: Qt.size(Theme.px(80), Theme.px(80))
                             source: {
                                 const n = card.modelData;
                                 if (n.image) return n.image;

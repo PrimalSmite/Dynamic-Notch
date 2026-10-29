@@ -22,7 +22,7 @@ Item {
     readonly property bool hovered: ma.containsMouse
 
     scale: ma.pressed ? 0.90 : ma.containsMouse ? 1.05 : 1.0
-    Behavior on scale { Spring { epsilon: 0.002 } }
+    Behavior on scale { Spring { epsilon: 0.01 } }
 
     Rectangle {
         anchors.fill: parent
@@ -42,7 +42,7 @@ Item {
         opacity: root.active || ma.containsMouse ? 1 : 0.76
         scale: ma.pressed ? 0.88 : ma.containsMouse ? 1.06 : 1.0
         Behavior on opacity { NumberAnimation { duration: 140 } }
-        Behavior on scale { Spring { epsilon: 0.002 } }
+        Behavior on scale { Spring { epsilon: 0.01 } }
     }
 
     Rectangle {

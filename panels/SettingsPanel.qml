@@ -25,7 +25,6 @@ Item {
     property int nightTemp: 4200
     property bool keepAwake: false
     property bool gameMode: false
-    property bool micMuted: false
     property real brightness: 0.8
 
     // Проводная сеть (LAN)

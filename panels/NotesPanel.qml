@@ -13,6 +13,7 @@ Item {
     property var notes: []              // [{ name: "note.md", title: "note", path: "..." }]
     property string currentTitle: "Заметка"
     property string currentPath: ""
+    property bool _loadingContent: false
 
     implicitWidth: Theme.px(560)
     implicitHeight: row.implicitHeight
@@ -96,7 +97,9 @@ Item {
         id: readProc
         stdout: StdioCollector {
             onStreamFinished: {
+                root._loadingContent = true;
                 editor.text = text;
+                root._loadingContent = false;
             }
         }
     }
@@ -268,7 +271,10 @@ Item {
                         font.pixelSize: Theme.px(13)
                         selectionColor: Theme.blue
                         wrapMode: TextEdit.Wrap
-                        onTextChanged: saveDebounce.restart()
+                        onTextChanged: {
+                            if (!root._loadingContent)
+                                saveDebounce.restart();
+                        }
 
                         Text {
                             visible: editor.text.length === 0

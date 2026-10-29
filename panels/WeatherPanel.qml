@@ -95,7 +95,7 @@ Item {
                     width: parent.width - Theme.px(20)
 
                     Repeater {
-                        model: Weather.hourly.slice(0, 7)
+                        model: Weather.hourly
                         Column {
                             required property var modelData
                             width: (hourlyCard.width - Theme.px(20)) / 7

@@ -54,6 +54,7 @@ ShellRoot {
                 anchors.fill: parent
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
+                sourceSize: modelData ? Qt.size(modelData.width, modelData.height) : undefined
             }
 
             Image {
@@ -61,6 +62,7 @@ ShellRoot {
                 anchors.fill: parent
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
+                sourceSize: modelData ? Qt.size(modelData.width, modelData.height) : undefined
                 opacity: 0
                 scale: 1.03
 
@@ -89,6 +91,8 @@ ShellRoot {
                     }
                     onFinished: {
                         backImg.source = frontImg.source;
+                        frontImg.source = "";
+                        frontImg.opacity = 0;
                     }
                 }
             }

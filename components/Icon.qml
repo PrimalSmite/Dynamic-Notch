@@ -11,5 +11,5 @@ Text {
     font.pixelSize: size
     verticalAlignment: Text.AlignVCenter
     horizontalAlignment: Text.AlignHCenter
-    renderType: Text.NativeRendering
+    renderType: Text.QtRendering
 }

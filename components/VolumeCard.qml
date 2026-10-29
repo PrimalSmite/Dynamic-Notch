@@ -62,7 +62,7 @@ Rectangle {
                 color: Audio.muted ? Theme.alert : Qt.rgba(1, 1, 1, 0.10)
                 scale: muteMa.pressed ? 0.90 : (muteMa.containsMouse ? 1.04 : 1.0)
                 Behavior on color { ColorAnimation { duration: 160 } }
-                Behavior on scale { Spring { epsilon: 0.002 } }
+                Behavior on scale { Spring { epsilon: 0.01 } }
 
                 Icon {
                     anchors.centerIn: parent
@@ -153,7 +153,7 @@ Rectangle {
                         color: current ? Theme.text : Qt.rgba(1, 1, 1, 0.08)
                         scale: chipMa.pressed ? 0.92 : 1.0
                         Behavior on color { ColorAnimation { duration: 160 } }
-                        Behavior on scale { Spring { epsilon: 0.002 } }
+                        Behavior on scale { Spring { epsilon: 0.01 } }
 
                         Row {
                             id: chipRow

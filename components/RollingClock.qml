@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import qs.services
 
 // Часы с посимвольной плавной iOS-анимацией перелистывания цифр при смене времени.
@@ -112,7 +111,7 @@ Row {
                     to: 0
                     spring: Theme.springK
                     damping: Theme.springDamp
-                    epsilon: 0.005
+                    epsilon: 0.02
                 }
                 NumberAnimation {
                     target: newTxt
@@ -129,7 +128,7 @@ Row {
                     to: 1.0
                     spring: Theme.springK
                     damping: Theme.springDamp
-                    epsilon: 0.005
+                    epsilon: 0.02
                 }
             }
         }

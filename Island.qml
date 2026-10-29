@@ -835,6 +835,7 @@ PanelWindow {
                             id: notifImg
                             anchors.fill: parent
                             fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
                             sourceSize: Qt.size(width * 2, height * 2)
                             source: {
                                 const n = win.notif;

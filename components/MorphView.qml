@@ -13,6 +13,7 @@ Item {
     property real offsetY: shown ? 0 : hiddenY
 
     enabled: shown
+    visible: shown || opacity > 0.001
     opacity: shown ? 1 : 0
     scale: shown ? 1 : hiddenScale
     transform: Translate { y: v.offsetY }
@@ -26,7 +27,7 @@ Item {
             }
         }
     }
-    Behavior on scale { Spring { epsilon: 0.002 } }
+    Behavior on scale { Spring { epsilon: 0.01 } }
     Behavior on offsetY { Spring { epsilon: 0.05 } }
 
     // размытие включаем только во время перехода — в покое слой не нужен
