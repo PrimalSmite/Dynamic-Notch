@@ -103,4 +103,8 @@ ShellRoot {
         model: Quickshell.screens
         Island {}
     }
+
+    Component.onCompleted: {
+        void Clipboard.count;
+    }
 }

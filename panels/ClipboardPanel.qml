@@ -1,81 +1,80 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import qs.services
 import qs.components
 
-// Панель истории буфера обмена (cliphist + wl-copy).
+// Панель истории буфера обмена (cliphist + wl-copy) с поддержкой текста и превью изображений.
 Item {
     id: root
     property var host: null
     property bool wantsKeyboard: true
     property bool wantsTextInput: true
-    property var items: []          // [{ raw: "123\ttext", id: "123", text: "text", isImg: false }]
     property string query: ""
     property int selectedIndex: 0
 
     implicitWidth: Theme.px(440)
     implicitHeight: col.implicitHeight
 
+    readonly property var results: {
+        var all = Clipboard.entries;
+        var q = query.trim().toLowerCase();
+        if (!q.length)
+            return all;
+        var out = [];
+        for (var i = 0; i < all.length; i++) {
+            if (all[i].lower.indexOf(q) !== -1)
+                out.push(all[i]);
+        }
+        return out;
+    }
+
     function focusInput() {
         searchInput.forceActiveFocus();
     }
 
-    function reload() {
-        listProc.running = false;
-        listProc.running = true;
-    }
-
-    onVisibleChanged: {
-        if (visible) {
-            reload();
-            searchInput.text = "";
-            selectedIndex = 0;
-            searchInput.forceActiveFocus();
-        }
-    }
-
-    Process {
-        id: listProc
-        running: false
-        command: ["sh", "-c", "cliphist list 2>/dev/null | head -n 60"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const lines = text.split("\n").filter(s => s.length > 0);
-                const parsed = [];
-                for (const ln of lines) {
-                    const tab = ln.indexOf("\t");
-                    const id = tab >= 0 ? ln.slice(0, tab) : "";
-                    const body = tab >= 0 ? ln.slice(tab + 1) : ln;
-                    const isImg = body.indexOf("[[ binary data") === 0;
-                    parsed.push({ raw: ln, id: id, text: body, lower: body.toLowerCase(), isImg: isImg });
-                }
-                root.items = parsed;
-            }
-        }
-    }
-
-    readonly property var filtered: {
-        const q = query.trim().toLowerCase();
-        if (!q) return items;
-        return items.filter(it => it.lower.indexOf(q) >= 0);
-    }
-
     function copyItem(it) {
         if (!it) return;
-        Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" | cliphist decode | wl-copy", "_", it.raw]);
+        Clipboard.copy(it);
         if (host) host.collapse();
     }
 
     function deleteItem(it) {
         if (!it) return;
-        Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" | cliphist delete", "_", it.raw]);
-        items = items.filter(x => x.id !== it.id);
+        Clipboard.remove(it);
     }
 
     function wipeAll() {
-        Quickshell.execDetached(["cliphist", "wipe"]);
-        items = [];
+        Clipboard.wipe();
+    }
+
+    onVisibleChanged: {
+        Clipboard.surfaceOpen = visible;
+        if (visible) {
+            query = "";
+            searchInput.text = "";
+            selectedIndex = 0;
+            if (Clipboard.dirty)
+                Clipboard.refresh();
+            focusTimer.restart();
+        }
+    }
+
+    Component.onCompleted: {
+        Clipboard.surfaceOpen = true;
+        if (Clipboard.dirty)
+            Clipboard.refresh();
+        focusTimer.restart();
+    }
+
+    Timer {
+        id: focusTimer
+        interval: 35
+        onTriggered: searchInput.forceActiveFocus()
+    }
+
+    onResultsChanged: {
+        if (selectedIndex >= results.length)
+            selectedIndex = Math.max(0, results.length - 1);
     }
 
     Column {
@@ -118,14 +117,14 @@ Item {
                     clip: true
                     focus: true
                     onTextChanged: { root.query = text; root.selectedIndex = 0; }
-                    Keys.onReturnPressed: if (root.filtered.length > 0) root.copyItem(root.filtered[root.selectedIndex])
-                    Keys.onEnterPressed: if (root.filtered.length > 0) root.copyItem(root.filtered[root.selectedIndex])
-                    Keys.onDownPressed: root.selectedIndex = Math.min(root.filtered.length - 1, root.selectedIndex + 1)
+                    Keys.onReturnPressed: if (root.results.length > 0) root.copyItem(root.results[root.selectedIndex])
+                    Keys.onEnterPressed: if (root.results.length > 0) root.copyItem(root.results[root.selectedIndex])
+                    Keys.onDownPressed: root.selectedIndex = Math.min(root.results.length - 1, root.selectedIndex + 1)
                     Keys.onUpPressed: root.selectedIndex = Math.max(0, root.selectedIndex - 1)
 
                     Text {
                         visible: searchInput.text.length === 0
-                        text: "Поиск в буфере обмена... (" + root.items.length + " записей)"
+                        text: "Поиск в буфере обмена... (" + (root.results.length === Clipboard.count ? Clipboard.count : root.results.length + " / " + Clipboard.count) + " записей)"
                         color: Theme.text3
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(13)
@@ -164,14 +163,14 @@ Item {
 
         // Пустое состояние
         Rectangle {
-            visible: root.filtered.length === 0
+            visible: root.results.length === 0
             width: parent.width
             height: Theme.px(100)
             radius: Theme.px(18)
             color: Theme.card
             Text {
                 anchors.centerIn: parent
-                text: "Буфер обмена пуст"
+                text: Clipboard.count === 0 ? "Буфер обмена пуст" : "Ничего не найдено"
                 color: Theme.text2
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.px(13)
@@ -180,46 +179,83 @@ Item {
 
         // Список
         ListView {
-            visible: root.filtered.length > 0
+            id: list
+            visible: root.results.length > 0
             width: parent.width
-            height: Math.min(Theme.px(280), contentHeight)
+            height: Math.min(Theme.px(300), contentHeight)
             spacing: Theme.px(6)
             clip: true
-            model: root.filtered
+            model: root.results
 
             delegate: Rectangle {
                 id: cRow
                 required property var modelData
                 required property int index
                 width: ListView.view.width
-                height: Theme.px(42)
+                height: cRow.modelData.isImage ? Theme.px(48) : Theme.px(42)
                 radius: Theme.px(12)
                 color: index === root.selectedIndex || rMa.containsMouse ? Theme.cardHover : Theme.card
 
                 Row {
                     anchors.fill: parent
-                    anchors.leftMargin: Theme.px(14)
+                    anchors.leftMargin: Theme.px(12)
                     anchors.rightMargin: Theme.px(10)
                     spacing: Theme.px(10)
 
+                    // Превью изображения или иконка
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: cRow.modelData.isImage
+                        width: visible ? Theme.px(48) : 0
+                        height: Theme.px(32)
+                        radius: Theme.px(6)
+                        color: Theme.card
+                        clip: true
+
+                        Image {
+                            anchors.fill: parent
+                            source: cRow.modelData.thumb ? "file://" + cRow.modelData.thumb : ""
+                            sourceSize.width: 128
+                            sourceSize.height: 128
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            smooth: true
+                        }
+                    }
+
                     Icon {
                         anchors.verticalCenter: parent.verticalCenter
-                        name: cRow.modelData.isImg ? "image" : "content_copy"
+                        visible: !cRow.modelData.isImage
+                        name: "content_copy"
                         size: Theme.px(16)
-                        color: cRow.modelData.isImg ? Theme.purple : Theme.text2
+                        color: Theme.text2
                     }
 
+                    // Текст / Описание
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - Theme.px(64)
+                        width: parent.width - (cRow.modelData.isImage ? Theme.px(48 + 10) : Theme.px(16 + 10)) - (sizeLabelText.visible ? sizeLabelText.implicitWidth + Theme.px(10) : 0) - Theme.px(30)
                         elide: Text.ElideRight
                         maximumLineCount: 1
-                        text: cRow.modelData.text
+                        text: cRow.modelData.isImage ? cRow.modelData.label : cRow.modelData.text
                         color: Theme.text
-                        font.family: cRow.modelData.isImg ? Theme.fontFamily : Theme.monoFamily
+                        font.family: cRow.modelData.isImage ? Theme.fontFamily : Theme.monoFamily
                         font.pixelSize: Theme.px(12)
+                        font.weight: index === root.selectedIndex ? Font.DemiBold : Font.Normal
                     }
 
+                    // Размер для картинок
+                    Text {
+                        id: sizeLabelText
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: cRow.modelData.isImage && cRow.modelData.sizeLabel.length > 0
+                        text: cRow.modelData.sizeLabel
+                        color: Theme.text3
+                        font.family: Theme.monoFamily
+                        font.pixelSize: Theme.px(11)
+                    }
+
+                    // Кнопка удаления
                     Item {
                         anchors.verticalCenter: parent.verticalCenter
                         width: Theme.px(24); height: width
