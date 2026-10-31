@@ -26,13 +26,13 @@ PanelWindow {
     implicitHeight: modelData ? modelData.height : Theme.px(1080)
     color: "transparent"
 
-    exclusiveZone: Theme.compactH
+    exclusiveZone: win.isGameActive ? 0 : Theme.compactH
     WlrLayershell.namespace: "dynamic-island"
-    WlrLayershell.layer: WlrLayer.Top
+    WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: (mode === "dashboard" || mode === "panel")
                                  ? WlrKeyboardFocus.Exclusive
                                  : WlrKeyboardFocus.None
-    mask: Region { item: (win.mode === "dashboard" || win.mode === "panel") ? outsideCatcher : notch }
+    mask: Region { item: win.notchHidden ? null : ((win.mode === "dashboard" || win.mode === "panel") ? outsideCatcher : notch) }
 
     // Инициализируем менеджер HyprlandFocusGrab заранее, чтобы первый захват не терялся
     Timer {
@@ -70,6 +70,46 @@ PanelWindow {
     }
 
     // ───────── Состояние ─────────
+    property int gameCheckTick: 0
+
+    // Определение активности игры или полноэкранного режима на этом мониторе
+    readonly property bool isGameActive: {
+        void gameCheckTick;
+        if (!IslandPrefs.hideInGames) return false;
+
+        // 1. Полноэкранный режим на мониторе
+        if (win.monitor && win.monitor.activeWorkspace && win.monitor.activeWorkspace.hasFullscreen)
+            return true;
+        if (win.monitor && win.monitor.focused && Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.hasFullscreen)
+            return true;
+
+        // 2. Активное окно игры (по тегу game, классу или полноэкранному состоянию)
+        const top = Hyprland.activeToplevel;
+        if (top) {
+            const sameMon = !top.monitor || (win.monitor && top.monitor.id === win.monitor.id);
+            if (sameMon) {
+                const obj = top.lastIpcObject;
+                if (obj) {
+                    if (obj.fullscreen && obj.fullscreen !== 0) return true;
+                    if (obj.fullscreenClient && obj.fullscreenClient !== 0) return true;
+                    const tags = obj.tags;
+                    if (Array.isArray(tags) && tags.indexOf("game") !== -1) return true;
+                    const cls = (obj.class || top.class || "").toLowerCase();
+                    const initCls = (obj.initialClass || "").toLowerCase();
+                    if (cls.indexOf("steam_app_") === 0 || initCls.indexOf("steam_app_") === 0
+                        || cls === "gamescope" || initCls === "gamescope"
+                        || cls.indexOf("heroic") === 0 || cls.indexOf("lutris") === 0
+                        || cls.indexOf(".exe") !== -1 || initCls.indexOf(".exe") !== -1)
+                        return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Чёлка скрыта, если запущена игра/полный экран и нет активных плашек/панелей
+    readonly property bool notchHidden: isGameActive && mode === "compact"
+
     property bool expanded: false       // открыт ли сам дашборд
     property string panel: ""           // открытая отдельная панель ("" — нет панели)
     property string loadedPanel: ""     // держим содержимое во время анимации закрытия
@@ -196,6 +236,7 @@ PanelWindow {
     function showOsd(kind) {
         if ((mode !== "compact" && mode !== "osd") || !armed) return;
         if (monitor && !monitor.focused) return;
+        if (isGameActive && kind !== "notif" && !IslandPrefs.showOsdInGames) return;
         if (kind === "volume" && !IslandPrefs.showVolumeOsd) return;
         if (kind === "layout" && !IslandPrefs.showLayoutOsd) return;
         lastOsd = kind;
@@ -218,6 +259,16 @@ PanelWindow {
     Timer { id: collapseTimer; interval: 650; onTriggered: if (win.mode === "dashboard") win.collapse() }
     Timer { id: unloadTimer; interval: 300; onTriggered: if (win.panel === "") win.loadedPanel = "" }
 
+    Connections {
+        target: Hyprland
+        function onRawEvent(event) {
+            if (!event) return;
+            const ev = event.name;
+            if (ev === "fullscreen" || ev === "activewindow" || ev === "activewindowv2" || ev === "workspace" || ev === "focusedmon") {
+                win.gameCheckTick++;
+            }
+        }
+    }
     Connections {
         target: Audio
         function onVolumeChanged() { win.showOsd("volume"); }
@@ -307,9 +358,11 @@ PanelWindow {
         id: notch
 
         anchors.horizontalCenter: parent.horizontalCenter
-        y: 0
+        y: win.notchHidden ? (-bh - Theme.notchFillet - Theme.px(10)) : 0
         width: bw + 2 * Theme.notchFillet
         height: bh
+        opacity: win.notchHidden ? 0 : 1
+        visible: !win.notchHidden || opacity > 0.001
 
         readonly property bool compactHovered: notchHover.hovered && win.mode === "compact"
 
@@ -334,6 +387,8 @@ PanelWindow {
         Behavior on rad { Spring { epsilon: 0.2 } }
         Behavior on cw { Spring { epsilon: 0.5 } }
         Behavior on ch { Spring { epsilon: 0.5 } }
+        Behavior on y { Spring { epsilon: 0.5 } }
+        Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
 
         // Блокируем проваливание кликов по «ушкам» чёлки в outsideCatcher
         MouseArea {
@@ -351,6 +406,7 @@ PanelWindow {
 
         HoverHandler {
             id: notchHover
+            enabled: !win.notchHidden
             onHoveredChanged: {
                 if (hovered) collapseTimer.stop();
                 else if (win.mode === "dashboard" && IslandPrefs.autoCollapse) collapseTimer.restart();
@@ -471,6 +527,8 @@ PanelWindow {
                             win.openPanel("launcher");
                         } else if (win.mode === "dashboard") {
                             win.collapse();
+                        } else if (win.mode === "osd") {
+                            win.osd = "";
                         }
                         return;
                     }
@@ -490,7 +548,7 @@ PanelWindow {
             // ═════════ COMPACT (Часы строго по центру, капсулы столов слева, погода и раскладка справа) ═════════
             MorphView {
                 id: compactView
-                shown: win.mode === "compact"
+                shown: win.mode === "compact" && !win.notchHidden
                 hiddenScale: 0.85
                 hiddenY: -Theme.px(6)
                 transformOrigin: Item.Top

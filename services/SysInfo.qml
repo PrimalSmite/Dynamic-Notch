@@ -20,7 +20,7 @@ Singleton {
     property string uptime: ""
     property string netDown: "0 КБ/с"
     property string netUp: "0 КБ/с"
-    property var cpuHistory: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    property var cpuHistory: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     property var topProcs: []     // [{ pid, comm, cpu, mem }]
 
     property real _prevTotal: 0
@@ -61,11 +61,9 @@ Singleton {
             const dt = total - _prevTotal;
             if (_prevTotal > 0 && dt > 0) {
                 cpu = Math.max(0, Math.min(1, 1 - (idle - _prevIdle) / dt));
-                if (root.activeClients > 0) {
-                    const hist = cpuHistory.slice(1);
-                    hist.push(cpu);
-                    cpuHistory = hist;
-                }
+                const hist = cpuHistory.slice(1);
+                hist.push(cpu);
+                cpuHistory = hist;
             }
             _prevTotal = total;
             _prevIdle = idle;

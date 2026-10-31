@@ -15,6 +15,8 @@ Singleton {
     property bool showVolumeOsd: true
     property bool showLayoutOsd: true
     property bool autoCollapse: true
+    property bool hideInGames: true
+    property bool showOsdInGames: false
 
     Process {
         id: initDirProc
@@ -39,6 +41,8 @@ Singleton {
                 if (data.showVolumeOsd !== undefined) root.showVolumeOsd = !!data.showVolumeOsd;
                 if (data.showLayoutOsd !== undefined) root.showLayoutOsd = !!data.showLayoutOsd;
                 if (data.autoCollapse !== undefined) root.autoCollapse = !!data.autoCollapse;
+                if (data.hideInGames !== undefined) root.hideInGames = !!data.hideInGames;
+                if (data.showOsdInGames !== undefined) root.showOsdInGames = !!data.showOsdInGames;
             } catch (e) {
                 console.log("[IslandPrefs] Config load exception:", e);
             }
@@ -51,7 +55,9 @@ Singleton {
             compactWidget: root.compactWidget,
             showVolumeOsd: root.showVolumeOsd,
             showLayoutOsd: root.showLayoutOsd,
-            autoCollapse: root.autoCollapse
+            autoCollapse: root.autoCollapse,
+            hideInGames: root.hideInGames,
+            showOsdInGames: root.showOsdInGames
         };
         const json = JSON.stringify(data, null, 2);
         Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "sh", root.configDir, json, root.configPath]);
@@ -79,6 +85,16 @@ Singleton {
 
     function toggleAutoCollapse() {
         root.autoCollapse = !root.autoCollapse;
+        save();
+    }
+
+    function toggleHideInGames() {
+        root.hideInGames = !root.hideInGames;
+        save();
+    }
+
+    function toggleShowOsdInGames() {
+        root.showOsdInGames = !root.showOsdInGames;
         save();
     }
 }

@@ -203,7 +203,7 @@ Item {
 
     function lockScreen() {
         if (host) host.collapse();
-        Quickshell.execDetached(["sh", "-c", "\"$HOME/.local/share/quickshell/ukishima/scripts/lock.sh\" 2>/dev/null || hyprlock 2>/dev/null || loginctl lock-session 2>/dev/null || hyprctl dispatch dpms off"]);
+        Quickshell.execDetached(["sh", "-c", "\"$HOME/.local/share/quickshell/ukishima/scripts/lock.sh\" >/dev/null 2>&1 || hush lock >/dev/null 2>&1 || hyprlock >/dev/null 2>&1 || loginctl lock-session >/dev/null 2>&1 || hyprctl dispatch 'hl.dsp.dpms(\"off\")' >/dev/null 2>&1 || hyprctl dispatch dpms off >/dev/null 2>&1"]);
     }
 
     function reloadHyprland() {
@@ -1260,6 +1260,65 @@ Item {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             onClicked: IslandPrefs.toggleAutoCollapse()
+                        }
+                    }
+                }
+
+                // Настройка: Скрывать чёлку в играх
+                Item {
+                    width: parent.width
+                    height: Theme.px(32)
+
+                    Row {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Theme.px(8)
+
+                        Icon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: "sports_esports"
+                            size: Theme.px(16)
+                            color: Theme.text
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Theme.px(1)
+                            Text {
+                                text: "Скрывать в играх"
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.DemiBold
+                            }
+                            Text {
+                                text: "Только уведомления поверх игр и full-screen"
+                                color: Theme.text3
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(9)
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Theme.px(38); height: Theme.px(20); radius: height / 2
+                        color: IslandPrefs.hideInGames ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.12)
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        Rectangle {
+                            y: Theme.px(2)
+                            x: IslandPrefs.hideInGames ? parent.width - width - Theme.px(2) : Theme.px(2)
+                            width: Theme.px(16); height: width; radius: width / 2
+                            color: IslandPrefs.hideInGames ? "#000000" : Theme.text2
+                            Behavior on x { Spring { spring: 260; damping: 20 } }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: IslandPrefs.toggleHideInGames()
                         }
                     }
                 }

@@ -167,6 +167,8 @@ Item {
                 color: cardMa.containsMouse ? Theme.cardHover : Theme.card
                 scale: cardMa.pressed ? 0.97 : 1.0
                 Behavior on scale { Spring { epsilon: 0.01 } }
+                opacity: card.modelData.read ? 0.6 : 1.0
+                Behavior on opacity { NumberAnimation { duration: 180 } }
 
                 Row {
                     anchors.fill: parent
@@ -202,13 +204,19 @@ Item {
                             width: parent.width
                             spacing: Theme.px(8)
                             Text {
-                                width: parent.width - Theme.px(70)
+                                width: parent.width - Theme.px(70) - (card.modelData.read ? 0 : Theme.px(12))
                                 elide: Text.ElideRight
                                 text: card.modelData.summary
                                 color: Theme.text
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.px(13)
-                                font.weight: Font.DemiBold
+                                font.weight: card.modelData.read ? Font.Normal : Font.DemiBold
+                            }
+                            Rectangle {
+                                visible: !card.modelData.read
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Theme.px(6); height: width; radius: width / 2
+                                color: Theme.accent
                             }
                             Text {
                                 text: Notifs.timeAgo(card.modelData.time)

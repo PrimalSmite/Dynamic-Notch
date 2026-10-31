@@ -27,7 +27,9 @@ Row {
 
     function go(id) {
         id = Math.max(1, Math.min(10, id));
-        if (id !== activeId) Hyprland.dispatch("workspace " + id);
+        if (id !== activeId) {
+            Hyprland.dispatch("hl.dsp.focus({ workspace = " + id + " })");
+        }
     }
 
     Repeater {
