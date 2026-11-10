@@ -17,6 +17,50 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
 
 ---
 
+## Screenshots & Overview
+
+### Notch, Dashboard & OSD Popups
+
+| Compact Notch | Expanded Dashboard |
+| :---: | :---: |
+| <img src="assets/screenshots/01-notch-compact.png" width="400" alt="Compact Notch" /><br><sub>**Compact Notch**: Workspace capsules, clock, weather/CPU/LAN stats, layout indicator</sub> | <img src="assets/screenshots/02-notch-dashboard.png" width="500" alt="Expanded Dashboard" /><br><sub>**Expanded Dashboard**: Quick system controls, tray area, and dock capsules</sub> |
+
+| Keyboard Layout OSD | Notification Toast OSD |
+| :---: | :---: |
+| <img src="assets/screenshots/03-osd-keyboard-layout.png" width="340" alt="Keyboard Layout OSD" /><br><sub>**Keyboard Layout OSD**: Instant badge upon layout switch</sub> | <img src="assets/screenshots/04-osd-notification-toast.png" width="440" alt="Notification Toast OSD" /><br><sub>**Notification Toast OSD**: Popup banner in notch on incoming notifications</sub> |
+
+### Interactive Panels
+
+| Launcher & App Search | Integrated Scientific Calculator |
+| :---: | :---: |
+| <img src="assets/screenshots/05-launcher-apps.png" width="420" alt="Application Launcher" /><br><sub>**App Launcher**: Instant search, launch frequency ranking and pinning</sub> | <img src="assets/screenshots/06-launcher-calculator.png" width="420" alt="Scientific Calculator" /><br><sub>**Engineering Calculator**: Trigonometry, logs, factorials, calculation history</sub> |
+
+| Settings & Control Center | Accurate Resource Monitor |
+| :---: | :---: |
+| <img src="assets/screenshots/07-settings-control-center.png" width="420" alt="Settings & Control Center" /><br><sub>**Settings Panel (3 tabs)**: Scale, font family modal, hardware toggles, LAN IP</sub> | <img src="assets/screenshots/08-sysmon-processes.png" width="420" alt="Resource Monitor" /><br><sub>**Sysmon**: `/proc` deltas matching `btop`, load sparkline, aligned tabular columns</sub> |
+
+| Audio Mixer & Device Output | Screen Recorder |
+| :---: | :---: |
+| <img src="assets/screenshots/09-audio-mixer.png" width="420" alt="Audio Mixer" /><br><sub>**Audio Mixer**: PipeWire output sink switcher, mic bar, per-app streams</sub> | <img src="assets/screenshots/10-screen-recorder.png" width="420" alt="Screen Recorder" /><br><sub>**Screen Recorder**: Viewfinder frame, live audio waveforms, FPS and source toggles</sub> |
+
+| Interactive Ruler Timer | Wallpaper Switcher |
+| :---: | :---: |
+| <img src="assets/screenshots/11-interactive-timer.png" width="380" alt="Interactive Timer" /><br><sub>**Timer**: Scrubbable horizontal ruler, countdown controls, stopwatch with laps</sub> | <img src="assets/screenshots/14-wallpaper-switcher.png" width="440" alt="Wallpaper Switcher" /><br><sub>**Wallpaper Switcher**: Carousel gallery, folder selection, instant random wallpaper</sub> |
+
+| Weather Forecast | Localized Calendar |
+| :---: | :---: |
+| <img src="assets/screenshots/12-weather-forecast.png" width="440" alt="Weather Forecast" /><br><sub>**Live Weather**: Hourly & 7-day forecast, global geocoding city search, IP locator</sub> | <img src="assets/screenshots/13-calendar.png" width="440" alt="Calendar" /><br><sub>**Calendar**: Localized weekday/month, weather badge, month grid navigation</sub> |
+
+| Clipboard History | Notification Center |
+| :---: | :---: |
+| <img src="assets/screenshots/15-clipboard-manager.png" width="420" alt="Clipboard Manager" /><br><sub>**Clipboard History**: Text and image previews via `cliphist` with delete & wipe</sub> | <img src="assets/screenshots/16-notification-center.png" width="420" alt="Notification Center" /><br><sub>**Notification Center**: Notification history, DND switcher, batch clear</sub> |
+
+| Power & Session Menu | |
+| :---: | :---: |
+| <img src="assets/screenshots/17-power-menu.png" width="420" alt="Power Menu" /><br><sub>**Power Menu**: Lock, Suspend, Log Out, Reboot, Power Off with confirmation</sub> | |
+
+---
+
 ## Highlights
 
 - **Dynamic Island / Notch**:
