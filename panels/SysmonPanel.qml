@@ -122,7 +122,7 @@ Item {
             // CPU chart
             Rectangle {
                 width: (parent.width - parent.spacing) * 0.45
-                height: Theme.px(138)
+                height: Theme.px(146)
                 radius: Theme.px(18)
                 color: Theme.card
 
@@ -142,7 +142,7 @@ Item {
                     Canvas {
                         id: sparkCanvas
                         width: parent.width
-                        height: parent.height - Theme.px(22)
+                        height: parent.height - Theme.px(24)
                         renderTarget: Canvas.FramebufferObject
                         renderStrategy: Canvas.Threaded
                         onPaint: {
@@ -173,62 +173,104 @@ Item {
                 }
             }
 
-            // Top processes
+            // Top processes (btop/htop style)
             Rectangle {
                 width: (parent.width - parent.spacing) * 0.55
-                height: Theme.px(138)
+                height: Theme.px(146)
                 radius: Theme.px(18)
                 color: Theme.card
 
                 Column {
                     anchors.fill: parent
                     anchors.margins: Theme.px(12)
-                    spacing: Theme.px(4)
+                    spacing: Theme.px(3)
 
-                    Text {
-                        text: "Active Processes"
-                        color: Theme.text2
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(11)
-                        font.weight: Font.Bold
+                    // Header row with column titles
+                    Item {
+                        width: parent.width
+                        height: Theme.px(18)
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Active Processes"
+                            color: Theme.text2
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(11)
+                            font.weight: Font.Bold
+                        }
+
+                        Row {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Theme.px(8)
+
+                            Text {
+                                width: Theme.px(42)
+                                horizontalAlignment: Text.AlignRight
+                                text: "MEM"
+                                color: Theme.text3
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(9)
+                                font.weight: Font.Bold
+                            }
+
+                            Text {
+                                width: Theme.px(42)
+                                horizontalAlignment: Text.AlignRight
+                                text: "CPU%"
+                                color: Theme.text3
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(9)
+                                font.weight: Font.Bold
+                            }
+                        }
                     }
 
+                    // Process rows
                     Repeater {
                         model: SysInfo.topProcs
                         Item {
                             required property var modelData
                             width: parent.width
-                            height: Theme.px(18)
+                            height: Theme.px(19)
 
                             Text {
                                 anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
                                 text: modelData.comm
                                 color: Theme.text
                                 font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(12)
+                                font.pixelSize: Theme.px(11)
                                 font.weight: Font.Medium
-                                width: parent.width * 0.6
+                                width: parent.width - Theme.px(98)
                                 elide: Text.ElideRight
                             }
+
                             Text {
-                                anchors.right: memT.left
-                                anchors.rightMargin: Theme.px(14)
-                                text: modelData.cpu
-                                color: Theme.text
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(11)
-                                font.weight: Font.DemiBold
-                                font.features: { "tnum": 1 }
-                            }
-                            Text {
-                                id: memT
-                                anchors.right: parent.right
+                                anchors.right: cpuT.left
+                                anchors.rightMargin: Theme.px(8)
+                                anchors.verticalCenter: parent.verticalCenter
                                 width: Theme.px(42)
                                 horizontalAlignment: Text.AlignRight
                                 text: modelData.mem
                                 color: Theme.text2
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.px(11)
+                                font.features: { "tnum": 1 }
+                            }
+
+                            Text {
+                                id: cpuT
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Theme.px(42)
+                                horizontalAlignment: Text.AlignRight
+                                text: modelData.cpu
+                                color: modelData.cpuNum > 25 ? Theme.alert : (modelData.cpuNum > 10 ? Theme.warn : Theme.text)
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.DemiBold
                                 font.features: { "tnum": 1 }
                             }
                         }

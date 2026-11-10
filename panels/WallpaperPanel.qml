@@ -4,7 +4,7 @@ import Quickshell.Widgets
 import qs.services
 import qs.components
 
-// Wallpaper selector panel (arrows + Enter — select, R — random, O — choose folder, F — file).
+// Compact wallpaper selector panel (arrows + Enter — select, R — random, O — choose folder, F — file).
 Item {
     id: root
     property var host: null
@@ -21,7 +21,7 @@ Item {
         return list.filter(w => w.toLowerCase().indexOf(q) !== -1);
     }
 
-    implicitWidth: Theme.px(580)
+    implicitWidth: Theme.px(500)
     implicitHeight: col.implicitHeight
 
     Component.onCompleted: {
@@ -95,31 +95,31 @@ Item {
     Column {
         id: col
         width: parent.width
-        spacing: Theme.px(12)
+        spacing: Theme.px(8)
 
         // ── Top Bar: Search Input on left, Index Counter on right ──
         Item {
             width: parent.width
-            height: Theme.px(28)
+            height: Theme.px(22)
 
             Row {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Theme.px(8)
+                spacing: Theme.px(6)
 
                 Icon {
                     anchors.verticalCenter: parent.verticalCenter
                     name: "search"
-                    size: Theme.px(16)
+                    size: Theme.px(14)
                     color: Theme.text3
                 }
 
                 TextInput {
                     id: searchInput
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Theme.px(280)
+                    width: Theme.px(220)
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.px(13)
+                    font.pixelSize: Theme.px(11)
                     color: Theme.text
                     selectionColor: Theme.controlFill
                     cursorDelegate: Caret {}
@@ -134,7 +134,7 @@ Item {
                         text: "Search wallpapers..."
                         color: Theme.text3
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(13)
+                        font.pixelSize: Theme.px(11)
                     }
                 }
             }
@@ -146,7 +146,7 @@ Item {
                 text: root.filteredWalls.length > 0 ? ((root.selectedIndex + 1) + "/" + root.filteredWalls.length) : "0/0"
                 color: Theme.text3
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.px(11)
+                font.pixelSize: Theme.px(10)
                 font.features: { "tnum": 1 }
             }
         }
@@ -154,13 +154,13 @@ Item {
         // ── Horizontal Wallpaper Carousel Preview ──
         Item {
             width: parent.width
-            height: Theme.px(130)
+            height: Theme.px(98)
 
             ListView {
                 id: wList
                 anchors.fill: parent
                 orientation: ListView.Horizontal
-                spacing: Theme.px(12)
+                spacing: Theme.px(10)
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 model: root.filteredWalls
@@ -169,27 +169,27 @@ Item {
                     id: wCard
                     required property string modelData
                     required property int index
-                    width: Theme.px(170)
-                    height: Theme.px(116)
+                    width: Theme.px(138)
+                    height: Theme.px(92)
 
                     readonly property bool active: Wallpapers.currentWall === modelData
                     readonly property bool selected: root.selectedIndex === index
 
                     Rectangle {
                         anchors.fill: parent
-                        radius: Theme.px(18)
+                        radius: Theme.px(14)
                         color: "#121716"
                         border.width: wCard.selected ? 2 : (wCard.active ? 1.5 : 1)
                         border.color: wCard.selected ? Theme.controlFill : (wCard.active ? Theme.text2 : Qt.rgba(1, 1, 1, 0.12))
-                        scale: wMa.pressed ? 0.95 : (wMa.containsMouse ? 1.02 : 1.0)
+                        scale: wMa.pressed ? 0.94 : (wMa.containsMouse ? 1.02 : 1.0)
                         Behavior on scale { Spring { epsilon: 0.01 } }
                         Behavior on border.color { ColorAnimation { duration: 140 } }
 
                         // Wallpaper preview image
                         ClippingRectangle {
                             anchors.fill: parent
-                            anchors.margins: Theme.px(3)
-                            radius: Theme.px(15)
+                            anchors.margins: Theme.px(2.5)
+                            radius: Theme.px(12)
                             color: "#080B0B"
 
                             Image {
@@ -197,7 +197,7 @@ Item {
                                 source: Wallpapers.fileUrl(wCard.modelData)
                                 fillMode: Image.PreserveAspectCrop
                                 asynchronous: true
-                                sourceSize: Qt.size(Theme.px(240), Theme.px(160))
+                                sourceSize: Qt.size(Theme.px(200), Theme.px(130))
                                 cache: true
                             }
 
@@ -206,7 +206,7 @@ Item {
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 anchors.bottom: parent.bottom
-                                height: Theme.px(36)
+                                height: Theme.px(26)
                                 gradient: Gradient {
                                     GradientStop { position: 0; color: "transparent" }
                                     GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.85) }
@@ -217,8 +217,8 @@ Item {
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 anchors.bottom: parent.bottom
-                                anchors.bottomMargin: Theme.px(6)
-                                width: parent.width - Theme.px(14)
+                                anchors.bottomMargin: Theme.px(3)
+                                width: parent.width - Theme.px(8)
                                 elide: Text.ElideRight
                                 horizontalAlignment: Text.AlignHCenter
                                 text: {
@@ -227,7 +227,7 @@ Item {
                                 }
                                 color: Theme.text
                                 font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(10)
+                                font.pixelSize: Theme.px(9)
                                 font.weight: Font.DemiBold
                             }
 
@@ -236,8 +236,8 @@ Item {
                                 visible: wCard.active
                                 anchors.top: parent.top
                                 anchors.right: parent.right
-                                anchors.margins: Theme.px(8)
-                                width: Theme.px(8)
+                                anchors.margins: Theme.px(5)
+                                width: Theme.px(6)
                                 height: width
                                 radius: width / 2
                                 color: Theme.controlFill
@@ -262,11 +262,11 @@ Item {
             Column {
                 visible: root.filteredWalls.length === 0
                 anchors.centerIn: parent
-                spacing: Theme.px(6)
+                spacing: Theme.px(4)
                 Icon {
                     anchors.horizontalCenter: parent.horizontalCenter
                     name: Wallpapers.scanning ? "hourglass_top" : "image_not_supported"
-                    size: Theme.px(24)
+                    size: Theme.px(18)
                     color: Theme.text3
                 }
                 Text {
@@ -274,7 +274,7 @@ Item {
                     text: Wallpapers.scanning ? "Scanning wallpapers..." : "No matching wallpapers"
                     color: Theme.text3
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.px(12)
+                    font.pixelSize: Theme.px(11)
                 }
             }
         }
@@ -282,24 +282,24 @@ Item {
         // ── Bottom Action Row: File [F], Folder [O], Random [R], Enter Hint ──
         Item {
             width: parent.width
-            height: Theme.px(28)
+            height: Theme.px(22)
 
             Row {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Theme.px(8)
+                spacing: Theme.px(6)
 
                 Rectangle {
-                    height: Theme.px(26)
-                    width: fRow.implicitWidth + Theme.px(14)
+                    height: Theme.px(22)
+                    width: fRow.implicitWidth + Theme.px(10)
                     radius: height / 2
                     color: fMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.06)
                     Row {
                         id: fRow
                         anchors.centerIn: parent
-                        spacing: Theme.px(4)
-                        Icon { name: "image"; size: Theme.px(13); color: Theme.text2 }
-                        Text { text: "File [F]"; color: Theme.text2; font.pixelSize: Theme.px(10); font.weight: Font.Medium }
+                        spacing: Theme.px(3)
+                        Icon { name: "image"; size: Theme.px(11); color: Theme.text2 }
+                        Text { text: "File [F]"; color: Theme.text2; font.pixelSize: Theme.px(9); font.weight: Font.Medium }
                     }
                     MouseArea {
                         id: fMa
@@ -311,16 +311,16 @@ Item {
                 }
 
                 Rectangle {
-                    height: Theme.px(26)
-                    width: oRow.implicitWidth + Theme.px(14)
+                    height: Theme.px(22)
+                    width: oRow.implicitWidth + Theme.px(10)
                     radius: height / 2
                     color: oMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.06)
                     Row {
                         id: oRow
                         anchors.centerIn: parent
-                        spacing: Theme.px(4)
-                        Icon { name: "folder_open"; size: Theme.px(13); color: Theme.text2 }
-                        Text { text: "Folder [O]"; color: Theme.text2; font.pixelSize: Theme.px(10); font.weight: Font.Medium }
+                        spacing: Theme.px(3)
+                        Icon { name: "folder_open"; size: Theme.px(11); color: Theme.text2 }
+                        Text { text: "Folder [O]"; color: Theme.text2; font.pixelSize: Theme.px(9); font.weight: Font.Medium }
                     }
                     MouseArea {
                         id: oMa
@@ -332,16 +332,16 @@ Item {
                 }
 
                 Rectangle {
-                    height: Theme.px(26)
-                    width: rRow.implicitWidth + Theme.px(14)
+                    height: Theme.px(22)
+                    width: rRow.implicitWidth + Theme.px(10)
                     radius: height / 2
                     color: rMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.06)
                     Row {
                         id: rRow
                         anchors.centerIn: parent
-                        spacing: Theme.px(4)
-                        Icon { name: "shuffle"; size: Theme.px(13); color: Theme.text2 }
-                        Text { text: "Random [R]"; color: Theme.text2; font.pixelSize: Theme.px(10); font.weight: Font.Medium }
+                        spacing: Theme.px(3)
+                        Icon { name: "shuffle"; size: Theme.px(11); color: Theme.text2 }
+                        Text { text: "Random [R]"; color: Theme.text2; font.pixelSize: Theme.px(9); font.weight: Font.Medium }
                     }
                     MouseArea {
                         id: rMa
@@ -367,7 +367,7 @@ Item {
                 text: "Enter to apply"
                 color: Theme.text3
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.px(10)
+                font.pixelSize: Theme.px(9)
             }
         }
     }

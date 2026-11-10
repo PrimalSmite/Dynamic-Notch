@@ -12,8 +12,8 @@ Singleton {
     property bool paused: false
 
     // Timer (in seconds)
-    property int totalSec: 300           // default 5 min
-    property int remainSec: 300
+    property int totalSec: 900           // default 15 min
+    property int remainSec: 900
 
     // Stopwatch (in seconds)
     property int elapsedSec: 0
@@ -34,14 +34,14 @@ Singleton {
         const sec = s % 60;
         const pad = n => (n < 10 ? "0" : "") + n;
         if (h > 0) return h + ":" + pad(m) + ":" + pad(sec);
-        return m + ":" + pad(sec);
+        return pad(m) + ":" + pad(sec);
     }
 
     function setPreset(seconds) {
         mode = "timer";
         running = false;
         paused = false;
-        totalSec = Math.max(10, seconds);
+        totalSec = Math.max(60, Math.min(7200, seconds));
         remainSec = totalSec;
     }
 

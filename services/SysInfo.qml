@@ -135,38 +135,125 @@ Singleton {
     }
 
     property int activeClients: 0
+    property double _prevProcCpuTotal: 0
+    property var _prevProcMap: ({})
+    property var _prevCpuPctMap: ({})
+
+    onActiveClientsChanged: {
+        if (activeClients > 0) {
+            refreshProcs();
+        }
+    }
+
+    function fmtMemBtop(rssKb) {
+        const mb = rssKb / 1024;
+        if (mb >= 1024) return (mb / 1024).toFixed(1) + "G";
+        if (mb >= 100) return Math.round(mb) + "M";
+        return mb.toFixed(0) + "M";
+    }
 
     function refreshProcs() {
-        if (activeClients <= 0) return;
-        psProc.running = false;
+        if (activeClients <= 0 && _prevProcCpuTotal > 0) return;
+        if (psProc.running) return;
         psProc.running = true;
     }
 
     Process {
         id: psProc
         running: false
-        command: ["sh", "-c", "LC_ALL=C df -BG / | awk 'NR==2{print $3\"/\"$2\" \"$5}'; LC_ALL=C ps -eo pid,comm,%cpu,%mem --sort=-%cpu | head -n 6 | tail -n 5"]
+        command: [
+            "sh", "-c",
+            "LC_ALL=C df -BG / 2>/dev/null | awk 'NR==2{print \"DF\\t\" $3\"/\"$2 \"\\t\" $5}'; " +
+            "LC_ALL=C awk '" +
+            "FILENAME == \"/proc/stat\" && /^cpu / { total = $2+$3+$4+$5+$6+$7+$8+$9; print \"CPU\\t\" total; nextfile } " +
+            "FNR == 1 { " +
+            "  if (match($0, /^[0-9]+ \\(.*\\) [^ ]+/)) { " +
+            "    pid = $1; s = $0; sub(/^[0-9]+ \\(/, \"\", s); rest = s; sub(/^.*\\) /, \"\", rest); " +
+            "    comm = substr(s, 1, length(s) - length(rest) - 2); " +
+            "    split(rest, f, \" \"); ticks = f[12] + f[13]; rss_kb = f[22] * 4; " +
+            "    if (ticks > 0 || rss_kb > 4096) printf \"P\\t%s\\t%s\\t%.0f\\t%.0f\\n\", pid, comm, ticks, rss_kb " +
+            "  } " +
+            "}' /proc/stat /proc/[0-9]*/stat 2>/dev/null"
+        ]
         stdout: StdioCollector {
             onStreamFinished: {
                 const lines = text.trim().split("\n");
-                if (lines.length > 0) {
-                    const dfParts = lines[0].trim().split(/\s+/);
-                    if (dfParts.length >= 2) {
-                        root.diskText = dfParts[0].replace(/G/g, " GB");
-                        const pct = parseInt(dfParts[1]);
+                let totalCpu = 0;
+                const newMap = {};
+                const rawProcs = [];
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (!line) continue;
+                    const p = line.split("\t");
+                    if (p[0] === "DF" && p.length >= 3) {
+                        root.diskText = p[1].replace(/G/g, " GB");
+                        const pct = parseInt(p[2]);
                         if (!isNaN(pct)) root.disk = pct / 100;
+                    } else if (p[0] === "CPU" && p.length >= 2) {
+                        totalCpu = parseFloat(p[1]) || 0;
+                    } else if (p[0] === "P" && p.length >= 5) {
+                        const pid = p[1];
+                        const comm = p[2] || "process";
+                        const ticks = parseFloat(p[3]) || 0;
+                        const rssKb = parseFloat(p[4]) || 0;
+                        newMap[pid] = ticks;
+                        rawProcs.push({ pid: pid, comm: comm, ticks: ticks, rssKb: rssKb });
                     }
                 }
-                const procs = [];
-                for (let i = 1; i < lines.length; i++) {
-                    const p = lines[i].trim().split(/\s+/);
-                    if (p.length >= 4) {
-                        procs.push({ pid: p[0], comm: p[1], cpu: p[2] + "%", mem: p[3] + "%" });
-                    }
+
+                const prevTotal = root._prevProcCpuTotal;
+                const prevMap = root._prevProcMap;
+                const prevCpuMap = root._prevCpuPctMap;
+                const dt = totalCpu - prevTotal;
+
+                root._prevProcCpuTotal = totalCpu;
+                root._prevProcMap = newMap;
+
+                if (prevTotal <= 0 || dt <= 0) {
+                    bootstrapTimer.restart();
+                    return;
                 }
-                root.topProcs = procs;
+
+                const nextCpuMap = {};
+                const computed = [];
+                for (let i = 0; i < rawProcs.length; i++) {
+                    const item = rawProcs[i];
+                    const oldTicks = prevMap[item.pid];
+                    const dTicks = (oldTicks !== undefined) ? Math.max(0, item.ticks - oldTicks) : 0;
+                    const cpuVal = Math.min(100, (100.0 * dTicks) / dt);
+                    const oldCpu = prevCpuMap[item.pid] || 0;
+                    const lazyCpu = cpuVal * 0.7 + oldCpu * 0.3;
+                    nextCpuMap[item.pid] = lazyCpu;
+
+                    computed.push({
+                        pid: item.pid,
+                        comm: item.comm,
+                        cpuNum: cpuVal,
+                        sortScore: lazyCpu,
+                        cpu: cpuVal.toFixed(1) + "%",
+                        rssKb: item.rssKb,
+                        mem: root.fmtMemBtop(item.rssKb)
+                    });
+                }
+                root._prevCpuPctMap = nextCpuMap;
+
+                computed.sort((a, b) => {
+                    if (Math.abs(b.sortScore - a.sortScore) > 0.05) return b.sortScore - a.sortScore;
+                    if (Math.abs(b.cpuNum - a.cpuNum) > 0.05) return b.cpuNum - a.cpuNum;
+                    return b.rssKb - a.rssKb;
+                });
+
+                root.topProcs = computed.slice(0, 5);
             }
         }
+    }
+
+    Timer {
+        id: bootstrapTimer
+        interval: 350
+        repeat: false
+        onTriggered: root.refreshProcs()
     }
 
     Timer {
@@ -179,7 +266,7 @@ Singleton {
     }
 
     Timer {
-        interval: 3500
+        interval: 2000
         running: root.activeClients > 0
         repeat: true
         triggeredOnStart: true
