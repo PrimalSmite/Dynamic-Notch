@@ -7,11 +7,15 @@
 > 
 > Здесь **отсутствуют многие типичные laptop-функции**: нет индикатора батареи, нет виджетов управления Wi-Fi сетями и Bluetooth (всё завязано на проводной LAN и стационарный ПК).
 > 
+> Большинство изменений я проверяю и тестирую лично, но из-за нехватки глубоких знаний QML часто полагаюсь на помощь ИИ. Я полностью открыт к любым улучшениям, пуллреквестам и предложениям!
+> 
 > ---
 > 
 > This repository is heavily **vibecoded** and tailored exclusively for my personal desktop workflow and habits (Desktop Hyprland). The project is still an active work in progress (**WIP**).
 > 
 > **Many typical laptop features are completely absent**: there is no battery indicator, no Wi-Fi management widgets, and no Bluetooth controls (everything is tailored for a stationary PC and wired LAN).
+> 
+> I test and verify most changes personally on my daily setup, but due to limited QML expertise, I frequently rely on AI assistance. I am completely open to community contributions, cleanups, suggestions, and pull requests!
 
 Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built with QML using [Quickshell](https://outfoxxed.me/quickshell/).
 
