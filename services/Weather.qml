@@ -34,27 +34,8 @@ Singleton {
         { name: "Izhevsk", sub: "Russia · Udmurtia", aliases: "ижевск izhevsk", lat: 56.8523, lon: 53.1986 },
         { name: "Moscow", sub: "Russia", aliases: "москва moscow", lat: 55.7558, lon: 37.6173 },
         { name: "Saint Petersburg", sub: "Russia", aliases: "санкт-петербург питер спб saint petersburg", lat: 59.9343, lon: 30.3351 },
-        { name: "Kazan", sub: "Russia · Tatarstan", aliases: "казань kazan", lat: 55.7887, lon: 49.1221 },
-        { name: "Yekaterinburg", sub: "Russia · Sverdlovsk", aliases: "екатеринбург екб yekaterinburg", lat: 56.8389, lon: 60.6057 },
-        { name: "Novosibirsk", sub: "Russia", aliases: "новосибирск novosibirsk", lat: 55.0084, lon: 82.9357 },
-        { name: "Nizhny Novgorod", sub: "Russia", aliases: "нижний новгород nizhny novgorod", lat: 56.2965, lon: 43.9361 },
-        { name: "Samara", sub: "Russia", aliases: "самара samara", lat: 53.1959, lon: 50.1002 },
-        { name: "Ufa", sub: "Russia · Bashkortostan", aliases: "уфа ufa", lat: 54.7388, lon: 55.9721 },
-        { name: "Perm", sub: "Russia", aliases: "пермь perm", lat: 58.0105, lon: 56.2502 },
-        { name: "Krasnodar", sub: "Russia", aliases: "краснодар krasnodar", lat: 45.0355, lon: 38.9753 },
-        { name: "Sochi", sub: "Russia", aliases: "сочи sochi", lat: 43.5855, lon: 39.7231 },
-        { name: "Minsk", sub: "Belarus", aliases: "минск minsk", lat: 53.9006, lon: 27.5590 },
-        { name: "Almaty", sub: "Kazakhstan", aliases: "алматы almaty", lat: 43.2220, lon: 76.8512 },
-        { name: "Astana", sub: "Kazakhstan", aliases: "астана astana", lat: 51.1694, lon: 71.4491 },
-        { name: "Tbilisi", sub: "Georgia", aliases: "тбилиси tbilisi", lat: 41.7151, lon: 44.8271 },
-        { name: "Yerevan", sub: "Armenia", aliases: "ереван yerevan", lat: 40.1792, lon: 44.4991 },
         { name: "London", sub: "United Kingdom", aliases: "лондон london", lat: 51.5074, lon: -0.1278 },
-        { name: "Berlin", sub: "Germany", aliases: "берлин berlin", lat: 52.5200, lon: 13.4050 },
-        { name: "Paris", sub: "France", aliases: "париж paris", lat: 48.8566, lon: 2.3522 },
-        { name: "New York", sub: "United States", aliases: "нью-йорк new york", lat: 40.7128, lon: -74.0060 },
-        { name: "Tokyo", sub: "Japan", aliases: "токио tokyo", lat: 35.6762, lon: 139.6503 },
-        { name: "Seoul", sub: "South Korea", aliases: "сеул seoul", lat: 37.5665, lon: 126.9780 },
-        { name: "Dubai", sub: "United Arab Emirates", aliases: "дубай dubai", lat: 25.2048, lon: 55.2708 }
+        { name: "Tokyo", sub: "Japan", aliases: "токио tokyo", lat: 35.6762, lon: 139.6503 }
     ]
 
     function codeInfo(c, day) {

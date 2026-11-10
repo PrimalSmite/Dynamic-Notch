@@ -98,8 +98,8 @@ Rectangle {
                 }
             }
 
-            // Timestamps and playback controls row
-            Row {
+            // Timestamps and playback controls container
+            Item {
                 width: parent.width
                 height: Theme.px(28)
 

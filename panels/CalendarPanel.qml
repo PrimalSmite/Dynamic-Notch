@@ -68,7 +68,7 @@ Item {
                 spacing: Theme.px(6)
 
                 Text {
-                    text: new Date().toLocaleDateString(Qt.locale("ru_RU"), "dddd")
+                    text: new Date().toLocaleDateString(Qt.locale(), "dddd")
                     color: Theme.accent
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(14)
@@ -83,7 +83,7 @@ Item {
                     font.weight: Font.Bold
                 }
                 Text {
-                    text: new Date().toLocaleDateString(Qt.locale("ru_RU"), "MMMM yyyy")
+                    text: new Date().toLocaleDateString(Qt.locale(), "MMMM yyyy")
                     color: Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(13)

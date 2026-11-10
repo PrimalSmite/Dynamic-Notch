@@ -32,7 +32,10 @@ Item {
         anchors.margins: Theme.px(-8)
         enabled: root.interactive
         cursorShape: root.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
-        function send(mx) { root.moved(Math.max(0, Math.min(1, (mx + ma.x) / root.width))); }
+        function send(mx) {
+            const pos = ma.mapToItem(root, mx, 0).x;
+            root.moved(Math.max(0, Math.min(1, pos / root.width)));
+        }
         onPressed: e => send(e.x)
         onPositionChanged: e => { if (pressed) send(e.x); }
     }

@@ -22,7 +22,7 @@ Item {
         const presets = Weather.presetCities || [];
         if (!q.length) return presets;
 
-        // Instant match against presets (supports English & Russian aliases)
+        // When user types a query: show online geocoding results first, plus matching presets
         const localMatches = presets.filter(c =>
             c.name.toLowerCase().indexOf(q) !== -1 ||
             (c.sub && c.sub.toLowerCase().indexOf(q) !== -1) ||
@@ -30,13 +30,13 @@ Item {
         );
 
         const apiMatches = Weather.searchResults || [];
-        const combined = localMatches.slice();
-        for (let i = 0; i < apiMatches.length; i++) {
-            const a = apiMatches[i];
+        const combined = apiMatches.slice();
+        for (let i = 0; i < localMatches.length; i++) {
+            const l = localMatches[i];
             const dup = combined.some(existing =>
-                Math.abs(existing.lat - a.lat) < 0.08 && Math.abs(existing.lon - a.lon) < 0.08
+                Math.abs(existing.lat - l.lat) < 0.08 && Math.abs(existing.lon - l.lon) < 0.08
             );
-            if (!dup) combined.push(a);
+            if (!dup) combined.push(l);
         }
         return combined;
     }

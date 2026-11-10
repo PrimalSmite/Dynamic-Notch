@@ -766,9 +766,9 @@ PanelWindow {
 
                         // layout — simple text, click to cycle
                         Text {
-                            visible: Keyboard.short !== ""
+                            visible: Keyboard.shortCode !== ""
                             anchors.verticalCenter: parent.verticalCenter
-                            text: Keyboard.short
+                            text: Keyboard.shortCode
                             color: Theme.text2
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(12)
@@ -858,7 +858,7 @@ PanelWindow {
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: Keyboard.short
+                            text: Keyboard.shortCode
                             color: Theme.text
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(13)
@@ -1177,7 +1177,7 @@ PanelWindow {
                         }
 
                         Rectangle {
-                            visible: Keyboard.short !== ""
+                            visible: Keyboard.shortCode !== ""
                             anchors.verticalCenter: parent.verticalCenter
                             width: kbTxt.implicitWidth + Theme.px(12)
                             height: Theme.px(24)
@@ -1188,7 +1188,7 @@ PanelWindow {
                             Text {
                                 id: kbTxt
                                 anchors.centerIn: parent
-                                text: Keyboard.short
+                                text: Keyboard.shortCode
                                 color: Theme.text2
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.px(11)

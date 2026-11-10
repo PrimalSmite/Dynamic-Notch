@@ -253,6 +253,7 @@ Singleton {
         id: bootstrapTimer
         interval: 350
         repeat: false
+        running: false
         onTriggered: root.refreshProcs()
     }
 

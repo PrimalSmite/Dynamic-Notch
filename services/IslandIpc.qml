@@ -20,26 +20,26 @@ Singleton {
 
     IpcHandler {
         target: "island"
-        function toggle(): void { root.toggleRequested(); }
-        function close(): void { root.closeRequested(); }
-        function open(panel: string): void { root.openRequested(panel); }
-        function media(): void { root.openRequested("media"); }
-        function mixer(): void { root.openRequested("mixer"); }
-        function nextPanel(): void { root.cycleRequested(1); }
-        function prevPanel(): void { root.cycleRequested(-1); }
-        function volUp(): void { Audio.step(0.05); }
-        function volDown(): void { Audio.step(-0.05); }
-        function mute(): void { Audio.toggleMute(); }
-        function playPause(): void { if (Media.player && Media.player.canTogglePlaying) Media.player.togglePlaying(); }
-        function nextTrack(): void { if (Media.player && Media.player.canGoNext) Media.player.next(); }
-        function prevTrack(): void { if (Media.player && Media.player.canGoPrevious) Media.player.previous(); }
-        function dnd(): void { Notifs.dnd = !Notifs.dnd; }
-        function record(): void {
+        function toggle() { root.toggleRequested(); }
+        function close() { root.closeRequested(); }
+        function open(panel: string) { root.openRequested(panel); }
+        function media() { root.openRequested("media"); }
+        function mixer() { root.openRequested("mixer"); }
+        function nextPanel() { root.cycleRequested(1); }
+        function prevPanel() { root.cycleRequested(-1); }
+        function volUp() { Audio.step(0.05); }
+        function volDown() { Audio.step(-0.05); }
+        function mute() { Audio.toggleMute(); }
+        function playPause() { if (Media.player && Media.player.canTogglePlaying) Media.player.togglePlaying(); }
+        function nextTrack() { if (Media.player && Media.player.canGoNext) Media.player.next(); }
+        function prevTrack() { if (Media.player && Media.player.canGoPrevious) Media.player.previous(); }
+        function dnd() { Notifs.dnd = !Notifs.dnd; }
+        function record() {
             if (Recorder.recording) Recorder.stop();
             else Recorder.start("screen");
         }
-        function refreshWeather(): void { Weather.refresh(); }
-        function askpass(msg: string, actionId: string, replyFile: string): void {
+        function refreshWeather() { Weather.refresh(); }
+        function askpass(msg: string, actionId: string, replyFile: string) {
             Auth.openAskpass(msg, actionId, replyFile);
         }
     }

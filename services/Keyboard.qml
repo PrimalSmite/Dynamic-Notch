@@ -9,7 +9,7 @@ Singleton {
     id: root
 
     property string layout: ""            // e.g. "Russian", "English (US)"
-    readonly property string short: {
+    readonly property string shortCode: {
         const l = layout.toLowerCase();
         if (l.startsWith("english")) return "EN";
         if (l.startsWith("russian")) return "RU";
