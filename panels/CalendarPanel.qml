@@ -18,11 +18,20 @@ Item {
         else if (event.key === Qt.Key_T || event.key === Qt.Key_Home) { viewDate = new Date(); event.accepted = true; }
     }
 
-    readonly property var monthNames: [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
-    ]
-    readonly property var dayHeaders: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    readonly property string viewTitle: {
+        const m = Qt.locale().standaloneMonthName(viewDate.getMonth(), Locale.LongFormat);
+        const cap = m ? (m.charAt(0).toUpperCase() + m.slice(1)) : "";
+        return cap + " " + viewDate.getFullYear();
+    }
+    readonly property var dayHeaders: {
+        const loc = Qt.locale();
+        const res = [];
+        for (let i = 1; i <= 7; i++) {
+            const d = loc.standaloneDayName(i, Locale.ShortFormat);
+            res.push(d ? (d.charAt(0).toUpperCase() + d.slice(1)) : "");
+        }
+        return res;
+    }
 
     function shiftMonth(delta) {
         const d = new Date(viewDate.getFullYear(), viewDate.getMonth() + delta, 1);
@@ -137,7 +146,7 @@ Item {
                         anchors.left: parent.left
                         anchors.leftMargin: Theme.px(6)
                         anchors.verticalCenter: parent.verticalCenter
-                        text: root.monthNames[root.viewDate.getMonth()] + " " + root.viewDate.getFullYear()
+                        text: root.viewTitle
                         color: Theme.text
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(15)
@@ -216,7 +225,7 @@ Item {
                             Text {
                                 anchors.centerIn: parent
                                 text: dCell.modelData.day
-                                color: dCell.modelData.today ? "white"
+                                color: dCell.modelData.today ? "#000000"
                                      : !dCell.modelData.current ? Theme.text3
                                      : dCell.modelData.weekend ? Theme.text2 : Theme.text
                                 font.family: Theme.fontFamily
