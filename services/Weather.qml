@@ -26,6 +26,37 @@ Singleton {
     property var hourly: []   // [{ time: "Now", temp: 2, icon: "...", iconColor: "..." }]
     property var daily: []    // [{ day: "Wed", min: -1, max: 4, icon: "...", iconColor: "...", desc: "..." }]
 
+    property bool searchingCities: false
+    property var searchResults: []
+    property string _pendingQuery: ""
+
+    readonly property var presetCities: [
+        { name: "Izhevsk", sub: "Russia · Udmurtia", aliases: "ижевск izhevsk", lat: 56.8523, lon: 53.1986 },
+        { name: "Moscow", sub: "Russia", aliases: "москва moscow", lat: 55.7558, lon: 37.6173 },
+        { name: "Saint Petersburg", sub: "Russia", aliases: "санкт-петербург питер спб saint petersburg", lat: 59.9343, lon: 30.3351 },
+        { name: "Kazan", sub: "Russia · Tatarstan", aliases: "казань kazan", lat: 55.7887, lon: 49.1221 },
+        { name: "Yekaterinburg", sub: "Russia · Sverdlovsk", aliases: "екатеринбург екб yekaterinburg", lat: 56.8389, lon: 60.6057 },
+        { name: "Novosibirsk", sub: "Russia", aliases: "новосибирск novosibirsk", lat: 55.0084, lon: 82.9357 },
+        { name: "Nizhny Novgorod", sub: "Russia", aliases: "нижний новгород nizhny novgorod", lat: 56.2965, lon: 43.9361 },
+        { name: "Samara", sub: "Russia", aliases: "самара samara", lat: 53.1959, lon: 50.1002 },
+        { name: "Ufa", sub: "Russia · Bashkortostan", aliases: "уфа ufa", lat: 54.7388, lon: 55.9721 },
+        { name: "Perm", sub: "Russia", aliases: "пермь perm", lat: 58.0105, lon: 56.2502 },
+        { name: "Krasnodar", sub: "Russia", aliases: "краснодар krasnodar", lat: 45.0355, lon: 38.9753 },
+        { name: "Sochi", sub: "Russia", aliases: "сочи sochi", lat: 43.5855, lon: 39.7231 },
+        { name: "Minsk", sub: "Belarus", aliases: "минск minsk", lat: 53.9006, lon: 27.5590 },
+        { name: "Almaty", sub: "Kazakhstan", aliases: "алматы almaty", lat: 43.2220, lon: 76.8512 },
+        { name: "Astana", sub: "Kazakhstan", aliases: "астана astana", lat: 51.1694, lon: 71.4491 },
+        { name: "Tbilisi", sub: "Georgia", aliases: "тбилиси tbilisi", lat: 41.7151, lon: 44.8271 },
+        { name: "Yerevan", sub: "Armenia", aliases: "ереван yerevan", lat: 40.1792, lon: 44.4991 },
+        { name: "London", sub: "United Kingdom", aliases: "лондон london", lat: 51.5074, lon: -0.1278 },
+        { name: "Berlin", sub: "Germany", aliases: "берлин berlin", lat: 52.5200, lon: 13.4050 },
+        { name: "Paris", sub: "France", aliases: "париж paris", lat: 48.8566, lon: 2.3522 },
+        { name: "New York", sub: "United States", aliases: "нью-йорк new york", lat: 40.7128, lon: -74.0060 },
+        { name: "Tokyo", sub: "Japan", aliases: "токио tokyo", lat: 35.6762, lon: 139.6503 },
+        { name: "Seoul", sub: "South Korea", aliases: "сеул seoul", lat: 37.5665, lon: 126.9780 },
+        { name: "Dubai", sub: "United Arab Emirates", aliases: "дубай dubai", lat: 25.2048, lon: 55.2708 }
+    ]
+
     function codeInfo(c, day) {
         if (c === 0) return { icon: day ? "sunny" : "clear_night", desc: "Sunny", color: day ? "#FFD60A" : "#A0C4FF" };
         if (c === 1 || c === 2) return { icon: day ? "partly_cloudy_day" : "partly_cloudy_night", desc: "Partly Cloudy", color: day ? "#FFD60A" : "#A0C4FF" };
@@ -108,9 +139,53 @@ Singleton {
     }
 
     function refresh() {
-        if (fetchProc.running) return;
         fetchProc.running = false;
         fetchProc.running = true;
+    }
+
+    function setLocation(cityName, latVal, lonVal) {
+        if (!cityName || isNaN(latVal) || isNaN(lonVal)) return;
+        root.city = String(cityName);
+        root.lat = Number(latVal);
+        root.lon = Number(lonVal);
+        const locData = JSON.stringify({
+            city: root.city,
+            lat: root.lat,
+            lon: root.lon
+        });
+        Quickshell.execDetached([
+            "sh", "-c",
+            "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"",
+            "sh", root.cacheDir, locData, root.cacheDir + "/weather-loc.json"
+        ]);
+        root.retryCount = 0;
+        root.refresh();
+    }
+
+    function detectLocationByIp() {
+        if (ipGeoProc.running) return;
+        ipGeoProc.running = true;
+    }
+
+    function searchCities(query) {
+        const q = (query || "").trim();
+        if (q.length < 2) {
+            root.searchResults = [];
+            root.searchingCities = false;
+            return;
+        }
+        root._pendingQuery = q;
+        root.searchingCities = true;
+        geoSearchProc.running = false;
+        const isCyrillic = /[а-яё]/i.test(q);
+        const lang = isCyrillic ? "ru" : "en";
+        geoSearchProc.command = [
+            "curl", "-s", "--max-time", "5", "-G",
+            "https://geocoding-api.open-meteo.com/v1/search",
+            "--data-urlencode", "name=" + q,
+            "-d", "count=10&language=" + lang + "&format=json"
+        ];
+        geoSearchProc.running = true;
     }
 
     function loadLocCache() {
@@ -118,7 +193,7 @@ Singleton {
             const raw = locCacheFile.text();
             if (!raw || !raw.trim()) return;
             const loc = JSON.parse(raw);
-            if (loc.lat && loc.lon) {
+            if (loc.lat !== undefined && loc.lon !== undefined) {
                 root.lat = Number(loc.lat);
                 root.lon = Number(loc.lon);
                 if (loc.city) root.city = loc.city;
@@ -330,6 +405,65 @@ Singleton {
         running: false
         onTriggered: {
             root.refresh();
+        }
+    }
+
+    // Geocoding search via Open-Meteo
+    Process {
+        id: geoSearchProc
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                root.searchingCities = false;
+                const raw = text.trim();
+                if (!raw) {
+                    root.searchResults = [];
+                    return;
+                }
+                try {
+                    const d = JSON.parse(raw);
+                    const arr = d && d.results ? d.results : [];
+                    const parsed = [];
+                    for (let i = 0; i < arr.length; i++) {
+                        const r = arr[i];
+                        if (!r || !r.name || isNaN(r.latitude) || isNaN(r.longitude)) continue;
+                        const parts = [];
+                        if (r.country) parts.push(r.country);
+                        if (r.admin1 && r.admin1 !== r.name) parts.push(r.admin1);
+                        parsed.push({
+                            name: r.name,
+                            sub: parts.join(" · "),
+                            lat: Number(r.latitude),
+                            lon: Number(r.longitude)
+                        });
+                    }
+                    root.searchResults = parsed;
+                } catch (e) {
+                    root.searchResults = [];
+                }
+            }
+        }
+        onExited: function(code) {
+            if (code !== 0) root.searchingCities = false;
+        }
+    }
+
+    // Automatic location detection by IP
+    Process {
+        id: ipGeoProc
+        running: false
+        command: ["curl", "-s", "--max-time", "5", "https://ipwho.is/"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const raw = text.trim();
+                if (!raw) return;
+                try {
+                    const d = JSON.parse(raw);
+                    if (d && d.success !== false && d.city && !isNaN(d.latitude) && !isNaN(d.longitude)) {
+                        root.setLocation(d.city, d.latitude, d.longitude);
+                    }
+                } catch (e) {}
+            }
         }
     }
 
