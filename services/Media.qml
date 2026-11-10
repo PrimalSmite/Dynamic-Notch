@@ -4,6 +4,7 @@ import Quickshell.Services.Mpris
 import QtQuick
 
 // Активный MPRIS-плеер: выбранный вручную, иначе играющий, иначе первый доступный.
+// Включает улучшенный парсинг метаданных YouTube/браузеров и умную ленивую синхронизацию.
 Singleton {
     id: root
 
@@ -16,19 +17,94 @@ Singleton {
     property string trackArtist: ""
     property string trackArtUrl: ""
 
-    // Периодическая синхронизация позиции трека во время воспроизведения
+    // Счётчик активных компонентов, отображающих прогресс (MediaCard / MediaPanel).
+    // Поллинг позиции 1 раз в секунду работает ТОЛЬКО когда есть реальные потребители.
+    property int activeConsumers: 0
+
     Timer {
         id: pollTimer
         interval: 1000
-        running: root.playing
+        running: root.playing && root.activeConsumers > 0
         repeat: true
-        onTriggered: root.sync()
+        onTriggered: {
+            if (root.player && root.player.positionChanged) {
+                root.player.positionChanged();
+            }
+        }
     }
 
     onPinnedChanged: root.sync()
     onPlayersChanged: root.sync()
 
     Component.onCompleted: root.sync()
+
+    // Вспомогательная функция очистки заголовка (особенно для YouTube в браузерах)
+    function cleanTitle(raw) {
+        if (!raw) return "";
+        let t = String(raw).trim();
+
+        // 1. Убираем префикс уведомлений в заголовке вкладки браузера: "(1) ", "(99+) "
+        t = t.replace(/^\(\d+\+?\)\s*/, "");
+
+        // 2. Убираем постфикс "- YouTube", "— YouTube", "- YouTube Music"
+        t = t.replace(/\s*[-–—|]\s*YouTube(?:\s*Music)?\s*$/i, "");
+
+        // 3. Убираем постфиксы браузеров при захвате окна
+        t = t.replace(/\s*[-–—|]\s*(?:Mozilla Firefox|Google Chrome|Chromium|Brave|Vivaldi)\s*$/i, "");
+
+        return t.trim();
+    }
+
+    // Вспомогательная функция извлечения автора / канала
+    function cleanArtist(p, meta, title) {
+        let a = p.trackArtist;
+        if (!a && meta) {
+            const rawA = meta["xesam:artist"] || meta["artist"];
+            if (Array.isArray(rawA)) a = rawA.join(", ");
+            else if (typeof rawA === "string") a = rawA;
+        }
+
+        // Если автор — название браузера или "YouTube", очищаем
+        const idLow = (p.identity || "").toLowerCase();
+        if (a) {
+            const aLow = a.toLowerCase();
+            if (aLow === idLow || aLow === "youtube" || aLow === "youtube music"
+                || aLow.includes("firefox") || aLow.includes("chrome") || aLow.includes("chromium")) {
+                a = "";
+            }
+        }
+
+        // Если автора нет, пробуем извлечь "Исполнитель - Трек" из названия
+        if (!a && title && title.includes(" - ")) {
+            const parts = title.split(" - ");
+            if (parts.length >= 2 && parts[0].trim().length > 0) {
+                a = parts[0].trim();
+            }
+        }
+
+        return (a || "").trim();
+    }
+
+    // Вспомогательная функция извлечения обложки (с фоллбэком на превью YouTube)
+    function cleanArtUrl(p, meta) {
+        let art = p.trackArtUrl || (meta ? (meta["mpris:artUrl"] || meta["artUrl"]) : "") || "";
+
+        // Если отдан локальный путь без схемы file://
+        if (art && art.startsWith("/") && !art.startsWith("//")) {
+            art = "file://" + art;
+        }
+
+        // Если обложки нет (частая проблема Chromium/Brave для YouTube), извлекаем из YouTube URL
+        if (!art && meta) {
+            const url = meta["xesam:url"] || meta["url"] || p.url || meta["mpris:trackid"] || "";
+            const ytMatch = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+            if (ytMatch && ytMatch[1]) {
+                art = "https://img.youtube.com/vi/" + ytMatch[1] + "/hqdefault.jpg";
+            }
+        }
+
+        return art;
+    }
 
     function sync() {
         const list = root.players;
@@ -72,23 +148,38 @@ Singleton {
         }
 
         root.playing = Boolean(chosen.isPlaying || chosen.playbackState === MprisPlaybackState.Playing);
-        root.trackTitle = chosen.trackTitle || (chosen.metadata ? chosen.metadata["xesam:title"] : "") || "";
-        root.trackArtist = chosen.trackArtist || chosen.identity || (chosen.metadata ? chosen.metadata["xesam:artist"] : "") || "";
-        root.trackArtUrl = chosen.trackArtUrl || (chosen.metadata ? chosen.metadata["mpris:artUrl"] : "") || "";
+
+        const meta = chosen.metadata || {};
+        const rawTitle = chosen.trackTitle || meta["xesam:title"] || meta["title"] || "";
+        const cTitle = cleanTitle(rawTitle);
+        const cArtist = cleanArtist(chosen, meta, cTitle);
+
+        // Если мы извлекли автора из "Автор - Название", очищаем автора из названия
+        if (cArtist && cTitle.startsWith(cArtist + " - ")) {
+            root.trackTitle = cTitle.slice(cArtist.length + 3).trim();
+        } else {
+            root.trackTitle = cTitle;
+        }
+
+        root.trackArtist = cArtist || chosen.identity || "";
+        root.trackArtUrl = cleanArtUrl(chosen, meta);
 
         if (root.playing && chosen.positionChanged) {
             chosen.positionChanged();
         }
     }
 
-    // Мгновенная реакция на сигналы текущего плеера
+    // Мгновенная реакция на сигналы текущего плеера (включая metadataChanged!)
     Connections {
         target: root.player
+        ignoreUnknownSignals: true
         function onPlaybackStateChanged() { root.sync(); }
         function onIsPlayingChanged() { root.sync(); }
+        function onMetadataChanged() { root.sync(); }
         function onTrackTitleChanged() { root.sync(); }
         function onTrackArtistChanged() { root.sync(); }
         function onTrackArtUrlChanged() { root.sync(); }
+        function onTrackIdChanged() { root.sync(); }
     }
 
     function togglePlay() {

@@ -14,8 +14,8 @@ Row {
     property color activeColor: Theme.text
     spacing: Theme.px(5)
 
-    readonly property int activeId: monitor?.activeWorkspace?.id ?? 1
-    readonly property var wsList: Hyprland.workspaces.values
+    readonly property int activeId: (monitor && monitor.activeWorkspace && monitor.activeWorkspace.id) ? monitor.activeWorkspace.id : 1
+    readonly property var wsList: (root.visible && root.opacity > 0.01) ? Hyprland.workspaces.values : []
     readonly property var occupied: {
         const s = {};
         for (const w of wsList)

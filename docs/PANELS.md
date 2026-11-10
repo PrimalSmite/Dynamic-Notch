@@ -29,7 +29,7 @@ Item {
 - Шрифт `Theme.fontFamily`, иконки — `Icon { name: "<material symbol>" }` (шрифт Material Symbols Rounded, лигатуры по имени).
 - Цвета: `Theme.text/text2/text3`, карточки `Theme.card` (hover `Theme.cardHover`), радиус карточек `Theme.px(18..22)`, акценты `Theme.blue/green/orange/red/pink/purple/accent`.
 - Анимации: `Behavior on x { Spring {} }` — пружина iOS. Нажатие — scale 0.85–0.9, hover — `Theme.cardHover`.
-- Общие компоненты: `Icon`, `Bar` (полоска/слайдер: `value`, `tint`, `interactive`, сигнал `moved(v)`), `Spring`, `MorphView`, `StatTile`, `MediaCard`, `VolumeCard`, `Workspaces`, `StripButton`.
+- Общие компоненты: `Icon`, `Bar` (полоска/слайдер: `value`, `tint`, `interactive`, сигнал `moved(v)`), `Spring`, `MorphView`, `StatTile`, `MediaCard`, `VolumeCard`, `Workspaces`, `StripButton`, `Caret` (плавная каретка ввода в стиле iOS/macOS).
 - Тексты интерфейса — на русском.
 
 ## Сервисы-контракты, которые читает Island

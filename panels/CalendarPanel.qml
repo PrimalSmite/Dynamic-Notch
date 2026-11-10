@@ -95,7 +95,7 @@ Item {
                 Row {
                     visible: Weather.ready
                     spacing: Theme.px(8)
-                    Icon { name: Weather.icon; size: Theme.px(18); color: Theme.blue; anchors.verticalCenter: parent.verticalCenter }
+                    Icon { name: Weather.icon; size: Theme.px(18); color: Weather.iconColor; anchors.verticalCenter: parent.verticalCenter }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: Math.round(Weather.temp) + "° · " + Weather.desc

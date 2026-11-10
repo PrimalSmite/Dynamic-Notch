@@ -1,6 +1,7 @@
 pragma Singleton
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import QtQuick
 
 // Сервис записи экрана (gpu-screen-recorder + slurp).
@@ -30,11 +31,23 @@ Singleton {
     property bool selectingRegion: false
     property string pendingMonitor: "screen"
 
-    function start(monitorName) {
-        if (recording || selectingRegion) return;
-        pendingMonitor = monitorName || "screen";
+    function resolveMonitor(monitorName) {
+        if (monitorName && monitorName !== "screen") return monitorName;
+        if (Hyprland.focusedMonitor && Hyprland.focusedMonitor.name)
+            return Hyprland.focusedMonitor.name;
+        return "screen";
+    }
 
-        if (target === "region") {
+    function start(monitorName, forceTarget) {
+        if (recording) return;
+        if (selectingRegion) {
+            slurpProc.running = false;
+            selectingRegion = false;
+        }
+        pendingMonitor = resolveMonitor(monitorName);
+        const mode = forceTarget || target;
+
+        if (mode === "region") {
             selectingRegion = true;
             slurpProc.running = false;
             slurpProc.running = true;
@@ -58,10 +71,12 @@ Singleton {
         // и автоматический фоллбэк на кодирование процессором, если видеопамять GPU занята игрой.
         const qualArgs = "-bm cbr -q " + bitrateKbps + " -cr full -fm cfr -tune quality -k " + codec + " -fallback-cpu-encoding yes";
 
-        const cmd = "mkdir -p '" + outDir + "' && exec gpu-screen-recorder -w \"" + captureTarget + "\" -f "
-            + fps + " " + qualArgs + " " + cursorArg + " " + audioArgs + " -o '" + out + "'";
+        const cmd = "mkdir -p '" + outDir + "' && echo $$ > /tmp/qs-gsr.pid && exec gpu-screen-recorder -w \"" + captureTarget + "\" -f "
+            + fps + " " + qualArgs + " " + cursorArg + " " + audioArgs + " -o '" + out + "' </dev/null >/dev/null 2>&1";
 
         elapsed = 0;
+        stopWatchdog.stop();
+        recProc.running = false;
         recProc.command = ["sh", "-c", cmd];
         recProc.running = true;
         recording = true;
@@ -69,12 +84,32 @@ Singleton {
 
     function stop() {
         if (selectingRegion) {
+            slurpProc.running = false;
             Quickshell.execDetached(["pkill", "-x", "slurp"]);
             selectingRegion = false;
             return;
         }
         if (!recording) return;
-        Quickshell.execDetached(["pkill", "-INT", "-f", "gpu-screen-recorder"]);
+        // На Linux /proc/<pid>/comm обрезается до 15 символов ("gpu-screen-reco"),
+        // поэтому шлём SIGINT по точному PID из /tmp/qs-gsr.pid и по имени comm/cmdline.
+        Quickshell.execDetached([
+            "sh", "-c",
+            "if [ -f /tmp/qs-gsr.pid ]; then kill -INT $(cat /tmp/qs-gsr.pid) 2>/dev/null; fi; " +
+            "pkill -INT -x gpu-screen-reco 2>/dev/null || pkill -INT -f '^gpu-screen-recorder ' 2>/dev/null || true"
+        ]);
+        stopWatchdog.restart();
+    }
+
+    Timer {
+        id: stopWatchdog
+        interval: 2500
+        onTriggered: {
+            if (root.recording) {
+                recProc.running = false;
+                root.recording = false;
+                root.refreshRecent();
+            }
+        }
     }
 
     function refreshRecent() {
@@ -82,10 +117,11 @@ Singleton {
         listProc.running = true;
     }
 
-    // Выбор прямоугольной области через slurp в формате WxH+X+Y, который требует gpu-screen-recorder
+    // Выбор прямоугольной области через slurp в формате WxH+X+Y, который требует gpu-screen-recorder.
+    // Важно: </dev/null необходим, так как при не-TTY stdin slurp ждёт список прямоугольников из stdin и зависает.
     Process {
         id: slurpProc
-        command: ["sh", "-c", "sleep 0.2 && slurp -f '%wx%h+%x+%y' 2>/dev/null || true"]
+        command: ["sh", "-c", "pkill -x slurp 2>/dev/null; sleep 0.2 && slurp -f '%Wx%H+%x+%y' </dev/null 2>/dev/null || true"]
         stdout: StdioCollector {
             onStreamFinished: {
                 root.selectingRegion = false;
@@ -102,15 +138,14 @@ Singleton {
             }
         }
         onExited: (code, status) => {
-            if (code !== 0) {
-                root.selectingRegion = false;
-            }
+            root.selectingRegion = false;
         }
     }
 
     Process {
         id: recProc
         onExited: (code, status) => {
+            stopWatchdog.stop();
             const wasElapsed = root.elapsed;
             root.recording = false;
             if ((code === 0 || code === 130) && wasElapsed >= 1 && root.lastFile) {

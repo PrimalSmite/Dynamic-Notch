@@ -226,6 +226,7 @@ PanelWindow {
     function handleRightClick(key) {
         if (key === "notifications") Notifs.dnd = !Notifs.dnd;
         else if (key === "mixer") Audio.toggleMute();
+        else if (key === "media") Media.togglePlay();
         else if (key === "recorder") {
             if (Recorder.recording) Recorder.stop();
             else Recorder.start((win.monitor && win.monitor.name) ? win.monitor.name : "screen");
@@ -326,7 +327,10 @@ PanelWindow {
         }
     }
 
-    SystemClock { id: clock; precision: SystemClock.Seconds }
+    SystemClock {
+        id: clock
+        precision: IslandPrefs.showSeconds ? SystemClock.Seconds : SystemClock.Minutes
+    }
 
     // ───────── Размеры ─────────
     // Равномерная ширина свёрнутого Notch с гармоничными отступами без пустот
@@ -489,7 +493,7 @@ PanelWindow {
                 case Qt.Key_C: win.openPanel("calendar"); event.accepted = true; break;
                 case Qt.Key_W: win.openPanel("weather"); event.accepted = true; break;
                 case Qt.Key_M:
-                    if (win.mode === "dashboard") { win.openPanel("mixer"); event.accepted = true; }
+                    if (win.mode === "dashboard") { win.openPanel("media"); event.accepted = true; }
                     break;
                 case Qt.Key_BracketLeft:
                     wsCompact.go(wsCompact.activeId - 1);
@@ -699,7 +703,7 @@ PanelWindow {
                                 anchors.verticalCenter: parent.verticalCenter
                                 name: Weather.ready ? Weather.icon : "thermostat"
                                 size: Theme.px(13)
-                                color: Weather.ready ? Theme.yellow : Theme.blue
+                                color: Weather.ready ? Weather.iconColor : Theme.blue
                             }
                             Text {
                                 visible: IslandPrefs.compactWidget === "weather"
@@ -1033,7 +1037,7 @@ PanelWindow {
                                     anchors.verticalCenter: parent.verticalCenter
                                     name: Weather.icon
                                     size: Theme.px(16)
-                                    color: Theme.yellow
+                                    color: Weather.iconColor
                                 }
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
@@ -1057,8 +1061,85 @@ PanelWindow {
                             }
                         }
 
+                        // сейчас играет → медиа [M] (ЛКМ — открыть панель, ПКМ/СКМ — пауза, колесо — громкость)
+                        Rectangle {
+                            visible: Media.player !== null
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: medRow.implicitWidth + Theme.px(16)
+                            height: Theme.px(32)
+                            radius: Theme.px(10)
+                            color: medMa.containsMouse ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(1, 1, 1, 0.05)
+                            scale: medMa.pressed ? 0.94 : (medMa.containsMouse ? 1.02 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.01 } }
 
-                        // быстрый индикатор раскладки
+                            Row {
+                                id: medRow
+                                anchors.centerIn: parent
+                                spacing: Theme.px(7)
+
+                                ClippingRectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Theme.px(22); height: width
+                                    radius: Theme.px(6)
+                                    color: Qt.rgba(1, 1, 1, 0.10)
+
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "music_note"
+                                        size: Theme.px(14)
+                                        color: Theme.text2
+                                        visible: !medThumb.visible
+                                    }
+                                    Image {
+                                        id: medThumb
+                                        anchors.fill: parent
+                                        source: Media.trackArtUrl
+                                        cache: false
+                                        fillMode: Image.PreserveAspectCrop
+                                        asynchronous: true
+                                        sourceSize: Qt.size(64, 64)
+                                        visible: status === Image.Ready && source !== ""
+                                    }
+                                }
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Math.min(implicitWidth, Theme.px(120))
+                                    elide: Text.ElideRight
+                                    text: Media.trackTitle !== "" ? Media.trackTitle : (Media.player ? Media.player.identity : "")
+                                    color: Theme.text
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(12)
+                                    font.weight: Font.Medium
+                                }
+
+                                Icon {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    name: Media.playing ? "equalizer" : "pause"
+                                    size: Theme.px(14)
+                                    color: Media.playing ? Theme.accent : Theme.text3
+                                }
+                            }
+
+                            MouseArea {
+                                id: medMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: mouse => {
+                                    if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton) {
+                                        Media.togglePlay();
+                                    } else {
+                                        win.openPanel("media");
+                                    }
+                                }
+                                onWheel: w => {
+                                    Audio.step(w.angleDelta.y > 0 ? 0.03 : -0.03);
+                                }
+                            }
+                        }
+
                         Rectangle {
                             visible: Keyboard.short !== ""
                             anchors.verticalCenter: parent.verticalCenter

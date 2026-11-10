@@ -23,6 +23,8 @@ Singleton {
         function toggle(): void { root.toggleRequested(); }
         function close(): void { root.closeRequested(); }
         function open(panel: string): void { root.openRequested(panel); }
+        function media(): void { root.openRequested("media"); }
+        function mixer(): void { root.openRequested("mixer"); }
         function nextPanel(): void { root.cycleRequested(1); }
         function prevPanel(): void { root.cycleRequested(-1); }
         function volUp(): void { Audio.step(0.05); }
@@ -36,6 +38,7 @@ Singleton {
             if (Recorder.recording) Recorder.stop();
             else Recorder.start("screen");
         }
+        function refreshWeather(): void { Weather.refresh(); }
         function askpass(msg: string, actionId: string, replyFile: string): void {
             Auth.openAskpass(msg, actionId, replyFile);
         }

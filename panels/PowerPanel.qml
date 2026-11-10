@@ -14,7 +14,7 @@ Item {
     implicitHeight: col.implicitHeight
 
     readonly property var actions: [
-        { key: "lock", label: "Блок [L]", icon: "lock", color: Theme.blue, confirm: false, cmd: "\"$HOME/.local/share/quickshell/ukishima/scripts/lock.sh\" >/dev/null 2>&1 || hush lock >/dev/null 2>&1 || hyprlock >/dev/null 2>&1 || loginctl lock-session >/dev/null 2>&1 || hyprctl dispatch 'hl.dsp.dpms(\"off\")' >/dev/null 2>&1 || hyprctl dispatch dpms off >/dev/null 2>&1" },
+        { key: "lock", label: "Блок [L]", icon: "lock", color: Theme.blue, confirm: false, cmd: "hyprlock >/dev/null 2>&1 || loginctl lock-session >/dev/null 2>&1" },
         { key: "suspend", label: "Сон [S]", icon: "bedtime", color: Theme.purple, confirm: true, cmd: "systemctl suspend" },
         { key: "logout", label: "Выйти [E]", icon: "logout", color: Theme.orange, confirm: true, cmd: "hyprctl dispatch 'hl.dsp.exit()' >/dev/null 2>&1 || hyprctl dispatch exit >/dev/null 2>&1 || loginctl terminate-session \"${XDG_SESSION_ID:-self}\" >/dev/null 2>&1 || loginctl terminate-user \"$USER\" >/dev/null 2>&1" },
         { key: "reboot", label: "Рестарт [R]", icon: "restart_alt", color: Theme.yellow, confirm: true, cmd: "systemctl reboot" },

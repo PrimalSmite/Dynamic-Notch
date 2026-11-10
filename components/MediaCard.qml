@@ -11,6 +11,16 @@ Rectangle {
     radius: Theme.px(22)
     color: Theme.card
 
+    Component.onCompleted: Media.activeConsumers++
+    Component.onDestruction: Media.activeConsumers--
+
+    // Колесо мыши по карточке меняет громкость
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.NoButton
+        onWheel: w => Audio.step(w.angleDelta.y > 0 ? 0.03 : -0.03)
+    }
+
     Row {
         anchors.fill: parent
         anchors.margins: Theme.px(14)
@@ -29,15 +39,16 @@ Rectangle {
                     GradientStop { position: 0; color: Theme.pink }
                     GradientStop { position: 1; color: Theme.purple }
                 }
-                Icon { anchors.centerIn: parent; name: "music_note"; size: 30 }
+                Icon { anchors.centerIn: parent; name: "music_note"; size: Theme.px(30) }
             }
             Image {
                 anchors.fill: parent
-                source: (root.player && root.player.trackArtUrl) ? root.player.trackArtUrl : ""
+                source: Media.trackArtUrl !== "" ? Media.trackArtUrl : ((root.player && root.player.trackArtUrl) ? root.player.trackArtUrl : "")
+                cache: false
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 sourceSize: Qt.size(136, 136)
-                visible: status === Image.Ready
+                visible: status === Image.Ready && source !== ""
             }
         }
 
@@ -49,7 +60,7 @@ Rectangle {
             Text {
                 width: parent.width
                 elide: Text.ElideRight
-                text: (root.player && root.player.trackTitle) ? root.player.trackTitle : "Без названия"
+                text: Media.trackTitle !== "" ? Media.trackTitle : ((root.player && root.player.trackTitle) ? root.player.trackTitle : "Без названия")
                 color: Theme.text
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.px(15)
@@ -58,16 +69,17 @@ Rectangle {
             Text {
                 width: parent.width
                 elide: Text.ElideRight
-                text: root.player ? (root.player.trackArtist || root.player.identity) : ""
+                text: Media.trackArtist !== "" ? Media.trackArtist : (root.player ? (root.player.trackArtist || root.player.identity) : "")
                 color: Theme.text2
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.px(12)
             }
-            Item { width: 1; height: 6 }
+            Item { width: 1; height: Theme.px(6) }
             Bar {
                 id: prog
                 width: parent.width
                 height: Theme.px(4)
+                tint: Theme.controlFill
                 visible: root.player ? root.player.lengthSupported : false
                 value: root.player && root.player.length > 0 ? root.player.position / root.player.length : 0
                 interactive: root.player ? root.player.canSeek : false
@@ -95,42 +107,78 @@ Rectangle {
             }
         }
 
-        // Кнопки
+        // Кнопки управления (Назад, Плей/Пауза, Вперед)
         Row {
             id: ctl
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Theme.px(2)
-            Repeater {
-                model: [
-                    { icon: "skip_previous", act: "prev", size: Theme.px(26) },
-                    { icon: Media.playing ? "pause" : "play_arrow", act: "toggle", size: Theme.px(34) },
-                    { icon: "skip_next", act: "next", size: Theme.px(26) }
-                ]
-                Item {
-                    id: btn
-                    required property var modelData
-                    width: Theme.px(36)
-                    height: Theme.px(40)
-                    Icon {
-                        anchors.centerIn: parent
-                        name: btn.modelData.icon
-                        size: btn.modelData.size
-                        scale: bm.pressed ? 0.8 : bm.containsMouse ? 1.1 : 1
-                        Behavior on scale { NumberAnimation { duration: 140 } }
-                    }
-                    MouseArea {
-                        id: bm
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            const p = root.player;
-                            if (!p) return;
-                            if (btn.modelData.act === "prev") p.previous();
-                            else if (btn.modelData.act === "next") p.next();
-                            else p.togglePlaying();
-                        }
-                    }
+            spacing: Theme.px(4)
+
+            // Предыдущий трек
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: Theme.px(30); height: width; radius: width / 2
+                color: prevMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+                scale: prevMa.pressed ? 0.88 : 1.0
+                Behavior on scale { Spring { epsilon: 0.01 } }
+
+                Icon {
+                    anchors.centerIn: parent
+                    name: "skip_previous"
+                    size: Theme.px(20)
+                    color: Theme.text
+                }
+                MouseArea {
+                    id: prevMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Media.prev()
+                }
+            }
+
+            // Плей / Пауза (акцентная матово-белая круглая кнопка)
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: Theme.px(36); height: width; radius: width / 2
+                color: Theme.controlFill
+                scale: playMa.pressed ? 0.88 : (playMa.containsMouse ? 1.05 : 1.0)
+                Behavior on scale { Spring { epsilon: 0.01 } }
+
+                Icon {
+                    anchors.centerIn: parent
+                    name: Media.playing ? "pause" : "play_arrow"
+                    size: Theme.px(22)
+                    color: "black"
+                }
+                MouseArea {
+                    id: playMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Media.togglePlay()
+                }
+            }
+
+            // Следующий трек
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: Theme.px(30); height: width; radius: width / 2
+                color: nextMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+                scale: nextMa.pressed ? 0.88 : 1.0
+                Behavior on scale { Spring { epsilon: 0.01 } }
+
+                Icon {
+                    anchors.centerIn: parent
+                    name: "skip_next"
+                    size: Theme.px(20)
+                    color: Theme.text
+                }
+                MouseArea {
+                    id: nextMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Media.next()
                 }
             }
         }

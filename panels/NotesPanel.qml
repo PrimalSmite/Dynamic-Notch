@@ -270,6 +270,7 @@ Item {
                         font.family: Theme.monoFamily
                         font.pixelSize: Theme.px(13)
                         selectionColor: Theme.blue
+                        cursorDelegate: Caret {}
                         wrapMode: TextEdit.Wrap
                         onTextChanged: {
                             if (!root._loadingContent)

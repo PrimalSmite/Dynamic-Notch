@@ -28,6 +28,7 @@ Singleton {
     property real _prevRx: 0
     property real _prevTx: 0
     property string _tempPath: ""
+    property bool _firstHistorySample: true
 
     FileView { id: statF; path: "/proc/stat"; blockLoading: true }
     FileView { id: memF; path: "/proc/meminfo"; blockLoading: true }
@@ -61,8 +62,14 @@ Singleton {
             const dt = total - _prevTotal;
             if (_prevTotal > 0 && dt > 0) {
                 cpu = Math.max(0, Math.min(1, 1 - (idle - _prevIdle) / dt));
-                const hist = cpuHistory.slice(1);
-                hist.push(cpu);
+                let hist = cpuHistory.slice();
+                if (root._firstHistorySample) {
+                    root._firstHistorySample = false;
+                    hist = Array(30).fill(cpu);
+                } else {
+                    hist.shift();
+                    hist.push(cpu);
+                }
                 cpuHistory = hist;
             }
             _prevTotal = total;
@@ -163,6 +170,7 @@ Singleton {
     }
 
     Timer {
+        id: updateTimer
         interval: 2000
         running: true
         repeat: true

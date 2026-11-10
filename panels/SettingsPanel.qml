@@ -193,7 +193,7 @@ Item {
 
     function takeScreenshotRegion() {
         if (host) host.collapse();
-        Quickshell.execDetached(["sh", "-c", "sleep 0.25 && REG=$(slurp) && [ -n \"$REG\" ] && grim -g \"$REG\" - | wl-copy && notify-send -a 'Остров' 'Скриншот' 'Выделенная область скопирована в буфер'"]);
+        Quickshell.execDetached(["sh", "-c", "sleep 0.25 && REG=$(slurp </dev/null) && [ -n \"$REG\" ] && grim -g \"$REG\" - | wl-copy && notify-send -a 'Остров' 'Скриншот' 'Выделенная область скопирована в буфер'"]);
     }
 
     function takeScreenshotFull() {
@@ -203,7 +203,7 @@ Item {
 
     function lockScreen() {
         if (host) host.collapse();
-        Quickshell.execDetached(["sh", "-c", "\"$HOME/.local/share/quickshell/ukishima/scripts/lock.sh\" >/dev/null 2>&1 || hush lock >/dev/null 2>&1 || hyprlock >/dev/null 2>&1 || loginctl lock-session >/dev/null 2>&1 || hyprctl dispatch 'hl.dsp.dpms(\"off\")' >/dev/null 2>&1 || hyprctl dispatch dpms off >/dev/null 2>&1"]);
+        Quickshell.execDetached(["sh", "-c", "hyprlock >/dev/null 2>&1 || loginctl lock-session >/dev/null 2>&1"]);
     }
 
     function reloadHyprland() {
@@ -1486,8 +1486,9 @@ Item {
                     onClicked: {
                         if (Recorder.recording) Recorder.stop();
                         else {
+                            const mon = (host && host.monitor && host.monitor.name) ? host.monitor.name : "screen";
                             if (host) host.collapse();
-                            Recorder.start("screen");
+                            Recorder.start(mon);
                         }
                     }
                 }

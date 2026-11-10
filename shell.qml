@@ -43,9 +43,8 @@ ShellRoot {
             Component.onCompleted: {
                 if (targetSource) {
                     backImg.source = targetSource;
-                    frontImg.source = targetSource;
-                    frontImg.opacity = 1;
-                    frontImg.scale = 1.0;
+                    frontImg.source = "";
+                    frontImg.opacity = 0;
                 }
             }
 
@@ -90,7 +89,8 @@ ShellRoot {
                         easing.type: Easing.OutCubic
                     }
                     onFinished: {
-                        backImg.source = frontImg.source;
+                        const s = frontImg.source;
+                        backImg.source = s;
                         frontImg.source = "";
                         frontImg.opacity = 0;
                     }

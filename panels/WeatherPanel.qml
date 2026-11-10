@@ -58,7 +58,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             name: Weather.icon
                             size: Theme.px(32)
-                            color: Theme.yellow
+                            color: Weather.iconColor
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
@@ -72,7 +72,7 @@ Item {
 
                     Text {
                         text: Weather.desc + " · Ощущ. " + (isNaN(Weather.feelsLike) ? "--" : Math.round(Weather.feelsLike) + "°")
-                              + " · " + Math.round(Weather.wind) + " км/ч"
+                              + " · " + (Math.round(Weather.wind * 10) / 10) + " м/с"
                         color: Theme.text2
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(10)
@@ -112,7 +112,7 @@ Item {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 name: modelData.icon
                                 size: Theme.px(19)
-                                color: Theme.text
+                                color: modelData.iconColor || Theme.text
                             }
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
@@ -159,7 +159,7 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             name: modelData.icon
                             size: Theme.px(18)
-                            color: Theme.blue
+                            color: modelData.iconColor || Theme.blue
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter

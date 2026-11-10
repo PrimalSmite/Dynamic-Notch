@@ -114,6 +114,7 @@ Item {
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(13)
                     selectionColor: Theme.blue
+                    cursorDelegate: Caret {}
                     clip: true
                     focus: true
                     onTextChanged: { root.query = text; root.selectedIndex = 0; }

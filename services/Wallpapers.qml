@@ -38,6 +38,7 @@ Singleton {
             W="$1"
             mkdir -p ~/.cache
             printf "%s" "$W" > ~/.cache/dynamic-island-wallpaper
+            ln -sf "$W" ~/.cache/current-wallpaper
 
             if command -v awww >/dev/null 2>&1; then
                 pgrep -x awww-daemon >/dev/null 2>&1 || (awww-daemon >/dev/null 2>&1 & sleep 0.25)

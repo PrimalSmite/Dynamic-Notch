@@ -170,6 +170,7 @@ Item {
                 echoMode: (Auth.flow && Auth.flow.responseVisible) ? TextInput.Normal : TextInput.Password
                 passwordCharacter: "•"
                 selectionColor: root.teal
+                cursorDelegate: Caret {}
                 clip: true
                 focus: true
 

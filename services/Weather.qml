@@ -17,24 +17,94 @@ Singleton {
     property int code: 0
     property bool isDay: true
     property string icon: "cloud"
+    property color iconColor: "#FFD60A"
     property string desc: "Загрузка..."
     property string city: "Ижевск"
     property real lat: 56.85225
     property real lon: 53.19862
 
-    property var hourly: []   // [{ time: "22:00", temp: 2, icon: "..." }]
-    property var daily: []    // [{ day: "Ср", min: -1, max: 4, icon: "...", desc: "..." }]
+    property var hourly: []   // [{ time: "Сейчас", temp: 2, icon: "...", iconColor: "..." }]
+    property var daily: []    // [{ day: "Ср", min: -1, max: 4, icon: "...", iconColor: "...", desc: "..." }]
 
     function codeInfo(c, day) {
-        if (c === 0) return { icon: day ? "sunny" : "clear_night", desc: "Ясно" };
-        if (c === 1 || c === 2) return { icon: day ? "partly_cloudy_day" : "partly_cloudy_night", desc: "Малооблачно" };
-        if (c === 3) return { icon: "cloud", desc: "Пасмурно" };
-        if (c === 45 || c === 48) return { icon: "foggy", desc: "Туман" };
-        if (c >= 51 && c <= 57) return { icon: "grain", desc: "Морось" };
-        if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return { icon: "rainy", desc: "Дождь" };
-        if ((c >= 71 && c <= 77) || c === 85 || c === 86) return { icon: "weather_snowy", desc: "Снег" };
-        if (c >= 95) return { icon: "thunderstorm", desc: "Гроза" };
-        return { icon: "cloud", desc: "Облачно" };
+        if (c === 0) return { icon: day ? "sunny" : "clear_night", desc: "Ясно", color: day ? "#FFD60A" : "#A0C4FF" };
+        if (c === 1 || c === 2) return { icon: day ? "partly_cloudy_day" : "partly_cloudy_night", desc: "Малооблачно", color: day ? "#FFD60A" : "#A0C4FF" };
+        if (c === 3) return { icon: "cloud", desc: "Пасмурно", color: Qt.rgba(1, 1, 1, 0.65) };
+        if (c === 45 || c === 48) return { icon: "foggy", desc: "Туман", color: Qt.rgba(1, 1, 1, 0.65) };
+        if (c >= 51 && c <= 57) return { icon: "grain", desc: "Морось", color: "#0A84FF" };
+        if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return { icon: "rainy", desc: "Дождь", color: "#0A84FF" };
+        if ((c >= 71 && c <= 77) || c === 85 || c === 86) return { icon: "weather_snowy", desc: "Снег", color: "#90CAF9" };
+        if (c >= 95) return { icon: "thunderstorm", desc: "Гроза", color: "#BF5AF2" };
+        return { icon: "cloud", desc: "Облачно", color: Qt.rgba(1, 1, 1, 0.65) };
+    }
+
+    // Вычисляет репрезентативный код погоды на день по часовым данным (вместо WMO худшего часа Open-Meteo)
+    function representativeDailyCode(dayStr, hourlyData, dailyPrecip, dailySnow) {
+        if (!hourlyData || !hourlyData.time || !hourlyData.weather_code) return 0;
+        const dayIndices = [];
+        for (let i = 0; i < hourlyData.time.length; i++) {
+            if (hourlyData.time[i].indexOf(dayStr) === 0) dayIndices.push(i);
+        }
+        if (dayIndices.length === 0) return 0;
+
+        let targetIndices = [];
+        if (hourlyData.is_day) {
+            for (let i = 0; i < dayIndices.length; i++) {
+                const idx = dayIndices[i];
+                if (hourlyData.is_day[idx] === 1) targetIndices.push(idx);
+            }
+        }
+        if (targetIndices.length < 4) {
+            targetIndices = [];
+            for (let i = 0; i < dayIndices.length; i++) {
+                const idx = dayIndices[i];
+                const h = parseInt(hourlyData.time[idx].split("T")[1] || "12", 10);
+                if (h >= 8 && h <= 19) targetIndices.push(idx);
+            }
+        }
+        if (targetIndices.length === 0) targetIndices = dayIndices;
+
+        const codes = targetIndices.map(idx => hourlyData.weather_code[idx]);
+        const n = codes.length;
+
+        if (codes.some(c => c >= 95)) return 95;
+
+        let snowHours = 0;
+        let rainHours = 0;
+        let fogHours = 0;
+        let clearHours = 0;
+        let partlyHours = 0;
+        let overcastHours = 0;
+
+        for (let i = 0; i < n; i++) {
+            const c = codes[i];
+            if ((c >= 71 && c <= 77) || c === 85 || c === 86) snowHours++;
+            else if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) rainHours++;
+            else if (c === 45 || c === 48) fogHours++;
+            else if (c === 0) clearHours++;
+            else if (c === 1 || c === 2) partlyHours++;
+            else if (c === 3) overcastHours++;
+        }
+
+        const pSum = typeof dailyPrecip === "number" ? dailyPrecip : 0;
+        const sSum = typeof dailySnow === "number" ? dailySnow : 0;
+
+        // Значительный снег (только если действительно выпал и шёл значительную часть дня)
+        if ((sSum >= 0.5 || (pSum >= 1.0 && snowHours >= 2)) && snowHours >= Math.ceil(n * 0.35)) {
+            return sSum >= 3.0 ? 73 : 71;
+        }
+        // Значительный дождь
+        if (pSum >= 1.0 && rainHours >= Math.ceil(n * 0.35)) {
+            return pSum >= 5.0 ? 63 : 61;
+        }
+        // Густой туман днём
+        if (fogHours > n / 2) return 45;
+
+        // Доминирующее состояние неба
+        if (overcastHours >= partlyHours + clearHours) return 3;
+        if (partlyHours >= clearHours) return 2;
+        if (clearHours > 0) return 0;
+        return 3;
     }
 
     function refresh() {
@@ -70,6 +140,7 @@ Singleton {
                 root.isDay = c.isDay !== false;
                 const info = root.codeInfo(root.code, root.isDay);
                 root.icon = info.icon;
+                root.iconColor = info.color;
                 root.desc = info.desc;
                 if (c.hourly && c.hourly.length) root.hourly = c.hourly;
                 if (c.daily && c.daily.length) root.daily = c.daily;
@@ -83,6 +154,7 @@ Singleton {
                 root.isDay = c.isDay !== false;
                 const info = root.codeInfo(root.code, root.isDay);
                 root.icon = info.icon;
+                root.iconColor = info.color;
                 root.desc = info.desc;
                 root.ready = true;
             }
@@ -131,9 +203,9 @@ Singleton {
             "curl", "-s", "--max-time", "8",
             "https://api.open-meteo.com/v1/forecast?latitude=" + root.lat + "&longitude=" + root.lon
             + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day"
-            + "&hourly=temperature_2m,weather_code,is_day"
-            + "&daily=weather_code,temperature_2m_max,temperature_2m_min"
-            + "&timezone=auto&forecast_days=7"
+            + "&hourly=temperature_2m,weather_code,is_day,precipitation"
+            + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_sum"
+            + "&timezone=auto&forecast_days=7&wind_speed_unit=ms"
         ]
         stdout: StdioCollector {
             onStreamFinished: {
@@ -151,40 +223,64 @@ Singleton {
                             root.isDay = d.current.is_day === 1;
                             const info = root.codeInfo(root.code, root.isDay);
                             root.icon = info.icon;
+                            root.iconColor = info.color;
                             root.desc = info.desc;
 
-                            // Почасовой (следующие 12 часов)
+                            // Почасовой (слот "Сейчас" + следующие 6 часов)
                             if (d.hourly && d.hourly.time) {
-                                const nowIso = d.current.time || "";
-                                let startIdx = 0;
-                                for (let i = 0; i < d.hourly.time.length; i++) {
-                                    if (d.hourly.time[i] >= nowIso) { startIdx = i; break; }
-                                }
                                 const hrs = [];
-                                for (let i = startIdx; i < Math.min(startIdx + 7, d.hourly.time.length); i++) {
-                                    const tStr = d.hourly.time[i].split("T")[1] || "00:00";
-                                    const hi = root.codeInfo(d.hourly.weather_code[i], d.hourly.is_day ? d.hourly.is_day[i] === 1 : true);
-                                    hrs.push({
-                                        time: i === startIdx ? "Сейчас" : tStr.slice(0, 5),
-                                        temp: Math.round(d.hourly.temperature_2m[i]),
-                                        icon: hi.icon
-                                    });
+                                const currentRound = Math.round(root.temp) || 0;
+                                hrs.push({
+                                    time: "Сейчас",
+                                    temp: currentRound,
+                                    icon: root.icon,
+                                    iconColor: root.iconColor
+                                });
+
+                                const nowIso = d.current.time || "";
+                                let startIdx = -1;
+                                for (let i = 0; i < d.hourly.time.length; i++) {
+                                    if (d.hourly.time[i] > nowIso) {
+                                        startIdx = i;
+                                        break;
+                                    }
+                                }
+
+                                if (startIdx !== -1) {
+                                    for (let i = startIdx; i < Math.min(startIdx + 6, d.hourly.time.length); i++) {
+                                        const tStr = d.hourly.time[i].split("T")[1] || "00:00";
+                                        const isDay = d.hourly.is_day ? d.hourly.is_day[i] === 1 : true;
+                                        const hi = root.codeInfo(d.hourly.weather_code[i], isDay);
+                                        const rTemp = Math.round(d.hourly.temperature_2m[i]) || 0;
+                                        hrs.push({
+                                            time: tStr.slice(0, 5),
+                                            temp: rTemp,
+                                            icon: hi.icon,
+                                            iconColor: hi.color
+                                        });
+                                    }
                                 }
                                 root.hourly = hrs;
                             }
 
-                            // На 7 дней
+                            // На 7 дней с репрезентативным дневным прогнозом
                             if (d.daily && d.daily.time) {
                                 const days = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
                                 const dlist = [];
                                 for (let i = 0; i < Math.min(7, d.daily.time.length); i++) {
                                     const dt = new Date(d.daily.time[i] + "T12:00:00");
-                                    const di = root.codeInfo(d.daily.weather_code[i], true);
+                                    const pSum = d.daily.precipitation_sum ? d.daily.precipitation_sum[i] : 0;
+                                    const sSum = d.daily.snowfall_sum ? d.daily.snowfall_sum[i] : 0;
+                                    const repCode = root.representativeDailyCode(d.daily.time[i], d.hourly, pSum, sSum);
+                                    const di = root.codeInfo(repCode, true);
+                                    const rMin = Math.round(d.daily.temperature_2m_min[i]) || 0;
+                                    const rMax = Math.round(d.daily.temperature_2m_max[i]) || 0;
                                     dlist.push({
                                         day: i === 0 ? "Сегодня" : days[dt.getDay()],
-                                        min: Math.round(d.daily.temperature_2m_min[i]),
-                                        max: Math.round(d.daily.temperature_2m_max[i]),
+                                        min: rMin,
+                                        max: rMax,
                                         icon: di.icon,
+                                        iconColor: di.color,
                                         desc: di.desc
                                     });
                                 }
@@ -199,24 +295,38 @@ Singleton {
                 }
 
                 if (!success) {
-                    retryTimer.start();
+                    root.scheduleRetry();
                 } else {
+                    root.retryCount = 0;
                     retryTimer.stop();
                 }
             }
         }
         onExited: function(exitCode) {
             if (exitCode !== 0) {
-                retryTimer.start();
+                root.scheduleRetry();
             }
         }
     }
 
-    // Быстрый повтор при отсутствии сети на старте системы (каждые 5 сек до успеха)
+    property int retryCount: 0
+    readonly property int maxRetries: 5
+
+    function scheduleRetry() {
+        if (root.retryCount >= root.maxRetries) {
+            retryTimer.stop();
+            return;
+        }
+        root.retryCount++;
+        retryTimer.interval = Math.min(60000, 5000 * Math.pow(2, root.retryCount - 1));
+        retryTimer.restart();
+    }
+
+    // Повтор при отсутствии сети на старте с экспоненциальным backoff (макс 5 попыток)
     Timer {
         id: retryTimer
         interval: 5000
-        repeat: true
+        repeat: false
         running: false
         onTriggered: {
             root.refresh();
@@ -228,6 +338,9 @@ Singleton {
         interval: 900000 // 15 мин
         running: true
         repeat: true
-        onTriggered: root.refresh()
+        onTriggered: {
+            root.retryCount = 0;
+            root.refresh();
+        }
     }
 }

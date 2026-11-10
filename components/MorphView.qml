@@ -35,7 +35,7 @@ Item {
     layer.effect: MultiEffect {
         autoPaddingEnabled: false
         blurEnabled: true
-        blurMax: 20
+        blurMax: 8
         blur: 1 - v.opacity
     }
 }
