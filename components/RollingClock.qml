@@ -1,7 +1,7 @@
 import QtQuick
 import qs.services
 
-// Часы с посимвольной плавной iOS-анимацией перелистывания цифр при смене времени.
+// Clock with character-by-character smooth iOS-style digit flip animation on time change.
 Row {
     id: root
 
@@ -43,7 +43,7 @@ Row {
                 }
             }
 
-            // Уходящая цифра (плавно уходит вверх с лёгким уменьшением и размытием)
+            // Exiting digit (smoothly moves up with slight scale-down and fade)
             Text {
                 id: oldTxt
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -59,7 +59,7 @@ Row {
                 visible: opacity > 0.01
             }
 
-            // Новая (текущая) цифра (плавно всплывает снизу на пружине)
+            // New (current) digit (smoothly springs up from below)
             Text {
                 id: newTxt
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -77,7 +77,7 @@ Row {
             ParallelAnimation {
                 id: rollAnim
 
-                // Старая цифра уезжает вверх и растворяется
+                // Old digit moves up and fades out
                 NumberAnimation {
                     target: oldTxt
                     property: "y"
@@ -103,7 +103,7 @@ Row {
                     easing.type: Easing.OutCubic
                 }
 
-                // Новая цифра выезжает снизу с пружиной в стиле iOS
+                // New digit slides up from below with an iOS-style spring
                 SpringAnimation {
                     target: newTxt
                     property: "y"

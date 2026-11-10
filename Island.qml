@@ -7,12 +7,12 @@ import Quickshell.Services.SystemTray
 import qs.services
 import qs.components
 
-// «Чёлка» на каждом мониторе.
-// Режимы:
-//   compact   — капсулы рабочих столов (слева) · время строго по центру · активности и раскладка (справа)
-//   osd       — плашка при смене громкости / раскладки или новом уведомлении
-//   dashboard — двухрядный компактный дашборд (статус + трей сверху, док иконок снизу)
-//   panel     — отдельная панель (лончер, уведомления, polkit-пароль и т.д.) прямо в чёлке без шапки дашборда
+// Dynamic Notch on each monitor.
+// Modes:
+//   compact   — workspace capsules (left) · centered clock · activities & layout (right)
+//   osd       — floating popup on volume / layout change or new notification
+//   dashboard — two-row compact dashboard (status + tray on top, dock icons on bottom)
+//   panel     — dedicated panel (launcher, notifications, polkit auth, etc.) directly in notch without dashboard header
 PanelWindow {
     id: win
 
@@ -27,14 +27,14 @@ PanelWindow {
     color: "transparent"
 
     exclusiveZone: win.isGameActive ? 0 : Theme.compactH
-    WlrLayershell.namespace: "dynamic-island"
+    WlrLayershell.namespace: "dynamic-notch"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: (mode === "dashboard" || mode === "panel")
                                  ? WlrKeyboardFocus.Exclusive
                                  : WlrKeyboardFocus.None
     mask: Region { item: win.notchHidden ? null : ((win.mode === "dashboard" || win.mode === "panel") ? outsideCatcher : notch) }
 
-    // Инициализируем менеджер HyprlandFocusGrab заранее, чтобы первый захват не терялся
+    // Initialize HyprlandFocusGrab beforehand so initial grab is never lost
     Timer {
         interval: 80
         running: true
@@ -44,7 +44,7 @@ PanelWindow {
         }
     }
 
-    // Защита от ложного срабатывания HyprlandFocusGrab в момент перехвата Exclusive-фокуса
+    // Protect against false-positive HyprlandFocusGrab triggers during Exclusive focus handover
     property bool grabArmed: false
     Timer {
         id: grabArmTimer
@@ -69,21 +69,21 @@ PanelWindow {
         }
     }
 
-    // ───────── Состояние ─────────
+    // ───────── State ─────────
     property int gameCheckTick: 0
 
-    // Определение активности игры или полноэкранного режима на этом мониторе
+    // Detect game activity or fullscreen mode on this monitor
     readonly property bool isGameActive: {
         void gameCheckTick;
         if (!IslandPrefs.hideInGames) return false;
 
-        // 1. Полноэкранный режим на мониторе
+        // 1. Fullscreen mode on monitor
         if (win.monitor && win.monitor.activeWorkspace && win.monitor.activeWorkspace.hasFullscreen)
             return true;
         if (win.monitor && win.monitor.focused && Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.hasFullscreen)
             return true;
 
-        // 2. Активное окно игры (по тегу game, классу или полноэкранному состоянию)
+        // 2. Active game window (by game tag, window class, or fullscreen state)
         const top = Hyprland.activeToplevel;
         if (top) {
             const sameMon = !top.monitor || (win.monitor && top.monitor.id === win.monitor.id);
@@ -107,12 +107,12 @@ PanelWindow {
         return false;
     }
 
-    // Чёлка скрыта, если запущена игра/полный экран и нет активных плашек/панелей
+    // Notch is hidden when a game/fullscreen app is running and no active popups/panels exist
     readonly property bool notchHidden: isGameActive && mode === "compact"
 
-    property bool expanded: false       // открыт ли сам дашборд
-    property string panel: ""           // открытая отдельная панель ("" — нет панели)
-    property string loadedPanel: ""     // держим содержимое во время анимации закрытия
+    property bool expanded: false       // whether dashboard itself is open
+    property string panel: ""           // active dedicated panel ("" — no panel)
+    property string loadedPanel: ""     // preserve content during close animation
     property string osd: ""             // "", "volume", "layout", "notif"
     property string lastOsd: "volume"
     property var notif: null
@@ -146,7 +146,7 @@ PanelWindow {
         grabArmTimer.restart();
     }
 
-    // Открыть отдельную панель прямо в чёлке (повторный вызов сворачивает обратно в чёлку)
+    // Open dedicated panel directly in notch (calling again collapses back into notch)
     function openPanel(name) {
         osd = "";
         if (panel === name) {
@@ -161,7 +161,7 @@ PanelWindow {
         focusActivePanel();
     }
 
-    // Вернуться из открытой панели назад в дашборд (по ПКМ или Backspace)
+    // Return from open panel back to dashboard (via right-click or Backspace)
     function backToDashboard() {
         osd = "";
         if (panel === "auth") Auth.cancel();
@@ -332,8 +332,8 @@ PanelWindow {
         precision: IslandPrefs.showSeconds ? SystemClock.Seconds : SystemClock.Minutes
     }
 
-    // ───────── Размеры ─────────
-    // Равномерная ширина свёрнутого Notch с гармоничными отступами без пустот
+    // ───────── Dimensions ─────────
+    // Balanced compact Notch width with harmonious padding
     readonly property real compactW: wsCompact.implicitWidth + clockText.implicitWidth + rightCompact.implicitWidth + Theme.px(11) * 2 + Theme.px(16) * 2
     readonly property real layoutOsdW: Math.max(compactW, layoutOsdRow.implicitWidth + Theme.px(32))
     readonly property real dashW: Math.max(Theme.px(520),
@@ -345,7 +345,7 @@ PanelWindow {
     readonly property real activePanelH: (panelLoader.item ? panelLoader.item.implicitHeight : Theme.px(200))
                                          + 2 * Theme.pad
 
-    // ───────── Перехват клика мимо открытой панели / дашборда ─────────
+    // ───────── Outside click catcher for open panel / dashboard ─────────
     MouseArea {
         id: outsideCatcher
         anchors.fill: parent
@@ -357,7 +357,7 @@ PanelWindow {
         }
     }
 
-    // ───────── Чёлка ─────────
+    // ───────── Dynamic Notch ─────────
     Item {
         id: notch
 
@@ -394,7 +394,7 @@ PanelWindow {
         Behavior on y { Spring { epsilon: 0.5 } }
         Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
 
-        // Блокируем проваливание кликов по «ушкам» чёлки в outsideCatcher
+        // Prevent clicks on notch ears from passing through to outsideCatcher
         MouseArea {
             anchors.fill: parent
             acceptedButtons: Qt.AllButtons
@@ -425,7 +425,7 @@ PanelWindow {
             clip: true
             focus: true
 
-            // Глобальные горячие клавиши (Esc всегда сворачивает обратно в маленький Notch)
+            // Global hotkeys (Esc always collapses back into small Notch)
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Escape) {
                     if (win.panel === "auth") Auth.cancel();
@@ -513,7 +513,7 @@ PanelWindow {
                 }
             }
 
-            // Фон: ЛКМ — раскрыть дашборд, ПКМ — назад в дашборд (из панели) или лончер (из чёлки), СКМ — пауза/музыка, колесо — рабочие столы
+            // Background: LMB — expand dashboard, RMB — back to dashboard (from panel) or launcher (from notch), MMB — pause/music, wheel — workspaces
             MouseArea {
                 anchors.fill: parent
                 acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
@@ -549,7 +549,7 @@ PanelWindow {
                 }
             }
 
-            // ═════════ COMPACT (Часы строго по центру, капсулы столов слева, погода и раскладка справа) ═════════
+            // ═════════ COMPACT (Centered clock, workspace capsules on left, weather & layout on right) ═════════
             MorphView {
                 id: compactView
                 shown: win.mode === "compact" && !win.notchHidden
@@ -567,14 +567,14 @@ PanelWindow {
                     scale: notch.compactHovered ? 1.04 : 1.0
                     Behavior on scale { Spring { epsilon: 0.01 } }
 
-                    // Левая часть: вертикальные капсулы рабочих столов
+                    // Left section: vertical workspace capsules
                     Workspaces {
                         id: wsCompact
                         monitor: win.monitor
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
-                    // Центр: перелистывающиеся часы
+                    // Center: flip clock
                     RollingClock {
                         id: clockText
                         anchors.verticalCenter: parent.verticalCenter
@@ -584,13 +584,13 @@ PanelWindow {
                         textColor: Theme.text
                     }
 
-                    // Правая часть: живые активности + виджет + раскладка
+                    // Right section: live activities + widget + layout
                     Row {
                         id: rightCompact
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: Theme.px(7)
 
-                        // запись экрана (пульсирующий ореол + дыхание масштаба + перелистывание цифр)
+                        // screen recording (pulsing halo + breathing scale + flip timer digits)
                         Row {
                             visible: Recorder.recording
                             anchors.verticalCenter: parent.verticalCenter
@@ -600,7 +600,7 @@ PanelWindow {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: Theme.px(10); height: width
 
-                                // Расходящийся ореол (Halo)
+                                // Pulsing halo
                                 Rectangle {
                                     id: recHalo
                                     anchors.centerIn: parent
@@ -616,7 +616,7 @@ PanelWindow {
                                     }
                                 }
 
-                                // Ядро индикатора с синусоидальным дыханием масштаба
+                                // Indicator core with sinusoidal scale breathing
                                 Rectangle {
                                     anchors.centerIn: parent
                                     width: Theme.px(7); height: width; radius: width / 2
@@ -640,7 +640,7 @@ PanelWindow {
                             TapHandler { onTapped: win.openPanel("recorder") }
                         }
 
-                        // таймер / секундомер (с микро-импульсом иконки и перелистыванием секунд)
+                        // timer / stopwatch (with micro-pulse icon and flip second digits)
                         Row {
                             visible: Timers.running
                             anchors.verticalCenter: parent.verticalCenter
@@ -676,7 +676,7 @@ PanelWindow {
                         }
 
 
-                        // непрочитанные уведомления / не беспокоить
+                        // unread notifications / do not disturb
                         Icon {
                             visible: Notifs.dnd
                             anchors.verticalCenter: parent.verticalCenter
@@ -691,13 +691,13 @@ PanelWindow {
                             color: Theme.accent
                         }
 
-                        // Настраиваемый виджет чёлки (Погода / ЦП / Сеть / Выкл)
+                        // Customizable notch widget (Weather / CPU / Network / Off)
                         Row {
                             visible: IslandPrefs.compactWidget !== "none"
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: Theme.px(3)
 
-                            // 1. Погода
+                            // 1. Weather
                             Icon {
                                 visible: IslandPrefs.compactWidget === "weather"
                                 anchors.verticalCenter: parent.verticalCenter
@@ -718,7 +718,7 @@ PanelWindow {
                                 font.features: { "tnum": 1 }
                             }
 
-                            // 2. ЦП и температура
+                            // 2. CPU and temperature
                             Icon {
                                 visible: IslandPrefs.compactWidget === "cpu"
                                 anchors.verticalCenter: parent.verticalCenter
@@ -737,7 +737,7 @@ PanelWindow {
                                 font.features: { "tnum": 1 }
                             }
 
-                            // 3. Сеть (LAN загрузка)
+                            // 3. Network (LAN throughput)
                             Icon {
                                 visible: IslandPrefs.compactWidget === "net"
                                 anchors.verticalCenter: parent.verticalCenter
@@ -764,7 +764,7 @@ PanelWindow {
                             }
                         }
 
-                        // раскладка — просто текст, клик переключает
+                        // layout — simple text, click to cycle
                         Text {
                             visible: Keyboard.short !== ""
                             anchors.verticalCenter: parent.verticalCenter
@@ -800,7 +800,7 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
 
-                // громкость
+                // volume
                 Item {
                     anchors.fill: parent
                     visible: win.lastOsd === "volume"
@@ -840,7 +840,7 @@ PanelWindow {
                     }
                 }
 
-                // раскладка — компактная плашка размером с сам notch
+                // layout — compact popup sized to the notch
                 Item {
                     anchors.fill: parent
                     visible: win.lastOsd === "layout"
@@ -875,7 +875,7 @@ PanelWindow {
                     }
                 }
 
-                // уведомление
+                // notification
                 Item {
                     anchors.fill: parent
                     visible: win.lastOsd === "notif"
@@ -937,7 +937,7 @@ PanelWindow {
                 }
             }
 
-            // ═════════ DASHBOARD (Двухрядный компактный дашборд с системным треем) ═════════
+            // ═════════ DASHBOARD (Two-row compact dashboard with system tray) ═════════
             Item {
                 anchors.fill: parent
                 anchors.leftMargin: Theme.px(15)
@@ -963,7 +963,7 @@ PanelWindow {
                     topPadding: Theme.px(8)
                     spacing: Theme.px(6)
 
-                    // РЯД 1: Рабочие столы · Часы/Календарь · Погода · Медиа · Раскладка · Системный трей
+                    // ROW 1: Workspaces · Clock/Calendar · Weather · Media · Layout · System Tray
                     Row {
                         id: topRow
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -977,7 +977,7 @@ PanelWindow {
 
                         StripDivider {}
 
-                        // время и дата → календарь [C]
+                        // time and date → calendar [C]
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             width: clkRow.implicitWidth + Theme.px(16)
@@ -1018,7 +1018,7 @@ PanelWindow {
                             }
                         }
 
-                        // погода → [W], ПКМ — обновить
+                        // weather → [W], Right-click — refresh
                         Rectangle {
                             visible: Weather.ready
                             anchors.verticalCenter: parent.verticalCenter
@@ -1061,7 +1061,7 @@ PanelWindow {
                             }
                         }
 
-                        // сейчас играет → медиа [M] (ЛКМ — открыть панель, ПКМ/СКМ — пауза, колесо — громкость)
+                        // now playing → media [M] (LMB — open panel, RMB/MMB — pause, wheel — volume)
                         Rectangle {
                             visible: Media.player !== null
                             anchors.verticalCenter: parent.verticalCenter
@@ -1169,7 +1169,7 @@ PanelWindow {
 
                         StripDivider { visible: SystemTray.items.values.length > 0 }
 
-                        // Системный трей (вместо закреплённых приложений)
+                        // System tray (instead of pinned applications)
                         Row {
                             visible: SystemTray.items.values.length > 0
                             anchors.verticalCenter: parent.verticalCenter
@@ -1230,7 +1230,7 @@ PanelWindow {
                         }
                     }
 
-                    // РЯД 2: Чистая капсула док-иконок (без надписи справа)
+                    // ROW 2: Clean dock icons capsule (without label on the right)
                     Rectangle {
                         id: dockBar
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -1282,7 +1282,7 @@ PanelWindow {
             }
             }
 
-            // ═════════ PANEL (Отдельная панель прямо в чёлке, без шапки дашборда) ═════════
+            // ═════════ PANEL (Dedicated panel inside notch, without dashboard header) ═════════
             Item {
                 anchors.fill: parent
                 anchors.leftMargin: Theme.px(11)
@@ -1328,7 +1328,7 @@ PanelWindow {
                         }
                     }
 
-                    // ПКМ по любой точке открытой панели возвращает назад в дашборд
+                    // Right-click anywhere in open panel returns back to dashboard
                     MouseArea {
                         z: 1000
                         anchors.fill: parent

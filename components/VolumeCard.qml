@@ -2,8 +2,8 @@ import QtQuick
 import Quickshell.Services.Pipewire
 import qs.services
 
-// Компактная карточка громкости в стиле Dynamic Notch / iOS:
-// кнопка mute, имя выхода, аккуратный слайдер и горизонтальные пилюли выходов.
+// Compact volume card in Dynamic Notch / iOS style:
+// mute button, output name, sleek slider, and horizontal output pills.
 Rectangle {
     id: root
 
@@ -12,11 +12,11 @@ Rectangle {
     function cleanSinkName(n) {
         if (!n) return "";
         let s = n.description || n.nickname || n.name || "";
-        s = s.replace(/Analog Stereo/gi, "Динамики")
+        s = s.replace(/Analog Stereo/gi, "Speakers")
              .replace(/Digital Stereo \(HDMI.*?\)/gi, "HDMI")
              .replace(/Audio Controller/gi, "")
-             .replace(/Built-in Audio/gi, "Встроенный звук");
-        return s.trim() || "Аудиовыход";
+             .replace(/Built-in Audio/gi, "Built-in Audio");
+        return s.trim() || "Audio Output";
     }
 
     function sinkIcon(n) {
@@ -47,7 +47,7 @@ Rectangle {
         y: Theme.px(12)
         spacing: Theme.px(10)
 
-        // Шапка: Mute, имя выхода и процент
+        // Header: Mute, output name, and percentage
         Item {
             width: parent.width
             height: Theme.px(34)
@@ -88,7 +88,7 @@ Rectangle {
                 spacing: Theme.px(1)
 
                 Text {
-                    text: "Громкость"
+                    text: "Volume"
                     color: Theme.text
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(13)
@@ -97,7 +97,7 @@ Rectangle {
                 Text {
                     width: parent.width
                     elide: Text.ElideRight
-                    text: Audio.muted ? "Звук отключён [M]" : root.cleanSinkName(Audio.sink)
+                    text: Audio.muted ? "Muted [M]" : root.cleanSinkName(Audio.sink)
                     color: Audio.muted ? Theme.alert : Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(11)
@@ -117,7 +117,7 @@ Rectangle {
             }
         }
 
-        // Интерактивный слайдер
+        // Interactive slider
         Bar {
             width: parent.width
             height: Theme.px(12)
@@ -127,7 +127,7 @@ Rectangle {
             onMoved: v => Audio.setVolume(v)
         }
 
-        // Выходы звука (если их больше одного — горизонтальный скроллируемый ряд пилюль)
+        // Audio outputs (horizontal scrollable row of pills if more than one)
         Flickable {
             id: sinkScroll
             width: parent.width

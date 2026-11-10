@@ -1,7 +1,7 @@
 import QtQuick
 import qs.services
 
-// Полоска прогресса; при interactive — перетаскиваемая.
+// Progress bar; draggable when interactive.
 Item {
     id: root
     property real value: 0

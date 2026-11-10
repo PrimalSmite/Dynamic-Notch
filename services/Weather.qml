@@ -3,11 +3,11 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// Сервис погоды (Open-Meteo, локация и прогноз с локальным кешированием).
+// Weather service (Open-Meteo, location and forecast with local caching).
 Singleton {
     id: root
 
-    readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/ukishima/weather"
+    readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/dynamic-notch/weather"
 
     property bool ready: false
     property real temp: NaN
@@ -18,27 +18,27 @@ Singleton {
     property bool isDay: true
     property string icon: "cloud"
     property color iconColor: "#FFD60A"
-    property string desc: "Загрузка..."
-    property string city: "Ижевск"
-    property real lat: 56.85225
-    property real lon: 53.19862
+    property string desc: "Loading..."
+    property string city: "London"
+    property real lat: 51.5074
+    property real lon: -0.1278
 
-    property var hourly: []   // [{ time: "Сейчас", temp: 2, icon: "...", iconColor: "..." }]
-    property var daily: []    // [{ day: "Ср", min: -1, max: 4, icon: "...", iconColor: "...", desc: "..." }]
+    property var hourly: []   // [{ time: "Now", temp: 2, icon: "...", iconColor: "..." }]
+    property var daily: []    // [{ day: "Wed", min: -1, max: 4, icon: "...", iconColor: "...", desc: "..." }]
 
     function codeInfo(c, day) {
-        if (c === 0) return { icon: day ? "sunny" : "clear_night", desc: "Ясно", color: day ? "#FFD60A" : "#A0C4FF" };
-        if (c === 1 || c === 2) return { icon: day ? "partly_cloudy_day" : "partly_cloudy_night", desc: "Малооблачно", color: day ? "#FFD60A" : "#A0C4FF" };
-        if (c === 3) return { icon: "cloud", desc: "Пасмурно", color: Qt.rgba(1, 1, 1, 0.65) };
-        if (c === 45 || c === 48) return { icon: "foggy", desc: "Туман", color: Qt.rgba(1, 1, 1, 0.65) };
-        if (c >= 51 && c <= 57) return { icon: "grain", desc: "Морось", color: "#0A84FF" };
-        if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return { icon: "rainy", desc: "Дождь", color: "#0A84FF" };
-        if ((c >= 71 && c <= 77) || c === 85 || c === 86) return { icon: "weather_snowy", desc: "Снег", color: "#90CAF9" };
-        if (c >= 95) return { icon: "thunderstorm", desc: "Гроза", color: "#BF5AF2" };
-        return { icon: "cloud", desc: "Облачно", color: Qt.rgba(1, 1, 1, 0.65) };
+        if (c === 0) return { icon: day ? "sunny" : "clear_night", desc: "Sunny", color: day ? "#FFD60A" : "#A0C4FF" };
+        if (c === 1 || c === 2) return { icon: day ? "partly_cloudy_day" : "partly_cloudy_night", desc: "Partly Cloudy", color: day ? "#FFD60A" : "#A0C4FF" };
+        if (c === 3) return { icon: "cloud", desc: "Overcast", color: Qt.rgba(1, 1, 1, 0.65) };
+        if (c === 45 || c === 48) return { icon: "foggy", desc: "Fog", color: Qt.rgba(1, 1, 1, 0.65) };
+        if (c >= 51 && c <= 57) return { icon: "grain", desc: "Drizzle", color: "#0A84FF" };
+        if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return { icon: "rainy", desc: "Rain", color: "#0A84FF" };
+        if ((c >= 71 && c <= 77) || c === 85 || c === 86) return { icon: "weather_snowy", desc: "Snow", color: "#90CAF9" };
+        if (c >= 95) return { icon: "thunderstorm", desc: "Thunderstorm", color: "#BF5AF2" };
+        return { icon: "cloud", desc: "Cloudy", color: Qt.rgba(1, 1, 1, 0.65) };
     }
 
-    // Вычисляет репрезентативный код погоды на день по часовым данным (вместо WMO худшего часа Open-Meteo)
+    // Calculates a representative daily weather code based on hourly data (rather than Open-Meteo worst-hour WMO)
     function representativeDailyCode(dayStr, hourlyData, dailyPrecip, dailySnow) {
         if (!hourlyData || !hourlyData.time || !hourlyData.weather_code) return 0;
         const dayIndices = [];
@@ -89,18 +89,18 @@ Singleton {
         const pSum = typeof dailyPrecip === "number" ? dailyPrecip : 0;
         const sSum = typeof dailySnow === "number" ? dailySnow : 0;
 
-        // Значительный снег (только если действительно выпал и шёл значительную часть дня)
+        // Significant snow (only if accumulated and fell for a significant portion of day)
         if ((sSum >= 0.5 || (pSum >= 1.0 && snowHours >= 2)) && snowHours >= Math.ceil(n * 0.35)) {
             return sSum >= 3.0 ? 73 : 71;
         }
-        // Значительный дождь
+        // Significant rain
         if (pSum >= 1.0 && rainHours >= Math.ceil(n * 0.35)) {
             return pSum >= 5.0 ? 63 : 61;
         }
-        // Густой туман днём
+        // Dense fog during daytime
         if (fogHours > n / 2) return 45;
 
-        // Доминирующее состояние неба
+        // Dominant sky condition
         if (overcastHours >= partlyHours + clearHours) return 3;
         if (partlyHours >= clearHours) return 2;
         if (clearHours > 0) return 0;
@@ -146,7 +146,7 @@ Singleton {
                 if (c.daily && c.daily.length) root.daily = c.daily;
                 root.ready = true;
             } else if (c && typeof c.tempNow === "number") {
-                // Совместимость со старым кешем ukishima
+                // Compatibility with legacy cache format
                 root.temp = c.tempNow;
                 root.feelsLike = c.tempNow;
                 root.humidity = c.humidity || 0;
@@ -226,12 +226,12 @@ Singleton {
                             root.iconColor = info.color;
                             root.desc = info.desc;
 
-                            // Почасовой (слот "Сейчас" + следующие 6 часов)
+                            // Hourly (slot "Now" + next 6 hours)
                             if (d.hourly && d.hourly.time) {
                                 const hrs = [];
                                 const currentRound = Math.round(root.temp) || 0;
                                 hrs.push({
-                                    time: "Сейчас",
+                                    time: "Now",
                                     temp: currentRound,
                                     icon: root.icon,
                                     iconColor: root.iconColor
@@ -263,9 +263,9 @@ Singleton {
                                 root.hourly = hrs;
                             }
 
-                            // На 7 дней с репрезентативным дневным прогнозом
+                            // 7-day forecast with representative daytime prediction
                             if (d.daily && d.daily.time) {
-                                const days = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+                                const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
                                 const dlist = [];
                                 for (let i = 0; i < Math.min(7, d.daily.time.length); i++) {
                                     const dt = new Date(d.daily.time[i] + "T12:00:00");
@@ -276,7 +276,7 @@ Singleton {
                                     const rMin = Math.round(d.daily.temperature_2m_min[i]) || 0;
                                     const rMax = Math.round(d.daily.temperature_2m_max[i]) || 0;
                                     dlist.push({
-                                        day: i === 0 ? "Сегодня" : days[dt.getDay()],
+                                        day: i === 0 ? "Today" : days[dt.getDay()],
                                         min: rMin,
                                         max: rMax,
                                         icon: di.icon,
@@ -322,7 +322,7 @@ Singleton {
         retryTimer.restart();
     }
 
-    // Повтор при отсутствии сети на старте с экспоненциальным backoff (макс 5 попыток)
+    // Exponential backoff retry on initial network failure (max 5 attempts)
     Timer {
         id: retryTimer
         interval: 5000
@@ -333,9 +333,9 @@ Singleton {
         }
     }
 
-    // Регулярное обновление раз в 15 минут
+    // Regular update every 15 minutes
     Timer {
-        interval: 900000 // 15 мин
+        interval: 900000 // 15 min
         running: true
         repeat: true
         onTriggered: {

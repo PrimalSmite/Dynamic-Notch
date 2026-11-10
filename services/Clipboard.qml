@@ -3,8 +3,8 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Служба буфера обмена на базе cliphist + wl-paste.
-// Синхронизирует историю в памяти, генерирует превью изображений и мгновенно отдает данные панели.
+// Clipboard service based on cliphist + wl-paste.
+// Synchronizes history in memory, generates image previews, and provides instant data to the panel.
 Singleton {
     id: root
 
@@ -15,8 +15,11 @@ Singleton {
     property bool dirty: true
     property var delQueue: []
 
-    readonly property string thumbDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/ukishima/cliphist-thumbs/"
-    readonly property string thumbScript: Quickshell.env("HOME") + "/Documents/antigravity/lucid-chandrasekhar/scripts/cliphist-thumbs.sh"
+    readonly property string thumbDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/dynamic-notch/cliphist-thumbs/"
+    readonly property string thumbScript: {
+        const raw = Qt.resolvedUrl("../scripts/cliphist-thumbs.sh").toString();
+        return raw.startsWith("file://") ? raw.substring(7) : raw;
+    }
 
     function refresh() {
         dirty = false;

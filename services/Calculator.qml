@@ -3,21 +3,21 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Сервис инженерного калькулятора для лончера с поддержкой:
-// - базовой арифметики (+, -, *, /, %, ^, **)
-// - факториалов (5!), корней (sqrt, cbrt, √), степеней
-// - тригонометрии (sin, cos, tan/tg, cot/ctg, asin, acos, atan/atg, sinh, cosh, tanh) с поддержкой градусов (30°, 45 deg)
-// - логарифмов (ln, lg, log10, log2, log(x), log(base, x)) и экспоненты (exp)
-// - констант (pi, π, e, tau, phi, ans)
-// - сохранения истории вычислений и копирования в буфер обмена (wl-copy)
+// Engineering calculator service for launcher supporting:
+// - basic arithmetic (+, -, *, /, %, ^, **)
+// - factorials (5!), roots (sqrt, cbrt, √), powers
+// - trigonometry (sin, cos, tan/tg, cot/ctg, asin, acos, atan/atg, sinh, cosh, tanh) with degree support (30°, 45 deg)
+// - logarithms (ln, lg, log10, log2, log(x), log(base, x)) and exponent (exp)
+// - constants (pi, π, e, tau, phi, ans)
+// - calculation history persistence and clipboard copying (wl-copy)
 Singleton {
     id: root
 
     readonly property string homeDir: Quickshell.env("HOME") || ("/home/" + (Quickshell.env("USER") || "user"))
-    readonly property string stateDir: homeDir + "/.local/state/dynamic-island"
+    readonly property string stateDir: homeDir + "/.local/state/dynamic-notch"
     readonly property string historyPath: stateDir + "/calc-history.json"
 
-    // История вычислений: массив объектов { expr: string, result: string, time: number }
+    // Calculation history: array of { expr: string, result: string, time: number }
     property var history: []
     property string lastCopied: ""
 
@@ -87,7 +87,7 @@ Singleton {
 
         if (cleanExpr) {
             let next = root.history.slice();
-            // Удаляем дубликат с тем же выражением, чтобы поднять наверх
+            // Remove duplicate with the same expression to bring it to top
             next = next.filter(item => item.expr !== cleanExpr);
             next.unshift({
                 expr: cleanExpr,
@@ -113,7 +113,7 @@ Singleton {
         saveHistoryDisk();
     }
 
-    // Математические функции и помощники
+    // Mathematical functions and helpers
     function _fact(n) {
         if (n < 0 || ! isFinite(n)) return NaN;
         if (Math.abs(n - Math.round(n)) > 1e-9) return NaN;
@@ -174,7 +174,7 @@ Singleton {
         "phi": (1 + Math.sqrt(5)) / 2
     })
 
-    // Токенизация математического выражения
+    // Mathematical expression tokenization
     function _tokenize(input) {
         const tokens = [];
         let i = 0;
@@ -189,21 +189,21 @@ Singleton {
                 continue;
             }
 
-            // Символ корня √
+            // Square root symbol √
             if (ch === "√") {
                 tokens.push({ type: "func", value: "sqrt" });
                 i++;
                 continue;
             }
 
-            // Символ градуса °
+            // Degree symbol °
             if (ch === "°") {
                 tokens.push({ type: "op", value: "°" });
                 i++;
                 continue;
             }
 
-            // Числа (включая 0xFF, 0b1010, десятичные с . или , и экспоненциальную запись 1e-5)
+            // Numbers (including 0xFF, 0b1010, decimals with . or , and exponential notation 1e-5)
             if (/[0-9]/.test(ch) || ((ch === "." || ch === ",") && i + 1 < len && /[0-9]/.test(s[i + 1]))) {
                 let numStr = "";
                 if (ch === "0" && i + 1 < len && (s[i + 1] === "x" || s[i + 1] === "X")) {
@@ -240,7 +240,7 @@ Singleton {
                         break;
                     }
                 }
-                // Экспоненциальная нотация (например, 1.5e-3)
+                // Exponential notation (e.g., 1.5e-3)
                 if (i < len && (s[i] === "e" || s[i] === "E")) {
                     const nextCh = i + 1 < len ? s[i + 1] : "";
                     const nextNextCh = i + 2 < len ? s[i + 2] : "";
@@ -256,7 +256,7 @@ Singleton {
                 continue;
             }
 
-            // Идентификаторы (функции, константы, mod, deg)
+            // Identifiers (functions, constants, mod, deg)
             if (/[a-zA-Zπτ]/.test(ch)) {
                 let id = "";
                 while (i < len && /[a-zA-Z0-9_πτ]/.test(s[i])) {
@@ -266,7 +266,7 @@ Singleton {
                 if (lower === "mod") {
                     tokens.push({ type: "op", value: "%" });
                 } else if (lower === "deg" && (i >= len || s[i] !== "(")) {
-                    // Постфикс `45 deg` -> перевод градусов в радианы
+                    // Postfix `45 deg` -> convert degrees to radians
                     tokens.push({ type: "op", value: "°" });
                 } else if (lower === "ans") {
                     tokens.push({ type: "num", value: root.lastAnswer, isConst: true });
@@ -275,13 +275,13 @@ Singleton {
                 } else if (root._knownFuncs[lower] === true) {
                     tokens.push({ type: "func", value: lower });
                 } else {
-                    // Неизвестное слово — это не математическое выражение, а поиск приложения
+                    // Unknown word — not a mathematical expression, likely app search
                     return null;
                 }
                 continue;
             }
 
-            // Двухсимвольный оператор возведения в степень **
+            // Two-character exponentiation operator **
             if (ch === "*" && i + 1 < len && s[i + 1] === "*") {
                 tokens.push({ type: "op", value: "^" });
                 i += 2;
@@ -324,11 +324,11 @@ Singleton {
                 continue;
             }
 
-            // Любой другой символ — не поддерживается
+            // Any other character — not supported
             return null;
         }
 
-        // Вставка неявного умножения: 2pi, 2(3+4), (1+2)(3+4), 2sin(x), 90° cos(0) и поддержкой `sqrt 16`
+        // Implicit multiplication insertion: 2pi, 2(3+4), (1+2)(3+4), 2sin(x), 90° cos(0) and `sqrt 16` support
         const expanded = [];
         for (let k = 0; k < tokens.length; k++) {
             const cur = tokens[k];
@@ -347,7 +347,7 @@ Singleton {
         return expanded;
     }
 
-    // Рекурсивный спуск для вычисления токенов
+    // Recursive descent parser to evaluate tokens
     function _parseAndEval(tokens) {
         let pos = 0;
 
@@ -392,7 +392,7 @@ Singleton {
             return parsePower();
         }
 
-        // Power := Postfix ( '^' Unary )?   (правоассоциативно)
+        // Power := Postfix ( '^' Unary )?   (right-associative)
         function parsePower() {
             let base = parsePostfix();
             if (peek() && peek().type === "op" && peek().value === "^") {
@@ -430,7 +430,7 @@ Singleton {
                 if (peek() && peek().type === "rparen") {
                     consume();
                 } else {
-                    // Позволяем живой расчёт даже пока скобка ещё не закрыта
+                    // Allow live calculation even before closing parenthesis is typed
                 }
                 return val;
             }
@@ -451,7 +451,7 @@ Singleton {
                         consume();
                     }
                 } else {
-                    // Запись без скобок вроде `sqrt 16` или `√16` или `sin 30°`
+                    // Notation without parentheses like `sqrt 16` or `√16` or `sin 30°`
                     args.push(parsePower());
                 }
                 return _applyFunc(fn, args);
@@ -521,16 +521,16 @@ Singleton {
 
     function _formatNumber(val) {
         if (!isFinite(val) || isNaN(val)) return "";
-        // Убираем шум плавающей запятой около 0 (например, sin(pi) = 1.22e-16 -> 0)
+        // Remove floating point noise around 0 (e.g. sin(pi) = 1.22e-16 -> 0)
         if (Math.abs(val) < 1e-12) val = 0;
-        // Округляем до 12 значащих цифр, чтобы 0.1 + 0.2 давало 0.3
+        // Round to 12 significant digits so 0.1 + 0.2 gives 0.3
         const clean = Math.abs(val) >= 1e12 || (Math.abs(val) > 0 && Math.abs(val) < 1e-6)
             ? val.toExponential(6).replace(/\.?0+e/, "e")
             : String(parseFloat(val.toPrecision(12)));
         return clean;
     }
 
-    // Главная функция вычисления запроса из строки поиска лончера
+    // Main calculation function for launcher search query
     function evaluate(rawQuery) {
         const empty = { valid: false, formatted: "", raw: 0, expr: "", extra: "" };
         if (!rawQuery) return empty;
@@ -540,16 +540,16 @@ Singleton {
 
         const explicitEq = q.startsWith("=");
         if (explicitEq) q = q.slice(1).trim();
-        // Также убираем знак '=' в конце, если пользователь написал "2+2="
+        // Also strip trailing '=' if user entered "2+2="
         if (q.endsWith("=")) q = q.slice(0, -1).trim();
         if (!q) return empty;
 
-        // Токенизируем выражение (с поддержкой десятичной запятой/точки, функций и констант)
+        // Tokenize expression (supporting decimal comma/dot, functions, and constants)
         const tokens = _tokenize(q);
         if (!tokens || tokens.length === 0) return empty;
 
-        // Чтобы обычное число "123" без '=' не включало калькулятор случайно,
-        // требуем либо префикс '=', либо хотя бы 1 оператор / функцию / константу / >1 токена
+        // Avoid triggering calculator accidentally on plain number "123" without '='
+        // Require either '=' prefix or at least 1 operator / function / constant / >1 token
         const hasOpOrFunc = tokens.some(t => t.type === "op" || t.type === "func" || t.isConst === true);
         if (!explicitEq && !hasOpOrFunc && tokens.length < 2) {
             return empty;
@@ -561,7 +561,7 @@ Singleton {
         const formatted = _formatNumber(val);
         if (!formatted) return empty;
 
-        // Дополнительная подсказка (HEX/BIN для целых чисел или градусы/радианы)
+        // Additional hint (HEX/BIN for integers or deg/rad)
         let extra = "";
         if (Number.isInteger(val) && Math.abs(val) >= 10 && Math.abs(val) <= 0xFFFFFFFF) {
             const intVal = Math.round(val);

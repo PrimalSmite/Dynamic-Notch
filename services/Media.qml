@@ -3,8 +3,8 @@ import Quickshell
 import Quickshell.Services.Mpris
 import QtQuick
 
-// Активный MPRIS-плеер: выбранный вручную, иначе играющий, иначе первый доступный.
-// Включает улучшенный парсинг метаданных YouTube/браузеров и умную ленивую синхронизацию.
+// Active MPRIS player: manually selected, otherwise playing, otherwise first available.
+// Includes enhanced metadata parsing for YouTube/browsers and smart lazy synchronization.
 Singleton {
     id: root
 
@@ -17,8 +17,8 @@ Singleton {
     property string trackArtist: ""
     property string trackArtUrl: ""
 
-    // Счётчик активных компонентов, отображающих прогресс (MediaCard / MediaPanel).
-    // Поллинг позиции 1 раз в секунду работает ТОЛЬКО когда есть реальные потребители.
+    // Counter of active components displaying progress (MediaCard / MediaPanel).
+    // Position polling once per second runs ONLY when there are active consumers.
     property int activeConsumers: 0
 
     Timer {
@@ -38,24 +38,24 @@ Singleton {
 
     Component.onCompleted: root.sync()
 
-    // Вспомогательная функция очистки заголовка (особенно для YouTube в браузерах)
+    // Helper function to clean track title (especially for YouTube in web browsers)
     function cleanTitle(raw) {
         if (!raw) return "";
         let t = String(raw).trim();
 
-        // 1. Убираем префикс уведомлений в заголовке вкладки браузера: "(1) ", "(99+) "
+        // 1. Remove notification prefix in browser tab title: "(1) ", "(99+) "
         t = t.replace(/^\(\d+\+?\)\s*/, "");
 
-        // 2. Убираем постфикс "- YouTube", "— YouTube", "- YouTube Music"
+        // 2. Remove postfix "- YouTube", "— YouTube", "- YouTube Music"
         t = t.replace(/\s*[-–—|]\s*YouTube(?:\s*Music)?\s*$/i, "");
 
-        // 3. Убираем постфиксы браузеров при захвате окна
+        // 3. Remove browser name postfixes when capturing window
         t = t.replace(/\s*[-–—|]\s*(?:Mozilla Firefox|Google Chrome|Chromium|Brave|Vivaldi)\s*$/i, "");
 
         return t.trim();
     }
 
-    // Вспомогательная функция извлечения автора / канала
+    // Helper function to extract artist / channel
     function cleanArtist(p, meta, title) {
         let a = p.trackArtist;
         if (!a && meta) {
@@ -64,7 +64,7 @@ Singleton {
             else if (typeof rawA === "string") a = rawA;
         }
 
-        // Если автор — название браузера или "YouTube", очищаем
+        // If artist is browser name or "YouTube", clear it
         const idLow = (p.identity || "").toLowerCase();
         if (a) {
             const aLow = a.toLowerCase();
@@ -74,7 +74,7 @@ Singleton {
             }
         }
 
-        // Если автора нет, пробуем извлечь "Исполнитель - Трек" из названия
+        // If no artist, try extracting "Artist - Track" from title
         if (!a && title && title.includes(" - ")) {
             const parts = title.split(" - ");
             if (parts.length >= 2 && parts[0].trim().length > 0) {
@@ -85,16 +85,16 @@ Singleton {
         return (a || "").trim();
     }
 
-    // Вспомогательная функция извлечения обложки (с фоллбэком на превью YouTube)
+    // Helper function to extract artwork URL (with fallback to YouTube thumbnail)
     function cleanArtUrl(p, meta) {
         let art = p.trackArtUrl || (meta ? (meta["mpris:artUrl"] || meta["artUrl"]) : "") || "";
 
-        // Если отдан локальный путь без схемы file://
+        // If local path is provided without file:// scheme
         if (art && art.startsWith("/") && !art.startsWith("//")) {
             art = "file://" + art;
         }
 
-        // Если обложки нет (частая проблема Chromium/Brave для YouTube), извлекаем из YouTube URL
+        // If no artwork (common issue with Chromium/Brave for YouTube), extract from YouTube URL
         if (!art && meta) {
             const url = meta["xesam:url"] || meta["url"] || p.url || meta["mpris:trackid"] || "";
             const ytMatch = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
@@ -113,7 +113,7 @@ Singleton {
         if (root.pinned && list.indexOf(root.pinned) >= 0) {
             chosen = root.pinned;
         } else {
-            // 1. Ищем плеер в состоянии воспроизведения (Playing)
+            // 1. Look for a player in Playing state
             for (let i = 0; i < list.length; i++) {
                 const p = list[i];
                 if (p && (p.isPlaying || p.playbackState === MprisPlaybackState.Playing)) {
@@ -121,7 +121,7 @@ Singleton {
                     break;
                 }
             }
-            // 2. Иначе ищем плеер с метаданными трека
+            // 2. Otherwise look for player with track metadata
             if (!chosen) {
                 for (let i = 0; i < list.length; i++) {
                     const p = list[i];
@@ -131,7 +131,7 @@ Singleton {
                     }
                 }
             }
-            // 3. Иначе первый доступный плеер
+            // 3. Otherwise use the first available player
             if (!chosen && list.length > 0) {
                 chosen = list[0];
             }
@@ -154,7 +154,7 @@ Singleton {
         const cTitle = cleanTitle(rawTitle);
         const cArtist = cleanArtist(chosen, meta, cTitle);
 
-        // Если мы извлекли автора из "Автор - Название", очищаем автора из названия
+        // If artist was extracted from "Artist - Title", strip artist prefix from title
         if (cArtist && cTitle.startsWith(cArtist + " - ")) {
             root.trackTitle = cTitle.slice(cArtist.length + 3).trim();
         } else {
@@ -169,7 +169,7 @@ Singleton {
         }
     }
 
-    // Мгновенная реакция на сигналы текущего плеера (включая metadataChanged!)
+    // Instant reaction to current player signals (including metadataChanged!)
     Connections {
         target: root.player
         ignoreUnknownSignals: true

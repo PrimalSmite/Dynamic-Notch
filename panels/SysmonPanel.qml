@@ -2,7 +2,7 @@ import QtQuick
 import qs.services
 import qs.components
 
-// Панель системного монитора: CPU со спарклайном, RAM, диск, сеть, аптайм и топ процессов.
+// System monitor panel: CPU with sparkline, RAM, disk, network, uptime and top processes.
 Item {
     id: root
     property var host: null
@@ -25,13 +25,13 @@ Item {
         width: parent.width
         spacing: Theme.px(8)
 
-        // Сетка 2×2 системных показателей
+        // 2×2 system stats grid
         Column {
             width: parent.width
             spacing: Theme.px(8)
             readonly property real tileW: (width - Theme.px(8)) / 2
 
-            // Ряд 1: Процессор и Память
+            // Row 1: CPU and Memory
             Row {
                 width: parent.width
                 spacing: Theme.px(8)
@@ -39,7 +39,7 @@ Item {
                 StatTile {
                     width: parent.parent.tileW
                     icon: "memory"
-                    label: "Процессор" + (SysInfo.cpuTemp >= 0 ? " · " + SysInfo.cpuTemp + "°C" : "")
+                    label: "CPU" + (SysInfo.cpuTemp >= 0 ? " · " + SysInfo.cpuTemp + "°C" : "")
                     value: Math.round(SysInfo.cpu * 100) + "%"
                     level: SysInfo.cpu
                     tint: SysInfo.cpu > 0.85 ? Theme.alert : SysInfo.cpu > 0.65 ? Theme.warn : Theme.controlFill
@@ -48,14 +48,14 @@ Item {
                 StatTile {
                     width: parent.parent.tileW
                     icon: "memory_alt"
-                    label: "Память · " + SysInfo.memTotalGb.toFixed(0) + " ГБ"
-                    value: SysInfo.memUsedGb.toFixed(1) + " ГБ"
+                    label: "Memory · " + SysInfo.memTotalGb.toFixed(0) + " GB"
+                    value: SysInfo.memUsedGb.toFixed(1) + " GB"
                     level: SysInfo.mem
                     tint: SysInfo.mem > 0.85 ? Theme.alert : SysInfo.mem > 0.75 ? Theme.warn : Theme.controlFill
                 }
             }
 
-            // Ряд 2: Диск и Сеть
+            // Row 2: Disk and Network
             Row {
                 width: parent.width
                 spacing: Theme.px(8)
@@ -63,13 +63,13 @@ Item {
                 StatTile {
                     width: parent.parent.tileW
                     icon: "hard_drive"
-                    label: "Диск / · " + (SysInfo.diskText || "--")
+                    label: "Disk / · " + (SysInfo.diskText || "--")
                     value: Math.round(SysInfo.disk * 100) + "%"
                     level: SysInfo.disk
                     tint: SysInfo.disk > 0.90 ? Theme.alert : SysInfo.disk > 0.80 ? Theme.warn : Theme.controlFill
                 }
 
-                // Сеть и аптайм
+                // Network and uptime
                 Rectangle {
                     width: parent.parent.tileW
                     height: Theme.px(74)
@@ -86,7 +86,7 @@ Item {
                             spacing: Theme.px(6)
                             Icon { name: "swap_vert"; size: Theme.px(18); color: Theme.controlFill }
                             Text {
-                                text: "Сеть · " + (SysInfo.uptime || "")
+                                text: "Network · " + (SysInfo.uptime || "")
                                 color: Theme.text2
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.px(11)
@@ -114,12 +114,12 @@ Item {
             }
         }
 
-        // График истории CPU + Топ процессов
+        // CPU history chart + Top processes
         Row {
             width: parent.width
             spacing: Theme.px(10)
 
-            // График CPU
+            // CPU chart
             Rectangle {
                 width: (parent.width - parent.spacing) * 0.45
                 height: Theme.px(138)
@@ -132,7 +132,7 @@ Item {
                     spacing: Theme.px(6)
 
                     Text {
-                        text: "История нагрузки ЦП"
+                        text: "CPU Load History"
                         color: Theme.text2
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(11)
@@ -173,7 +173,7 @@ Item {
                 }
             }
 
-            // Топ процессов
+            // Top processes
             Rectangle {
                 width: (parent.width - parent.spacing) * 0.55
                 height: Theme.px(138)
@@ -186,7 +186,7 @@ Item {
                     spacing: Theme.px(4)
 
                     Text {
-                        text: "Активные процессы"
+                        text: "Active Processes"
                         color: Theme.text2
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(11)

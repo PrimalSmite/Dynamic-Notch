@@ -5,7 +5,7 @@ import Quickshell.Services.Notifications
 import Quickshell.Hyprland
 import QtQuick
 
-// Сервис уведомлений (NotificationServer + DND + синхронизация прочитанного статуса).
+// Notification service (NotificationServer + DND + read status synchronization).
 Singleton {
     id: root
 
@@ -16,7 +16,7 @@ Singleton {
 
     signal popup(var n)
 
-    // Задержка проверки активного окна (Telegram, Discord и др.)
+    // Delay for active window check (Telegram, Discord, etc.)
     Timer {
         id: readAppTimer
         interval: 900
@@ -52,11 +52,11 @@ Singleton {
             const item = {
                 id: ++root._seq,
                 dbusId: notif.id,
-                appName: notif.appName || "Система",
+                appName: notif.appName || "System",
                 appIcon: notif.appIcon || "",
                 desktopEntry: notif.desktopEntry || "",
                 image: notif.image || "",
-                summary: notif.summary || notif.appName || "Уведомление",
+                summary: notif.summary || notif.appName || "Notification",
                 body: notif.body || "",
                 time: new Date(),
                 urgency: notif.urgency,
@@ -65,7 +65,7 @@ Singleton {
                 read: false
             };
 
-            // Синхронизация закрытия со стороны приложения (Telegram/Discord CloseNotification)
+            // Synchronize dismissal from application side (Telegram/Discord CloseNotification)
             try {
                 notif.closed.connect(function(reason) {
                     root.onNotifClosed(item, reason);
@@ -82,7 +82,7 @@ Singleton {
             if (!root.dnd || notif.urgency === NotificationUrgency.Critical)
                 root.popup(item);
 
-            // Если окно приложения уже активно — проверяем прочитанность
+            // If application window is already active, check read status
             readAppTimer.restart();
         }
     }
@@ -158,11 +158,11 @@ Singleton {
                             || appIcon.indexOf("discord") !== -1 || de.indexOf("discord") !== -1;
         if (isTopDiscord && isNotifDiscord) return true;
 
-        // 3. Прямое совпадение desktopEntry
+        // 3. Direct desktopEntry match
         if (de && (cls === de || initCls === de || cls.indexOf(de) !== -1 || de.indexOf(cls) !== -1))
             return true;
 
-        // 4. Совпадение имени класса с appName или appIcon
+        // 4. Class name match with appName or appIcon
         if (appName && (cls === appName || initCls === appName || cls.indexOf(appName) !== -1))
             return true;
         if (appIcon && (cls === appIcon || initCls === appIcon))
@@ -217,11 +217,11 @@ Singleton {
     function timeAgo(d) {
         if (!d) return "";
         const sec = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
-        if (sec < 45) return "сейчас";
+        if (sec < 45) return "just now";
         const min = Math.floor(sec / 60);
-        if (min < 60) return min + " мин";
+        if (min < 60) return min + "m";
         const hr = Math.floor(min / 60);
-        if (hr < 24) return hr + " ч";
-        return Math.floor(hr / 24) + " д";
+        if (hr < 24) return hr + "h";
+        return Math.floor(hr / 24) + "d";
     }
 }

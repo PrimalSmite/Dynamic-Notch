@@ -3,11 +3,11 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// Пользовательские настройки Динамического острова и Дашборда с персистентностью.
+// User preferences for Dynamic Notch and Dashboard with persistence.
 Singleton {
     id: root
 
-    readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/dynamic-island"
+    readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/dynamic-notch"
     readonly property string configPath: configDir + "/preferences.json"
 
     property bool showSeconds: false

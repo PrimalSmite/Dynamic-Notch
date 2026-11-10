@@ -2,8 +2,8 @@ import QtQuick
 import qs.services
 import qs.components
 
-// Панель таймера и секундомера: компактный вертикальный виджет для Dynamic Notch.
-// Клавиши: Space/Enter — старт/пауза, R — сброс, M — режим, +/Up — +1 мин, -/Down — -1 мин.
+// Timer and stopwatch panel: compact vertical widget for Dynamic Notch.
+// Hotkeys: Space/Enter — start/pause, R — reset, M — mode, +/Up — +1 min, -/Down — -1 min.
 Item {
     id: root
     property var host: null
@@ -45,7 +45,7 @@ Item {
         width: parent.width
         spacing: Theme.px(10)
 
-        // 1. Переключатель режима: Таймер / Секундомер [M]
+        // 1. Mode selector: Timer / Stopwatch [M]
         Row {
             width: parent.width
             spacing: Theme.px(8)
@@ -53,8 +53,8 @@ Item {
 
             Repeater {
                 model: [
-                    { key: "timer", label: "Таймер", icon: "timer" },
-                    { key: "stopwatch", label: "Секундомер [M]", icon: "timer_play" }
+                    { key: "timer", label: "Timer", icon: "timer" },
+                    { key: "stopwatch", label: "Stopwatch [M]", icon: "timer_play" }
                 ]
                 Rectangle {
                     id: mTab
@@ -101,7 +101,7 @@ Item {
             }
         }
 
-        // 2. Центральная карточка с круговым индикатором времени
+        // 2. Center card with circular time indicator
         Rectangle {
             width: parent.width
             height: Theme.px(160)
@@ -123,13 +123,13 @@ Item {
                     ctx.lineWidth = lw;
                     ctx.lineCap = "round";
 
-                    // Подложка трека
+                    // Track background
                     ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.10);
                     ctx.beginPath();
                     ctx.arc(c, c, r, 0, Math.PI * 2);
                     ctx.stroke();
 
-                    // Активная дуга прогресса
+                    // Active progress arc
                     if (Timers.progress > 0.005) {
                         const isUrgent = Timers.mode === "timer" && Timers.totalSec > 0 && (Timers.totalSec * (1 - Timers.progress) <= 10);
                         ctx.strokeStyle = isUrgent ? "#FF453A" : (Timers.paused ? Qt.rgba(1, 1, 1, 0.40) : "#FFFFFF");
@@ -153,7 +153,7 @@ Item {
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: Timers.mode === "timer" ? "ТАЙМЕР" : "СЕКУНДОМЕР"
+                        text: Timers.mode === "timer" ? "TIMER" : "STOPWATCH"
                         color: Theme.text3
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(9)
@@ -174,24 +174,24 @@ Item {
             }
         }
 
-        // 3. Сетка быстрых пресетов таймера (2 ряда по 4 пилюли)
+        // 3. Quick timer presets grid (2 rows of 4 pills)
         Column {
             visible: Timers.mode === "timer"
             width: parent.width
             spacing: Theme.px(6)
 
             readonly property var presetsRow1: [
-                { label: "1 мин", sec: 60 },
-                { label: "3 мин", sec: 180 },
-                { label: "5 мин", sec: 300 },
-                { label: "10 мин", sec: 600 }
+                { label: "1 min", sec: 60 },
+                { label: "3 min", sec: 180 },
+                { label: "5 min", sec: 300 },
+                { label: "10 min", sec: 600 }
             ]
 
             readonly property var presetsRow2: [
-                { label: "15 мин", sec: 900 },
-                { label: "25 мин", sec: 1500 },
-                { label: "30 мин", sec: 1800 },
-                { label: "+1 мин", sec: -1 }
+                { label: "15 min", sec: 900 },
+                { label: "25 min", sec: 1500 },
+                { label: "30 min", sec: 1800 },
+                { label: "+1 min", sec: -1 }
             ]
 
             Row {
@@ -275,12 +275,12 @@ Item {
             }
         }
 
-        // 4. Основные кнопки управления: Старт / Пауза [␣] и Сброс [R]
+        // 4. Main control buttons: Start / Pause [␣] and Reset [R]
         Row {
             width: parent.width
             spacing: Theme.px(8)
 
-            // Кнопка Старт / Пауза
+            // Start / Pause button
             Rectangle {
                 width: parent.width * 0.64 - Theme.px(4)
                 height: Theme.px(40)
@@ -302,7 +302,7 @@ Item {
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: !Timers.running ? "Старт [␣]" : (Timers.paused ? "Продолжить" : "Пауза [␣]")
+                        text: !Timers.running ? "Start [␣]" : (Timers.paused ? "Resume" : "Pause [␣]")
                         color: Timers.running && !Timers.paused ? "black" : Theme.controlFill
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(13)
@@ -318,7 +318,7 @@ Item {
                 }
             }
 
-            // Кнопка Сброс
+            // Reset button
             Rectangle {
                 width: parent.width * 0.36 - Theme.px(4)
                 height: Theme.px(40)
@@ -339,7 +339,7 @@ Item {
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Сброс [R]"
+                        text: "Reset [R]"
                         color: Theme.text
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(12)

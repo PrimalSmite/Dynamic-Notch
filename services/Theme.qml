@@ -2,52 +2,52 @@ pragma Singleton
 import Quickshell
 import QtQuick
 
-// Дизайн-токены острова. Меняй здесь — применяется везде.
+// Island design tokens. Edit here — applies everywhere.
 Singleton {
     id: t
 
-    // ── Масштаб всего интерфейса ──
+    // ── Interface Scale ──
     readonly property real s: 1.15
     function px(v) { return Math.round(v * s); }
 
-    // ── Шрифты ──
+    // ── Fonts ──
     readonly property string fontFamily: "SF Pro Rounded"
     readonly property string monoFamily: "JetBrainsMono Nerd Font Mono"
     readonly property string iconFamily: "Material Symbols Rounded"
     readonly property string glyphFamily: "Hack Nerd Font Propo"
 
-    // ── Размеры ──
-    readonly property int compactH: px(38)      // высота свёрнутой «чёлки»
-    readonly property int hoverGrowW: px(16)    // насколько расширяется чёлка при наведении
-    readonly property int hoverGrowH: px(5)     // насколько удлиняется вниз при наведении
-    readonly property int notchFillet: px(10)   // радиус вогнутых «ушек» у верхнего края
+    // ── Dimensions ──
+    readonly property int compactH: px(38)      // height of collapsed "notch"
+    readonly property int hoverGrowW: px(16)    // how much the notch expands horizontally on hover
+    readonly property int hoverGrowH: px(5)     // how much it extends downward on hover
+    readonly property int notchFillet: px(10)   // radius of concave "ears" at the top edge
     readonly property int compactRadius: px(15)
     readonly property int expandedRadius: px(30)
     readonly property int osdW: px(290)
     readonly property int osdH: px(42)
     readonly property int notifW: px(380)
     readonly property int notifH: px(64)
-    readonly property int stripH: px(94)        // двухрядная шапка раскрытого дашборда
+    readonly property int stripH: px(94)        // two-row header of expanded dashboard
     readonly property int pad: px(14)
     readonly property int minWorkspaces: 5
 
-    // ── Типографика ──
+    // ── Typography ──
     readonly property int fs: px(13)
     readonly property int fsSmall: px(11)
     readonly property int fsTitle: px(15)
     readonly property int iconSize: px(17)
 
-    // ── Анимация (пружина в стиле iOS) ──
+    // ── Animation (iOS-style spring) ──
     readonly property real springK: 4.8
     readonly property real springDamp: 0.43
     readonly property int fadeIn: 220
     readonly property int fadeOut: 110
     readonly property int fadeDelay: 60
     readonly property int osdMs: 1450
-    readonly property int layoutOsdMs: 850      // смена раскладки — быстрая плашка
+    readonly property int layoutOsdMs: 850      // layout switch — fast badge
     readonly property int notifMs: 4500
 
-    // ── Цвета ──
+    // ── Colors ──
     readonly property color bg: "#000000"
     readonly property color text: "#FFFFFF"
     readonly property color text2: Qt.rgba(1, 1, 1, 0.55)
@@ -57,15 +57,15 @@ Singleton {
     readonly property color track: Qt.rgba(1, 1, 1, 0.12)
     readonly property color divider: Qt.rgba(1, 1, 1, 0.10)
 
-    // ── Премиальная база контролов (нейтральная матово-белая основа) ──
+    // ── Premium control base (neutral matte-white foundation) ──
     readonly property color controlFill: "#FFFFFF"
     readonly property color controlTrack: Qt.rgba(1, 1, 1, 0.12)
     readonly property color controlMuted: Qt.rgba(1, 1, 1, 0.25)
 
-    // ── Семантические акценты (строго для состояний и предупреждений) ──
-    readonly property color warn: "#FF9F0A"         // Внимание / Нагрев / Высокая нагрузка
-    readonly property color alert: "#FF453A"        // Ошибка / Mute / Критический порог
-    readonly property color ok: "#30D158"           // Успех / Нормальное состояние
+    // ── Semantic accents (strictly for states and alerts) ──
+    readonly property color warn: "#FF9F0A"         // Attention / High temperature / High load
+    readonly property color alert: "#FF453A"        // Error / Mute / Critical threshold
+    readonly property color ok: "#30D158"           // Success / Normal state
 
     readonly property color blue: "#0A84FF"
     readonly property color green: "#30D158"

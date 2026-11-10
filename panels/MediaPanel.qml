@@ -2,8 +2,8 @@ import QtQuick
 import qs.services
 import qs.components
 
-// Панель «Сейчас играет».
-// Горячие клавиши: Space — плей/пауза, ← — назад, → — вперед, ↑/↓ — громкость, M — звук.
+// "Now Playing" media panel.
+// Hotkeys: Space — play/pause, ← — prev, → — next, ↑/↓ — volume, M — mute.
 Item {
     id: root
     property var host: null
@@ -46,13 +46,13 @@ Item {
         width: parent.width
         spacing: Theme.px(10)
 
-        // Карточка плеера
+        // Player card
         MediaCard {
             width: parent.width
             visible: Media.player !== null
         }
 
-        // Пустое состояние
+        // Empty state
         Rectangle {
             visible: Media.player === null
             width: parent.width
@@ -71,7 +71,7 @@ Item {
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Нет активного плеера"
+                    text: "No active player"
                     color: Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(13)
@@ -79,7 +79,7 @@ Item {
             }
         }
 
-        // Выбор плеера, если их несколько
+        // Player selection when multiple are available
         Row {
             visible: Media.players.length > 1
             spacing: Theme.px(6)

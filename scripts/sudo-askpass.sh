@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Использование: SUDO_ASKPASS=/path/to/sudo-askpass.sh sudo -A <команда>
+# Usage: SUDO_ASKPASS=/path/to/sudo-askpass.sh sudo -A <command>
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FIFO="/tmp/di-askpass-$$.fifo"
 rm -f "$FIFO"

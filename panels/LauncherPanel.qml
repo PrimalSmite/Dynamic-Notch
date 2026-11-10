@@ -4,7 +4,7 @@ import Quickshell.Widgets
 import qs.services
 import qs.components
 
-// Панель запуска приложений со встроенным инженерным калькулятором и историей вычислений.
+// Application launcher panel with integrated engineering calculator and calculation history.
 Item {
     id: root
     property var host: null
@@ -88,14 +88,14 @@ Item {
     }
 
     function triggerPrimaryAction() {
-        // Если открыта история и нет текущего вычисления — копируем выбранный элемент истории
+        // If history is open and there is no active calculation — copy the selected history item
         if (root.showHistory && !root.calcResult.valid && Calculator.history.length > 0) {
             const hIdx = Math.max(0, Math.min(Calculator.history.length - 1, root.historyIndex));
             const item = Calculator.history[hIdx];
             Calculator.copyText(item.result);
             return;
         }
-        // Если активно математическое выражение (и пользователь не спустился стрелкой в список приложений)
+        // If a math expression is active (and user has not navigated down to the app list)
         if (root.calcResult.valid && (root.filtered.length === 0 || root.selectedIndex === -1)) {
             Calculator.recordAndCopy(root.calcResult.expr, root.calcResult.formatted);
             return;
@@ -111,7 +111,7 @@ Item {
         width: parent.width
         spacing: Theme.px(8)
 
-        // ───────── Строка поиска / ввода выражения ─────────
+        // ───────── Search bar / Expression input ─────────
         Item {
             width: parent.width
             height: Theme.px(36)
@@ -143,7 +143,7 @@ Item {
                 focus: true
                 onTextChanged: {
                     root.query = text;
-                    // Когда выражение вычисляется в калькуляторе, фокус по умолчанию на карточке калькулятора (-1)
+                    // When an expression is calculated, default focus is on the calculator card (-1)
                     const ev = Calculator.evaluate(text);
                     root.selectedIndex = ev.valid ? -1 : 0;
                     list.positionViewAtBeginning();
@@ -195,8 +195,8 @@ Item {
                 Text {
                     visible: searchInput.text.length === 0
                     text: root.showHistory
-                          ? "Введите выражение (sin(30°), 2^10, ln(e), 5!)..."
-                          : "Поиск или расчёт (2+2, sin(30°), log2(1024))..."
+                          ? "Enter expression (sin(30°), 2^10, ln(e), 5!)..."
+                          : "Search or calculate (2+2, sin(30°), log2(1024))..."
                     color: Theme.text3
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(12)
@@ -210,7 +210,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: Theme.px(4)
 
-                // Кнопка очистки строки
+                // Clear input button
                 Rectangle {
                     visible: searchInput.text.length > 0
                     anchors.verticalCenter: parent.verticalCenter
@@ -227,7 +227,7 @@ Item {
                     }
                 }
 
-                // Кнопка открытия истории калькулятора
+                // Open calculator history button
                 Rectangle {
                     id: histToggleBtn
                     anchors.verticalCenter: parent.verticalCenter
@@ -277,14 +277,14 @@ Item {
             }
         }
 
-        // Тонкий разделитель под строкой поиска
+        // Thin separator under search bar
         Rectangle {
             width: parent.width
             height: 1
             color: Qt.rgba(1, 1, 1, 0.08)
         }
 
-        // ───────── Карточка живого калькулятора ─────────
+        // ───────── Live calculator card ─────────
         Rectangle {
             id: calcCard
             visible: root.calcResult.valid
@@ -308,7 +308,7 @@ Item {
             Behavior on color { ColorAnimation { duration: 160 } }
             Behavior on border.color { ColorAnimation { duration: 160 } }
 
-            // Левая акцентная капсула
+            // Left accent capsule
             Rectangle {
                 anchors.left: parent.left
                 anchors.leftMargin: Theme.px(5)
@@ -321,7 +321,7 @@ Item {
                 Behavior on color { ColorAnimation { duration: 140 } }
             }
 
-            // Левая часть: выражение и крупный ответ
+            // Left side: expression and large answer
             Column {
                 anchors.left: parent.left
                 anchors.leftMargin: Theme.px(16)
@@ -365,7 +365,7 @@ Item {
                 }
             }
 
-            // Кнопки справа: Копировать результат и История
+            // Buttons on the right: Copy result and History
             Row {
                 id: calcActions
                 anchors.right: parent.right
@@ -373,7 +373,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: Theme.px(6)
 
-                // Кнопка копирования (и сохранения в историю)
+                // Copy button (and save to history)
                 Rectangle {
                     width: copyRow.implicitWidth + Theme.px(16)
                     height: Theme.px(32)
@@ -395,7 +395,7 @@ Item {
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: calcCard.justCopied ? "Скопировано" : "Копировать"
+                            text: calcCard.justCopied ? "Copied" : "Copy"
                             color: calcCard.justCopied ? Theme.green : Theme.text
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(11)
@@ -415,7 +415,7 @@ Item {
                     }
                 }
 
-                // Кнопка раскрытия истории прямо с карточки калькулятора
+                // Toggle history button from calculator card
                 Rectangle {
                     width: Theme.px(32)
                     height: Theme.px(32)
@@ -444,7 +444,7 @@ Item {
                 }
             }
 
-            // Клик по самой карточке тоже копирует результат и сохраняет в историю
+            // Clicking the card itself also copies the result and saves to history
             MouseArea {
                 anchors.left: parent.left
                 anchors.right: calcActions.left
@@ -459,14 +459,14 @@ Item {
             }
         }
 
-        // ───────── Секция истории вычислений ─────────
+        // ───────── Calculation history section ─────────
         Column {
             id: historySection
             visible: root.showHistory
             width: parent.width
             spacing: Theme.px(6)
 
-            // Шапка истории + быстрые примеры функций + очистка
+            // History header + quick function examples + clear
             Item {
                 width: parent.width
                 height: Theme.px(24)
@@ -475,7 +475,7 @@ Item {
                     anchors.left: parent.left
                     anchors.leftMargin: Theme.px(6)
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "ИСТОРИЯ ВЫЧИСЛЕНИЙ"
+                    text: "CALCULATION HISTORY"
                     color: Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(10)
@@ -496,7 +496,7 @@ Item {
                     Text {
                         id: clearHistTxt
                         anchors.centerIn: parent
-                        text: "Очистить"
+                        text: "Clear"
                         color: clearHistMa.containsMouse ? Theme.red : Theme.text3
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(10)
@@ -516,7 +516,7 @@ Item {
                 }
             }
 
-            // Пустое состояние истории с кликабельными примерами функций
+            // Empty history state with clickable function examples
             Rectangle {
                 visible: Calculator.history.length === 0
                 width: parent.width
@@ -530,7 +530,7 @@ Item {
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "История пуста · Нажмите Enter на расчёте, чтобы сохранить и скопировать"
+                        text: "History is empty · Press Enter on a calculation to save and copy"
                         color: Theme.text3
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(11)
@@ -574,7 +574,7 @@ Item {
                 }
             }
 
-            // Список сохранённых вычислений
+            // Saved calculations list
             ListView {
                 id: historyList
                 visible: Calculator.history.length > 0
@@ -599,7 +599,7 @@ Item {
                          : histRowMa.containsMouse ? Qt.rgba(1, 1, 1, 0.06)
                          : Qt.rgba(1, 1, 1, 0.03)
 
-                    // Выражение слева
+                    // Expression on the left
                     Text {
                         anchors.left: parent.left
                         anchors.leftMargin: Theme.px(12)
@@ -613,7 +613,7 @@ Item {
                         font.pixelSize: Theme.px(12)
                     }
 
-                    // Результат + действия справа
+                    // Result + actions on the right
                     Row {
                         id: histRightRow
                         anchors.right: parent.right
@@ -631,7 +631,7 @@ Item {
                             font.features: { "tnum": 1 }
                         }
 
-                        // Кнопка «Копировать результат»
+                        // Button "Copy result"
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             width: Theme.px(26); height: width
@@ -656,7 +656,7 @@ Item {
                             }
                         }
 
-                        // Кнопка «Подставить выражение обратно в ввод»
+                        // Button "Insert expression into input"
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             width: Theme.px(26); height: width
@@ -681,7 +681,7 @@ Item {
                             }
                         }
 
-                        // Кнопка удаления записи
+                        // Delete entry button
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             width: Theme.px(24); height: width
@@ -707,7 +707,7 @@ Item {
                         }
                     }
 
-                    // Клик по строке истории копирует результат
+                    // Clicking a history row copies the result
                     MouseArea {
                         id: histRowMa
                         anchors.left: parent.left
@@ -732,7 +732,7 @@ Item {
             }
         }
 
-        // ───────── Вертикальный список приложений ─────────
+        // ───────── Vertical application list ─────────
         ListView {
             id: list
             visible: root.filtered.length > 0
@@ -762,7 +762,7 @@ Item {
                      : "transparent"
                 Behavior on color { ColorAnimation { duration: 120 } }
 
-                // Вертикальная белая капсула слева у выбранного элемента
+                // Vertical indicator capsule on the left of selected item
                 Rectangle {
                     anchors.left: parent.left
                     anchors.leftMargin: Theme.px(4)
@@ -782,7 +782,7 @@ Item {
                     anchors.rightMargin: Theme.px(12)
                     spacing: Theme.px(12)
 
-                    // Подложка под иконку приложения
+                    // Application icon backdrop
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         width: Theme.px(34)
@@ -797,7 +797,7 @@ Item {
                         }
                     }
 
-                    // Название и описание
+                    // Title and description
                     Column {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - Theme.px(52)

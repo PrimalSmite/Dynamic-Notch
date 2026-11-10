@@ -2,7 +2,7 @@ import QtQuick
 import qs.services
 import qs.components
 
-// Панель погоды (сейчас, почасовой и на 7 дней). Клавиша R / ПКМ — обновить.
+// Weather panel (current, hourly and 7-day). Hotkey R / Right-click — refresh.
 Item {
     id: root
     property var host: null
@@ -22,12 +22,12 @@ Item {
         width: parent.width
         spacing: Theme.px(10)
 
-        // Верхний ряд: сейчас + почасовой прогноз
+        // Top row: current + hourly forecast
         Row {
             width: parent.width
             spacing: Theme.px(10)
 
-            // Текущая погода
+            // Current weather
             Rectangle {
                 width: Theme.px(210)
                 height: Theme.px(112)
@@ -71,8 +71,8 @@ Item {
                     }
 
                     Text {
-                        text: Weather.desc + " · Ощущ. " + (isNaN(Weather.feelsLike) ? "--" : Math.round(Weather.feelsLike) + "°")
-                              + " · " + (Math.round(Weather.wind * 10) / 10) + " м/с"
+                        text: Weather.desc + " · Feels " + (isNaN(Weather.feelsLike) ? "--" : Math.round(Weather.feelsLike) + "°")
+                              + " · " + (Math.round(Weather.wind * 10) / 10) + " m/s"
                         color: Theme.text2
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(10)
@@ -82,7 +82,7 @@ Item {
                 }
             }
 
-            // Почасовой
+            // Hourly
             Rectangle {
                 id: hourlyCard
                 width: parent.width - Theme.px(220)
@@ -128,7 +128,7 @@ Item {
             }
         }
 
-        // Прогноз на 7 дней
+        // 7-day forecast
         Rectangle {
             id: dailyCard
             width: parent.width

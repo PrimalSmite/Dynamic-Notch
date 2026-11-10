@@ -4,8 +4,8 @@ import Quickshell.Wayland
 import QtQuick
 import qs.services
 
-// Динамический остров для Hyprland.
-// Запуск:  qs -p /путь/к/этой/папке   (или скопируй в ~/.config/quickshell)
+// Dynamic Notch for Hyprland.
+// Run: qs -p /path/to/this/folder (or copy to ~/.config/quickshell)
 ShellRoot {
     Variants {
         model: Quickshell.screens
@@ -24,7 +24,7 @@ ShellRoot {
             }
             exclusionMode: ExclusionMode.Ignore
             WlrLayershell.layer: WlrLayer.Background
-            WlrLayershell.namespace: "dynamic-island-wallpaper"
+            WlrLayershell.namespace: "dynamic-notch-wallpaper"
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
             mask: Region {}
 

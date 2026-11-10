@@ -3,7 +3,7 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// Сервис управления обоями: поиск изображений по папкам, сохранение выбора и применение.
+// Wallpaper management service: search images by folder, save selection, and apply.
 Singleton {
     id: root
 
@@ -21,8 +21,8 @@ Singleton {
         return allWalls.filter(w => w.startsWith(prefix));
     }
 
-    readonly property string stateFile: Quickshell.env("HOME") + "/.cache/dynamic-island-wallpaper"
-    readonly property string dirFile: Quickshell.env("HOME") + "/.cache/dynamic-island-walldir"
+    readonly property string stateFile: Quickshell.env("HOME") + "/.cache/dynamic-notch-wallpaper"
+    readonly property string dirFile: Quickshell.env("HOME") + "/.cache/dynamic-notch-walldir"
 
     function fileUrl(path) {
         if (!path) return "";
@@ -37,7 +37,7 @@ Singleton {
         const script = '
             W="$1"
             mkdir -p ~/.cache
-            printf "%s" "$W" > ~/.cache/dynamic-island-wallpaper
+            printf "%s" "$W" > ~/.cache/dynamic-notch-wallpaper
             ln -sf "$W" ~/.cache/current-wallpaper
 
             if command -v awww >/dev/null 2>&1; then
@@ -107,7 +107,7 @@ Singleton {
             }
             map[dir]++;
         }
-        const res = [{ name: "Все", path: "", count: list.length }];
+        const res = [{ name: "All", path: "", count: list.length }];
         for (let i = 0; i < order.length; i++) {
             const d = order[i];
             const base = d.split("/").pop() || d;
@@ -122,18 +122,18 @@ Singleton {
             selectedFolder = "";
     }
 
-    // Инициализация сохраненных обоев при старте
+    // Initialize saved wallpaper on startup
     Process {
         id: initProc
         running: true
         command: [
             "sh", "-c",
-            "if [ -f ~/.cache/dynamic-island-wallpaper ]; then " +
-            "  W=$(cat ~/.cache/dynamic-island-wallpaper); " +
+            "if [ -f ~/.cache/dynamic-notch-wallpaper ]; then " +
+            "  W=$(cat ~/.cache/dynamic-notch-wallpaper); " +
             "  [ -f \"$W\" ] && printf 'SAVED:%s\\n' \"$W\"; " +
             "fi; " +
-            "if [ -f ~/.cache/dynamic-island-walldir ]; then " +
-            "  D=$(cat ~/.cache/dynamic-island-walldir); " +
+            "if [ -f ~/.cache/dynamic-notch-walldir ]; then " +
+            "  D=$(cat ~/.cache/dynamic-notch-walldir); " +
             "  [ -d \"$D\" ] && printf 'DIR:%s\\n' \"$D\"; " +
             "fi"
         ]
@@ -157,12 +157,12 @@ Singleton {
         }
     }
 
-    // Поиск обоев в пользовательских и системных директориях
+    // Search wallpapers in user and system directories
     Process {
         id: scanProc
         command: [
             "sh", "-c",
-            "CUSTOM=$( [ -f ~/.cache/dynamic-island-walldir ] && cat ~/.cache/dynamic-island-walldir || true ); " +
+            "CUSTOM=$( [ -f ~/.cache/dynamic-notch-walldir ] && cat ~/.cache/dynamic-notch-walldir || true ); " +
             "for d in \"$CUSTOM\" " +
             "  \"$HOME/Pictures/Wallpapers\" \"$HOME/Pictures/wallpapers\" " +
             "  \"$HOME/Wallpapers\" \"$HOME/wallpapers\" " +
@@ -183,15 +183,15 @@ Singleton {
         }
     }
 
-    // Диалог выбора папки
+    // Folder selection dialog
     Process {
         id: folderPickerProc
         command: [
             "sh", "-c",
             "if command -v zenity >/dev/null 2>&1; then " +
-            "  zenity --file-selection --directory --title='Выберите папку с обоями' 2>/dev/null; " +
+            "  zenity --file-selection --directory --title='Select Wallpaper Folder' 2>/dev/null; " +
             "elif command -v kdialog >/dev/null 2>&1; then " +
-            "  kdialog --getexistingdirectory \"$HOME\" --title 'Выберите папку с обоями' 2>/dev/null; " +
+            "  kdialog --getexistingdirectory \"$HOME\" --title 'Select Wallpaper Folder' 2>/dev/null; " +
             "fi"
         ]
         stdout: StdioCollector {
@@ -200,19 +200,19 @@ Singleton {
                 if (!picked) return;
                 root.customDir = picked;
                 root.selectedFolder = picked;
-                Quickshell.execDetached(["sh", "-c", "mkdir -p ~/.cache && printf '%s' \"$1\" > ~/.cache/dynamic-island-walldir", "_", picked]);
+                Quickshell.execDetached(["sh", "-c", "mkdir -p ~/.cache && printf '%s' \"$1\" > ~/.cache/dynamic-notch-walldir", "_", picked]);
                 root.refresh();
             }
         }
     }
 
-    // Диалог выбора отдельного файла обоев
+    // Single wallpaper file selection dialog
     Process {
         id: filePickerProc
         command: [
             "sh", "-c",
             "if command -v zenity >/dev/null 2>&1; then " +
-            "  zenity --file-selection --title='Выберите изображение обоев' --file-filter='Изображения | *.png *.jpg *.jpeg *.webp' 2>/dev/null; " +
+            "  zenity --file-selection --title='Select Wallpaper Image' --file-filter='Images | *.png *.jpg *.jpeg *.webp' 2>/dev/null; " +
             "elif command -v kdialog >/dev/null 2>&1; then " +
             "  kdialog --getopenfilename \"$HOME\" 'Image Files (*.png *.jpg *.jpeg *.webp)' 2>/dev/null; " +
             "fi"

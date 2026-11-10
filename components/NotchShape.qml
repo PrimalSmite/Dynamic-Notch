@@ -2,10 +2,10 @@ import QtQuick
 import QtQuick.Shapes
 import qs.services
 
-// Форма «чёлки»: тело, прилипшее к верхнему краю экрана,
-// скруглённые нижние углы и вогнутые «ушки» сверху.
+// Notch shape: body attached to the top edge of the screen,
+// rounded bottom corners and concave upper ears (fillets).
 //
-//   ╭──╮                 ╭──╮   ← fillet (вогнутые)
+//   ╭──╮                 ╭──╮   ← fillet (concave)
 //      │                 │
 //      ╰─────────────────╯     ← radius
 Shape {

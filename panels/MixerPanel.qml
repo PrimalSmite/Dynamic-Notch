@@ -5,8 +5,8 @@ import Quickshell.Widgets
 import qs.services
 import qs.components
 
-// Панель микшера: компактная карточка звука в стиле Dynamic Notch.
-// Горячие клавиши: ←/→ (или ↑/↓) — громкость, M — звук, I — микрофон. Колесо мыши — громкость.
+// Audio mixer panel: compact audio card in Dynamic Notch style.
+// Hotkeys: ←/→ (or ↑/↓) — volume, M — mute, I — mic mute. Mouse wheel — volume.
 Item {
     id: root
     property var host: null
@@ -44,9 +44,9 @@ Item {
     }
 
     function streamName(n) {
-        if (!n) return "Приложение";
+        if (!n) return "Application";
         const p = n.properties || {};
-        return p["application.name"] || n.description || n.nickname || n.name || "Поток";
+        return p["application.name"] || n.description || n.nickname || n.name || "Stream";
     }
 
     function streamSub(n) {
@@ -63,7 +63,7 @@ Item {
         return Quickshell.iconPath(ic, "audio-x-generic");
     }
 
-    // Колесо мыши по любой свободной области меняет мастер-громкость
+    // Mouse wheel over empty space changes master volume
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.NoButton
@@ -76,12 +76,12 @@ Item {
         spacing: Theme.px(8)
 
 
-        // 1. Основной выход звука + селектор устройств
+        // 1. Master audio output + device selector
         VolumeCard {
             width: parent.width
         }
 
-        // 2. Микрофон (компактная плашка)
+        // 2. Microphone (compact bar)
         Rectangle {
             visible: root.sourceReady
             width: parent.width
@@ -133,7 +133,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     width: Theme.px(68)
                     elide: Text.ElideRight
-                    text: "Микрофон"
+                    text: "Microphone"
                     color: root.sourceMuted ? Theme.alert : Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(11)
@@ -168,7 +168,7 @@ Item {
             }
         }
 
-        // 3. Звуковые потоки приложений (аккуратный ограниченный список со скроллом)
+        // 3. Application audio streams (scrollable list)
         Rectangle {
             visible: root.streams.length > 0
             width: parent.width
@@ -181,7 +181,7 @@ Item {
                 anchors.margins: Theme.px(10)
                 spacing: Theme.px(8)
 
-                // Заголовок секции приложений
+                // Application section header
                 Item {
                     id: streamHeader
                     width: parent.width
@@ -200,7 +200,7 @@ Item {
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Приложения"
+                            text: "Applications"
                             color: Theme.text2
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(11)
@@ -219,7 +219,7 @@ Item {
                     }
                 }
 
-                // Скроллируемый контейнер потоков (не раздувает чёлку)
+                // Scrollable stream container (keeps notch compact)
                 Flickable {
                     id: streamScroll
                     width: parent.width

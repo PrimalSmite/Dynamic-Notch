@@ -1,7 +1,7 @@
 import QtQuick
 import qs.services
 
-// Иконка Material Symbols по имени лигатуры: Icon { name: "volume_up" }
+// Material Symbols icon by ligature name: Icon { name: "volume_up" }
 Text {
     property string name: ""
     property real size: Theme.px(18)

@@ -3,7 +3,7 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// Загрузка CPU, память, диск, сеть, аптайм, температура и топ процессов.
+// CPU usage, memory, disk, network, uptime, temperature, and top processes.
 Singleton {
     id: root
 
@@ -18,8 +18,8 @@ Singleton {
     property string diskText: ""
     property int cpuTemp: -1      // °C
     property string uptime: ""
-    property string netDown: "0 КБ/с"
-    property string netUp: "0 КБ/с"
+    property string netDown: "0 KB/s"
+    property string netUp: "0 KB/s"
     property var cpuHistory: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     property var topProcs: []     // [{ pid, comm, cpu, mem }]
 
@@ -45,10 +45,10 @@ Singleton {
     }
 
     function fmtRate(bytesPerSec) {
-        if (bytesPerSec < 1024) return Math.round(bytesPerSec) + " Б/с";
+        if (bytesPerSec < 1024) return Math.round(bytesPerSec) + " B/s";
         const kb = bytesPerSec / 1024;
-        if (kb < 1024) return kb.toFixed(0) + " КБ/с";
-        return (kb / 1024).toFixed(1) + " МБ/с";
+        if (kb < 1024) return kb.toFixed(0) + " KB/s";
+        return (kb / 1024).toFixed(1) + " MB/s";
     }
 
     property int _uptimeCounter: 0
@@ -116,7 +116,7 @@ Singleton {
         _prevRx = rx;
         _prevTx = tx;
 
-        // Аптайм меняется с точностью до минут, обновляем раз в 30 секунд (15 тиков по 2с)
+        // Uptime changes with minute resolution, refresh every 30 seconds (15 ticks of 2s)
         if (++_uptimeCounter >= 15 || uptime === "") {
             _uptimeCounter = 0;
             upF.reload();
@@ -124,7 +124,7 @@ Singleton {
             const d = Math.floor(upSec / 86400);
             const h = Math.floor((upSec % 86400) / 3600);
             const mn = Math.floor((upSec % 3600) / 60);
-            uptime = (d > 0 ? d + "д " : "") + (h > 0 ? h + "ч " : "") + mn + "м";
+            uptime = (d > 0 ? d + "d " : "") + (h > 0 ? h + "h " : "") + mn + "m";
         }
 
         if (_tempPath !== "") {
@@ -152,7 +152,7 @@ Singleton {
                 if (lines.length > 0) {
                     const dfParts = lines[0].trim().split(/\s+/);
                     if (dfParts.length >= 2) {
-                        root.diskText = dfParts[0].replace(/G/g, " ГБ");
+                        root.diskText = dfParts[0].replace(/G/g, " GB");
                         const pct = parseInt(dfParts[1]);
                         if (!isNaN(pct)) root.disk = pct / 100;
                     }

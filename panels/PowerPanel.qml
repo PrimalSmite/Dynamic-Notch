@@ -3,7 +3,7 @@ import Quickshell
 import qs.services
 import qs.components
 
-// Панель управления питанием (двойной клик или повторное нажатие клавиши для подтверждения).
+// Power management panel (double-click or press key again to confirm).
 Item {
     id: root
     property var host: null
@@ -14,11 +14,11 @@ Item {
     implicitHeight: col.implicitHeight
 
     readonly property var actions: [
-        { key: "lock", label: "Блок [L]", icon: "lock", color: Theme.blue, confirm: false, cmd: "hyprlock >/dev/null 2>&1 || loginctl lock-session >/dev/null 2>&1" },
-        { key: "suspend", label: "Сон [S]", icon: "bedtime", color: Theme.purple, confirm: true, cmd: "systemctl suspend" },
-        { key: "logout", label: "Выйти [E]", icon: "logout", color: Theme.orange, confirm: true, cmd: "hyprctl dispatch 'hl.dsp.exit()' >/dev/null 2>&1 || hyprctl dispatch exit >/dev/null 2>&1 || loginctl terminate-session \"${XDG_SESSION_ID:-self}\" >/dev/null 2>&1 || loginctl terminate-user \"$USER\" >/dev/null 2>&1" },
-        { key: "reboot", label: "Рестарт [R]", icon: "restart_alt", color: Theme.yellow, confirm: true, cmd: "systemctl reboot" },
-        { key: "poweroff", label: "Выкл [P]", icon: "power_settings_new", color: Theme.alert, confirm: true, cmd: "systemctl poweroff" }
+        { key: "lock", label: "Lock [L]", icon: "lock", color: Theme.blue, confirm: false, cmd: "hyprlock >/dev/null 2>&1 || loginctl lock-session >/dev/null 2>&1" },
+        { key: "suspend", label: "Sleep [S]", icon: "bedtime", color: Theme.purple, confirm: true, cmd: "systemctl suspend" },
+        { key: "logout", label: "Logout [E]", icon: "logout", color: Theme.orange, confirm: true, cmd: "hyprctl dispatch 'hl.dsp.exit()' >/dev/null 2>&1 || hyprctl dispatch exit >/dev/null 2>&1 || loginctl terminate-session \"${XDG_SESSION_ID:-self}\" >/dev/null 2>&1 || loginctl terminate-user \"$USER\" >/dev/null 2>&1" },
+        { key: "reboot", label: "Reboot [R]", icon: "restart_alt", color: Theme.yellow, confirm: true, cmd: "systemctl reboot" },
+        { key: "poweroff", label: "Power Off [P]", icon: "power_settings_new", color: Theme.alert, confirm: true, cmd: "systemctl poweroff" }
     ]
 
     Keys.onPressed: event => {
@@ -90,7 +90,7 @@ Item {
 
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: pBtn.isArmed ? "Подтвердить?" : pBtn.modelData.label
+                            text: pBtn.isArmed ? "Confirm?" : pBtn.modelData.label
                             color: Theme.text
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(11)

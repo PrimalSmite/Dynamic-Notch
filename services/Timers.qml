@@ -3,7 +3,7 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// Таймер и секундомер с отображением на компактной чёлке.
+// Timer and stopwatch with display on compact notch.
 Singleton {
     id: root
 
@@ -11,11 +11,11 @@ Singleton {
     property bool running: false
     property bool paused: false
 
-    // Таймер (в секундах)
-    property int totalSec: 300           // по умолчанию 5 мин
+    // Timer (in seconds)
+    property int totalSec: 300           // default 5 min
     property int remainSec: 300
 
-    // Секундомер (в секундах)
+    // Stopwatch (in seconds)
     property int elapsedSec: 0
     property var laps: []
 
@@ -88,7 +88,7 @@ Singleton {
                     root.running = false;
                     root.paused = false;
                     root.finished();
-                    Quickshell.execDetached(["notify-send", "-a", "Таймер", "Время вышло!", "Таймер на " + root.fmt(root.totalSec) + " завершён"]);
+                    Quickshell.execDetached(["notify-send", "-a", "Timer", "Time's up!", "Timer for " + root.fmt(root.totalSec) + " has finished"]);
                 }
             } else {
                 root.elapsedSec += 1;

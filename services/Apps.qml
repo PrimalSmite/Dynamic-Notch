@@ -3,12 +3,12 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// Сервис приложений: закреплённые иконки и история запусков для ранжирования.
+// Application service: pinned icons and launch history for ranking.
 Singleton {
     id: root
 
-    readonly property string pinsPath: Quickshell.env("HOME") + "/.config/dynamic-island/pins.json"
-    readonly property string usagePath: Quickshell.env("HOME") + "/.local/state/dynamic-island/launcher-usage.json"
+    readonly property string pinsPath: Quickshell.env("HOME") + "/.config/dynamic-notch/pins.json"
+    readonly property string usagePath: Quickshell.env("HOME") + "/.local/state/dynamic-notch/launcher-usage.json"
 
     property var pinIds: ["firefox", "steam", "org.telegram.desktop", "discord"]
     property var usage: ({})
@@ -17,7 +17,7 @@ Singleton {
 
     readonly property var pins: {
         const res = [];
-        const _ = allEntries.length; // зависимость от обновления списка
+        const _ = allEntries.length; // dependency on list updates
         for (const id of pinIds) {
             const e = findById(id);
             if (e) res.push(e);
@@ -74,17 +74,17 @@ Singleton {
 
     function savePins() {
         const json = JSON.stringify(pinIds);
-        Quickshell.execDetached(["sh", "-c", "mkdir -p ~/.config/dynamic-island && printf '%s' \"$1\" > \"$2\"", "_", json, pinsPath]);
+        Quickshell.execDetached(["sh", "-c", "mkdir -p ~/.config/dynamic-notch && printf '%s' \"$1\" > \"$2\"", "_", json, pinsPath]);
     }
 
     function saveUsage() {
         const json = JSON.stringify(usage);
-        Quickshell.execDetached(["sh", "-c", "mkdir -p ~/.local/state/dynamic-island && printf '%s' \"$1\" > \"$2\"", "_", json, usagePath]);
+        Quickshell.execDetached(["sh", "-c", "mkdir -p ~/.local/state/dynamic-notch && printf '%s' \"$1\" > \"$2\"", "_", json, usagePath]);
     }
 
     Process {
         running: true
-        command: ["sh", "-c", "cat ~/.config/dynamic-island/pins.json 2>/dev/null || cat ~/.local/state/ukishima/dock-pins.json 2>/dev/null"]
+        command: ["sh", "-c", "cat ~/.config/dynamic-notch/pins.json 2>/dev/null"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const t = text.trim();
@@ -99,7 +99,7 @@ Singleton {
 
     Process {
         running: true
-        command: ["sh", "-c", "cat ~/.local/state/dynamic-island/launcher-usage.json 2>/dev/null || cat ~/.local/state/ukishima/launcher-usage.json 2>/dev/null"]
+        command: ["sh", "-c", "cat ~/.local/state/dynamic-notch/launcher-usage.json 2>/dev/null"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const t = text.trim();

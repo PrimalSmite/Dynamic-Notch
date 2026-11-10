@@ -1,8 +1,8 @@
 import QtQuick
 import qs.services
 
-// Пружина в стиле iOS. Сохраняет скорость при перенацеливании,
-// поэтому прерванная анимация продолжается плавно, без рывка.
+// iOS-style spring. Preserves velocity when retargeted,
+// so an interrupted animation continues smoothly without jarring.
 SpringAnimation {
     spring: Theme.springK
     damping: Theme.springDamp

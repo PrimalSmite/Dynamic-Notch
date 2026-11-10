@@ -1,8 +1,8 @@
 import QtQuick
 import qs.services
 
-// Кнопка-иконка верхней панели дашборда.
-// active — подсветка активной вкладки, badge — точка уведомления, hint — клавиша быстрого доступа.
+// Icon button for the dashboard top bar.
+// active — active tab highlight, badge — notification dot, hint — shortcut key.
 Item {
     id: root
     property string icon: ""

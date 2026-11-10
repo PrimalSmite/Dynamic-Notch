@@ -3,8 +3,8 @@ import Quickshell
 import qs.services
 import qs.components
 
-// Панель записи экрана: компактный вертикальный виджет для Dynamic Notch.
-// Клавиши: Enter/Space — старт/стоп, S/G — экран/область, A/M/C/F — опции.
+// Screen recording panel: compact vertical widget for Dynamic Notch.
+// Hotkeys: Enter/Space — start/stop, S/G — screen/region, A/M/C/F — options.
 Item {
     id: root
     property var host: null
@@ -43,7 +43,7 @@ Item {
         width: parent.width
         spacing: Theme.px(10)
 
-        // 1. Выбор цели записи: Весь экран [S] / Область [G]
+        // 1. Recording target selection: Full screen [S] / Region [G]
         Row {
             width: parent.width
             spacing: Theme.px(8)
@@ -51,8 +51,8 @@ Item {
 
             Repeater {
                 model: [
-                    { key: "screen", label: "Весь экран [S]", icon: "desktop_windows" },
-                    { key: "region", label: "Область [G]", icon: "crop_free" }
+                    { key: "screen", label: "Screen [S]", icon: "desktop_windows" },
+                    { key: "region", label: "Region [G]", icon: "crop_free" }
                 ]
                 Rectangle {
                     id: tgtBtn
@@ -96,17 +96,17 @@ Item {
             }
         }
 
-        // 2. Сетка опций записи 2×2: Звук, Микрофон, Курсор, FPS
+        // 2. Recording options 2×2 grid: Audio, Mic, Cursor, FPS
         Column {
             width: parent.width
             spacing: Theme.px(6)
 
             readonly property var optRow1: [
-                { key: "audio", icon: "volume_up", label: "Звук системы [A]", on: Recorder.audioDesktop },
-                { key: "mic", icon: "mic", label: "Микрофон [M]", on: Recorder.audioMic }
+                { key: "audio", icon: "volume_up", label: "Audio [A]", on: Recorder.audioDesktop },
+                { key: "mic", icon: "mic", label: "Mic [M]", on: Recorder.audioMic }
             ]
             readonly property var optRow2: [
-                { key: "cursor", icon: "mouse", label: "Курсор [C]", on: Recorder.showCursor },
+                { key: "cursor", icon: "mouse", label: "Cursor [C]", on: Recorder.showCursor },
                 { key: "fps", icon: "speed", label: Recorder.fps + " FPS [F]", on: Recorder.fps === 60 }
             ]
 
@@ -214,7 +214,7 @@ Item {
             }
         }
 
-        // 3. Основная кнопка записи / остановки
+        // 3. Main record / stop button
         Rectangle {
             width: parent.width
             height: Theme.px(44)
@@ -237,7 +237,7 @@ Item {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: Recorder.recording ? ("Остановить запись · " + Recorder.elapsedText) : "Начать запись [↵]"
+                    text: Recorder.recording ? ("Stop recording · " + Recorder.elapsedText) : "Start recording [↵]"
                     color: Recorder.recording ? "black" : "white"
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(13)
@@ -255,7 +255,7 @@ Item {
             }
         }
 
-        // 4. Карточка последней записи (если есть)
+        // 4. Last recording card (if available)
         Rectangle {
             visible: Recorder.recentFiles.length > 0
             width: parent.width
@@ -286,7 +286,7 @@ Item {
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Открыть →"
+                    text: "Open →"
                     color: Theme.controlFill
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(11)

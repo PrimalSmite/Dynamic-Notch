@@ -2,9 +2,9 @@ import QtQuick
 import QtQuick.Effects
 import qs.services
 
-// Контейнер содержимого острова с переходом как в iOS:
-// появление — короткая задержка, fade + пружинный scale + расфокус → резкость;
-// исчезание — быстрый fade с размытием.
+// Island content container with iOS-style transition:
+// entrance — short delay, fade + spring scale + defocus → sharpness;
+// exit — fast fade with blur.
 Item {
     id: v
     property bool shown: false
@@ -30,7 +30,7 @@ Item {
     Behavior on scale { Spring { epsilon: 0.01 } }
     Behavior on offsetY { Spring { epsilon: 0.05 } }
 
-    // размытие включаем только во время перехода — в покое слой не нужен
+    // Enable blur only during transition — layer is not needed at rest
     layer.enabled: opacity > 0.001 && opacity < 0.999
     layer.effect: MultiEffect {
         autoPaddingEnabled: false

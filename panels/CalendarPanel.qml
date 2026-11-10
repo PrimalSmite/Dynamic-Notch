@@ -2,7 +2,7 @@ import QtQuick
 import qs.services
 import qs.components
 
-// Панель календаря. Клавиши: ←/→ или колесо мыши — смена месяца, T/Home — сегодня.
+// Calendar panel. Hotkeys: ←/→ or mouse wheel — change month, T/Home — today.
 Item {
     id: root
     property var host: null
@@ -19,10 +19,10 @@ Item {
     }
 
     readonly property var monthNames: [
-        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
     ]
-    readonly property var dayHeaders: ["ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС"]
+    readonly property var dayHeaders: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     function shiftMonth(delta) {
         const d = new Date(viewDate.getFullYear(), viewDate.getMonth() + delta, 1);
@@ -33,7 +33,7 @@ Item {
         const y = viewDate.getFullYear();
         const m = viewDate.getMonth();
         const first = new Date(y, m, 1);
-        const startOffset = (first.getDay() + 6) % 7; // Пн = 0
+        const startOffset = (first.getDay() + 6) % 7; // Mon = 0
         const daysInMonth = new Date(y, m + 1, 0).getDate();
         const daysInPrev = new Date(y, m, 0).getDate();
         const now = new Date();
@@ -55,7 +55,7 @@ Item {
         width: parent.width
         spacing: Theme.px(12)
 
-        // Левая карточка — сегодня
+        // Left card — today
         Rectangle {
             width: Theme.px(205)
             height: calCard.height
@@ -108,7 +108,7 @@ Item {
             }
         }
 
-        // Правая карточка — сетка месяца (колесо мыши листает месяцы)
+        // Right card — month grid (mouse wheel scrolls months)
         Rectangle {
             id: calCard
             width: parent.width - Theme.px(217)
@@ -128,7 +128,7 @@ Item {
                 anchors.margins: Theme.px(14)
                 spacing: Theme.px(8)
 
-                // Шапка месяца
+                // Month header
                 Item {
                     width: parent.width
                     height: Theme.px(28)
@@ -177,7 +177,7 @@ Item {
                     }
                 }
 
-                // Дни недели
+                // Days of the week
                 Row {
                     width: parent.width
                     Repeater {
@@ -196,7 +196,7 @@ Item {
                     }
                 }
 
-                // Числа месяца
+                // Month dates
                 Grid {
                     width: parent.width
                     columns: 7

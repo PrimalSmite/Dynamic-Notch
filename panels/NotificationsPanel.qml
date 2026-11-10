@@ -4,7 +4,7 @@ import Quickshell.Widgets
 import qs.services
 import qs.components
 
-// Панель центра уведомлений (D — не беспокоить, C — очистить все).
+// Notification center panel (D — do not disturb, C — clear all).
 Item {
     id: root
     property var host: null
@@ -33,7 +33,7 @@ Item {
         width: parent.width
         spacing: Theme.px(10)
 
-        // Шапка
+        // Header
         Item {
             width: parent.width
             height: Theme.px(36)
@@ -45,14 +45,14 @@ Item {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Уведомления"
+                    text: "Notifications"
                     color: Theme.text
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(16)
                     font.weight: Font.Bold
                 }
 
-                // Тумблер «Не беспокоить»
+                // "Do Not Disturb" toggle
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     height: Theme.px(28)
@@ -74,7 +74,7 @@ Item {
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: Notifs.dnd ? "Не беспокоить [D]" : "Звук включён [D]"
+                            text: Notifs.dnd ? "Do Not Disturb [D]" : "Sound On [D]"
                             color: Theme.text
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(11)
@@ -91,7 +91,7 @@ Item {
                 }
             }
 
-            // Очистить все
+            // Clear all
             Rectangle {
                 visible: Notifs.list.length > 0
                 anchors.right: parent.right
@@ -106,7 +106,7 @@ Item {
                 Text {
                     id: clrText
                     anchors.centerIn: parent
-                    text: "Очистить все [C]"
+                    text: "Clear All [C]"
                     color: Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(11)
@@ -122,7 +122,7 @@ Item {
             }
         }
 
-        // Пустое состояние
+        // Empty state
         Rectangle {
             visible: Notifs.list.length === 0
             width: parent.width
@@ -141,7 +141,7 @@ Item {
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Новых уведомлений нет"
+                    text: "No new notifications"
                     color: Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(13)
@@ -149,7 +149,7 @@ Item {
             }
         }
 
-        // Список уведомлений
+        // Notifications list
         ListView {
             visible: Notifs.list.length > 0
             width: parent.width

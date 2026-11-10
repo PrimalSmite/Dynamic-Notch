@@ -3,14 +3,14 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// IPC для биндов Hyprland:
-//   qs -p <путь> ipc call island toggle
-//   qs -p <путь> ipc call island open launcher     (launcher, notifications, mixer, sysmon, recorder, timer, wallpaper, clipboard, notes, settings, power, calendar, weather, media)
-//   qs -p <путь> ipc call island close
-//   qs -p <путь> ipc call island nextPanel / prevPanel
-//   qs -p <путь> ipc call island volUp / volDown / mute
-//   qs -p <путь> ipc call island playPause / nextTrack / prevTrack
-//   qs -p <путь> ipc call island dnd / record
+// IPC for Hyprland keybindings:
+//   qs -p <path> ipc call island toggle
+//   qs -p <path> ipc call island open launcher     (launcher, notifications, mixer, sysmon, recorder, timer, wallpaper, clipboard, notes, settings, power, calendar, weather, media)
+//   qs -p <path> ipc call island close
+//   qs -p <path> ipc call island nextPanel / prevPanel
+//   qs -p <path> ipc call island volUp / volDown / mute
+//   qs -p <path> ipc call island playPause / nextTrack / prevTrack
+//   qs -p <path> ipc call island dnd / record
 Singleton {
     id: root
     signal toggleRequested()

@@ -2,7 +2,7 @@ import QtQuick
 import Quickshell.Widgets
 import qs.services
 
-// Карточка плеера: обложка, трек, прогресс и кнопки.
+// Media player card: album art, track, progress and controls.
 Rectangle {
     id: root
     readonly property var player: Media.player
@@ -14,7 +14,7 @@ Rectangle {
     Component.onCompleted: Media.activeConsumers++
     Component.onDestruction: Media.activeConsumers--
 
-    // Колесо мыши по карточке меняет громкость
+    // Mouse wheel over card changes volume
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.NoButton
@@ -25,7 +25,7 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: Theme.px(14)
         spacing: Theme.px(14)
-        // Обложка
+        // Album art
         ClippingRectangle {
             width: Theme.px(68)
             height: Theme.px(68)
@@ -52,7 +52,7 @@ Rectangle {
             }
         }
 
-        // Трек + прогресс
+        // Track + progress
         Column {
             width: parent.width - Theme.px(68) - ctl.width - 2 * parent.spacing
             anchors.verticalCenter: parent.verticalCenter
@@ -60,7 +60,7 @@ Rectangle {
             Text {
                 width: parent.width
                 elide: Text.ElideRight
-                text: Media.trackTitle !== "" ? Media.trackTitle : ((root.player && root.player.trackTitle) ? root.player.trackTitle : "Без названия")
+                text: Media.trackTitle !== "" ? Media.trackTitle : ((root.player && root.player.trackTitle) ? root.player.trackTitle : "Untitled")
                 color: Theme.text
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.px(15)
@@ -107,13 +107,13 @@ Rectangle {
             }
         }
 
-        // Кнопки управления (Назад, Плей/Пауза, Вперед)
+        // Control buttons (Previous, Play/Pause, Next)
         Row {
             id: ctl
             anchors.verticalCenter: parent.verticalCenter
             spacing: Theme.px(4)
 
-            // Предыдущий трек
+            // Previous track
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 width: Theme.px(30); height: width; radius: width / 2
@@ -136,7 +136,7 @@ Rectangle {
                 }
             }
 
-            // Плей / Пауза (акцентная матово-белая круглая кнопка)
+            // Play / Pause (accent matte-white circular button)
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 width: Theme.px(36); height: width; radius: width / 2
@@ -159,7 +159,7 @@ Rectangle {
                 }
             }
 
-            // Следующий трек
+            // Next track
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 width: Theme.px(30); height: width; radius: width / 2

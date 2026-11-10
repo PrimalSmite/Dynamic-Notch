@@ -3,7 +3,7 @@ import Quickshell
 import Quickshell.Services.Pipewire
 import QtQuick
 
-// Громкость выхода по умолчанию (PipeWire).
+// Default output volume (PipeWire).
 Singleton {
     id: root
 

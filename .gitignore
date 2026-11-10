@@ -1,0 +1,15 @@
+# Temporary and cache files
+*.log
+*.swp
+*~
+.directory
+out.png
+*.fifo
+
+# Quickshell runtime / temporary test artifacts
+/tmp/qs-*
+
+# IDE & Editor configs
+.vscode/
+.idea/
+*.kate-swp

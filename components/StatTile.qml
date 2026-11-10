@@ -1,7 +1,7 @@
 import QtQuick
 import qs.services
 
-// Плитка статистики: иконка, подпись, значение и полоска.
+// Stats tile: icon, label, value and progress bar.
 Rectangle {
     id: root
     property string icon: ""

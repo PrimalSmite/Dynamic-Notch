@@ -4,11 +4,11 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import QtQuick
 
-// Текущая раскладка клавиатуры в Hyprland.
+// Current keyboard layout in Hyprland.
 Singleton {
     id: root
 
-    property string layout: ""            // напр. "Russian", "English (US)"
+    property string layout: ""            // e.g. "Russian", "English (US)"
     readonly property string short: {
         const l = layout.toLowerCase();
         if (l.startsWith("english")) return "EN";

@@ -4,7 +4,7 @@ import Quickshell.Widgets
 import qs.services
 import qs.components
 
-// Панель выбора обоев (стрелки + Enter — выбрать, R — случайные, O — выбрать папку, F — файл).
+// Wallpaper selector panel (arrows + Enter — select, R — random, O — choose folder, F — file).
 Item {
     id: root
     property var host: null
@@ -75,7 +75,7 @@ Item {
         width: parent.width
         spacing: Theme.px(10)
 
-        // Шапка
+        // Header
         Item {
             width: parent.width
             height: Theme.px(32)
@@ -87,7 +87,7 @@ Item {
                 Icon { name: "wallpaper"; size: Theme.px(17); color: Theme.pink; anchors.verticalCenter: parent.verticalCenter }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Обои · " + root.walls.length
+                    text: "Wallpapers · " + root.walls.length
                     color: Theme.text
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(14)
@@ -100,7 +100,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: Theme.px(6)
 
-                // Кнопка выбора файла
+                // Choose file button
                 Rectangle {
                     height: Theme.px(28)
                     width: fileRow.implicitWidth + Theme.px(16)
@@ -114,7 +114,7 @@ Item {
                         Icon { name: "image"; size: Theme.px(14); anchors.verticalCenter: parent.verticalCenter }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Файл [F]"
+                            text: "File [F]"
                             color: Theme.text2
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(11)
@@ -130,7 +130,7 @@ Item {
                     }
                 }
 
-                // Кнопка выбора папки
+                // Choose folder button
                 Rectangle {
                     height: Theme.px(28)
                     width: dirRow.implicitWidth + Theme.px(16)
@@ -144,7 +144,7 @@ Item {
                         Icon { name: "folder_open"; size: Theme.px(14); anchors.verticalCenter: parent.verticalCenter }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Папка [O]"
+                            text: "Folder [O]"
                             color: Theme.text2
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(11)
@@ -160,7 +160,7 @@ Item {
                     }
                 }
 
-                // Случайные обои
+                // Random wallpaper
                 Rectangle {
                     height: Theme.px(28)
                     width: rndRow.implicitWidth + Theme.px(16)
@@ -174,7 +174,7 @@ Item {
                         Icon { name: "shuffle"; size: Theme.px(14); anchors.verticalCenter: parent.verticalCenter }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Случайные [R]"
+                            text: "Random [R]"
                             color: Theme.text
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(11)
@@ -199,7 +199,7 @@ Item {
             }
         }
 
-        // Фильтр по папкам (если найдено больше одной папки)
+        // Folder filter (if more than one folder found)
         Flickable {
             visible: Wallpapers.folders.length > 2
             width: parent.width
@@ -251,7 +251,7 @@ Item {
             }
         }
 
-        // Сетка превью обоев (4 в ряд)
+        // Wallpaper preview grid (4 per row)
         Item {
             width: parent.width
             height: Theme.px(240)
@@ -296,7 +296,7 @@ Item {
                             cache: true
                         }
 
-                        // Бейдж активных обоев
+                        // Active wallpaper badge
                         Rectangle {
                             visible: wCell.active
                             anchors.top: parent.top
@@ -350,7 +350,7 @@ Item {
                 }
             }
 
-            // Заглушка если обои ещё не найдены
+            // Placeholder if no wallpapers found yet
             Column {
                 visible: root.walls.length === 0
                 anchors.centerIn: parent
@@ -364,7 +364,7 @@ Item {
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: Wallpapers.scanning ? "Поиск обоев…" : "Обои не найдены. Нажмите «Папка [O]» или «Файл [F]»"
+                    text: Wallpapers.scanning ? "Scanning wallpapers…" : "No wallpapers found. Press 'Folder [O]' or 'File [F]'"
                     color: Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(12)

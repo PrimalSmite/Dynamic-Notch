@@ -3,7 +3,7 @@ import Quickshell
 import qs.services
 import qs.components
 
-// Панель истории буфера обмена (cliphist + wl-copy) с поддержкой текста и превью изображений.
+// Clipboard history panel (cliphist + wl-copy) with text and image preview support.
 Item {
     id: root
     property var host: null
@@ -82,7 +82,7 @@ Item {
         width: parent.width
         spacing: Theme.px(10)
 
-        // Верхняя строка: поиск + очистить
+        // Top bar: search + clear
         Row {
             width: parent.width
             spacing: Theme.px(10)
@@ -125,7 +125,7 @@ Item {
 
                     Text {
                         visible: searchInput.text.length === 0
-                        text: "Поиск в буфере обмена... (" + (root.results.length === Clipboard.count ? Clipboard.count : root.results.length + " / " + Clipboard.count) + " записей)"
+                        text: "Search clipboard... (" + (root.results.length === Clipboard.count ? Clipboard.count : root.results.length + " / " + Clipboard.count) + " items)"
                         color: Theme.text3
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(13)
@@ -145,7 +145,7 @@ Item {
                     Icon { name: "delete_sweep"; size: Theme.px(17); color: Theme.red; anchors.verticalCenter: parent.verticalCenter }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Очистить"
+                        text: "Clear"
                         color: Theme.text2
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(12)
@@ -162,7 +162,7 @@ Item {
             }
         }
 
-        // Пустое состояние
+        // Empty state
         Rectangle {
             visible: root.results.length === 0
             width: parent.width
@@ -171,14 +171,14 @@ Item {
             color: Theme.card
             Text {
                 anchors.centerIn: parent
-                text: Clipboard.count === 0 ? "Буфер обмена пуст" : "Ничего не найдено"
+                text: Clipboard.count === 0 ? "Clipboard is empty" : "Nothing found"
                 color: Theme.text2
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.px(13)
             }
         }
 
-        // Список
+        // List
         ListView {
             id: list
             visible: root.results.length > 0
@@ -203,7 +203,7 @@ Item {
                     anchors.rightMargin: Theme.px(10)
                     spacing: Theme.px(10)
 
-                    // Превью изображения или иконка
+                    // Image preview or icon
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         visible: cRow.modelData.isImage
@@ -232,7 +232,7 @@ Item {
                         color: Theme.text2
                     }
 
-                    // Текст / Описание
+                    // Text / Description
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - (cRow.modelData.isImage ? Theme.px(48 + 10) : Theme.px(16 + 10)) - (sizeLabelText.visible ? sizeLabelText.implicitWidth + Theme.px(10) : 0) - Theme.px(30)
@@ -245,7 +245,7 @@ Item {
                         font.weight: index === root.selectedIndex ? Font.DemiBold : Font.Normal
                     }
 
-                    // Размер для картинок
+                    // Size for images
                     Text {
                         id: sizeLabelText
                         anchors.verticalCenter: parent.verticalCenter
@@ -256,7 +256,7 @@ Item {
                         font.pixelSize: Theme.px(11)
                     }
 
-                    // Кнопка удаления
+                    // Delete button
                     Item {
                         anchors.verticalCenter: parent.verticalCenter
                         width: Theme.px(24); height: width

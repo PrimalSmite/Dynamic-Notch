@@ -4,7 +4,7 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import QtQuick
 
-// Сервис записи экрана (gpu-screen-recorder + slurp).
+// Screen recording service (gpu-screen-recorder + slurp).
 Singleton {
     id: root
 
@@ -26,7 +26,7 @@ Singleton {
 
     readonly property string outDir: Quickshell.env("HOME") + "/Videos/Recordings"
 
-    property int bitrateKbps: 30000      // 30 Мбит/с (максимальная чёткость без артефактов сжатия)
+    property int bitrateKbps: 30000      // 30 Mbps (maximum clarity without compression artifacts)
     property string codec: "auto"        // "auto" | "hevc" | "h264"
     property bool selectingRegion: false
     property string pendingMonitor: "screen"
@@ -67,8 +67,8 @@ Singleton {
         else if (audioMic) audioArgs = "-a default_input";
 
         const cursorArg = showCursor ? "-cursor yes" : "-cursor no";
-        // Высокий битрейт 30 Мбит/с (CBR), полный цветовой диапазон ПК (0-255), постоянный фреймрейт (CFR)
-        // и автоматический фоллбэк на кодирование процессором, если видеопамять GPU занята игрой.
+        // High bitrate 30 Mbps (CBR), full PC color range (0-255), constant framerate (CFR)
+        // and automatic CPU fallback encoding if GPU VRAM is constrained by games.
         const qualArgs = "-bm cbr -q " + bitrateKbps + " -cr full -fm cfr -tune quality -k " + codec + " -fallback-cpu-encoding yes";
 
         const cmd = "mkdir -p '" + outDir + "' && echo $$ > /tmp/qs-gsr.pid && exec gpu-screen-recorder -w \"" + captureTarget + "\" -f "
@@ -90,8 +90,8 @@ Singleton {
             return;
         }
         if (!recording) return;
-        // На Linux /proc/<pid>/comm обрезается до 15 символов ("gpu-screen-reco"),
-        // поэтому шлём SIGINT по точному PID из /tmp/qs-gsr.pid и по имени comm/cmdline.
+        // On Linux /proc/<pid>/comm is truncated to 15 chars ("gpu-screen-reco"),
+        // so we send SIGINT by exact PID from /tmp/qs-gsr.pid and by comm/cmdline name.
         Quickshell.execDetached([
             "sh", "-c",
             "if [ -f /tmp/qs-gsr.pid ]; then kill -INT $(cat /tmp/qs-gsr.pid) 2>/dev/null; fi; " +
@@ -117,8 +117,8 @@ Singleton {
         listProc.running = true;
     }
 
-    // Выбор прямоугольной области через slurp в формате WxH+X+Y, который требует gpu-screen-recorder.
-    // Важно: </dev/null необходим, так как при не-TTY stdin slurp ждёт список прямоугольников из stdin и зависает.
+    // Select rectangular region via slurp in WxH+X+Y format required by gpu-screen-recorder.
+    // Important: </dev/null is required because non-TTY stdin makes slurp wait for rectangle list from stdin and hang.
     Process {
         id: slurpProc
         command: ["sh", "-c", "pkill -x slurp 2>/dev/null; sleep 0.2 && slurp -f '%Wx%H+%x+%y' </dev/null 2>/dev/null || true"]
@@ -127,7 +127,7 @@ Singleton {
                 root.selectingRegion = false;
                 const reg = text.trim();
                 if (reg.length > 0 && reg.indexOf("x") > 0 && reg.indexOf("+") > 0) {
-                    // Проверяем, что ширина и высота не нулевые
+                    // Check that width and height are non-zero
                     const dims = reg.split("+")[0].split("x");
                     const w = parseInt(dims[0], 10) || 0;
                     const h = parseInt(dims[1], 10) || 0;
@@ -149,7 +149,7 @@ Singleton {
             const wasElapsed = root.elapsed;
             root.recording = false;
             if ((code === 0 || code === 130) && wasElapsed >= 1 && root.lastFile) {
-                Quickshell.execDetached(["notify-send", "-a", "Запись экрана", "Видео сохранено (30 Мбит/с)", root.lastFile]);
+                Quickshell.execDetached(["notify-send", "-a", "Screen Recorder", "Video saved (30 Mbps)", root.lastFile]);
             }
             root.refreshRecent();
         }

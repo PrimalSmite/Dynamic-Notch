@@ -1,13 +1,13 @@
 import QtQuick
 import qs.services
 
-// Плавная каретка ввода текста в стиле iOS / macOS (Insertion point).
-// Особенности:
-// - Скруглённая палочка (capsule / pill) толщиной Theme.px(2)
-// - Мягкое асимметричное затухание и появление (fade in/out по кривой InOutSine)
-// - Мгновенный сброс в 100% видимость при наборе текста и перемещении курсора
-// - Автоматическое наследование цвета selectionColor (по умолчанию iOS blue Theme.blue)
-// - Отключение анимации при потере фокуса для энергоэффективности
+// Smooth text input caret in iOS / macOS style (Insertion point).
+// Features:
+// - Rounded capsule / pill with Theme.px(2) thickness
+// - Soft asymmetric fade in and fade out (InOutSine easing)
+// - Instant reset to 100% visibility on typing and cursor movement
+// - Automatic selectionColor inheritance (default iOS blue Theme.blue)
+// - Animation disabled on focus loss for energy efficiency
 Item {
     id: root
 
@@ -34,10 +34,10 @@ Item {
         running: root.visible
         loops: Animation.Infinite
 
-        // Статичная фаза (каретка полностью видна при остановке ввода)
+        // Static phase (caret fully visible when typing pauses)
         PauseAnimation { duration: 600 }
 
-        // Мягкое затухание в стиле iOS/macOS
+        // Soft fade out in iOS/macOS style
         NumberAnimation {
             target: bar
             property: "opacity"
@@ -46,10 +46,10 @@ Item {
             easing.type: Easing.InOutSine
         }
 
-        // Короткая пауза в скрытом состоянии
+        // Short pause in hidden state
         PauseAnimation { duration: 70 }
 
-        // Мягкое появление обратно
+        // Soft fade back in
         NumberAnimation {
             target: bar
             property: "opacity"

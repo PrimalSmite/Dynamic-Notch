@@ -3,7 +3,7 @@ import Quickshell
 import qs.services
 import qs.components
 
-// Панель ввода пароля Polkit / sudo в стиле macOS/iOS Notch (по референсу со скриншота).
+// Polkit / sudo password prompt panel styled after macOS/iOS Notch.
 Item {
     id: root
     property var host: null
@@ -39,7 +39,7 @@ Item {
         width: parent.width
         spacing: Theme.px(12)
 
-        // Шапка: голубой кружок с замком + "Authentication required"
+        // Header: blue lock icon circle + "Authentication required"
         Row {
             width: parent.width
             spacing: Theme.px(10)
@@ -69,7 +69,7 @@ Item {
             }
         }
 
-        // Блок описания запроса и actionId
+        // Request description and actionId block
         Rectangle {
             width: parent.width
             height: msgCol.implicitHeight + Theme.px(20)
@@ -107,7 +107,7 @@ Item {
             }
         }
 
-        // Подпись поля пароля (+ сообщение об ошибке, если есть)
+        // Password field label (+ error message if present)
         Row {
             width: parent.width
             spacing: Theme.px(8)
@@ -130,7 +130,7 @@ Item {
             }
         }
 
-        // Капсула ввода пароля с голубой иконкой замка слева
+        // Password input capsule with blue lock icon on the left
         Rectangle {
             width: parent.width
             height: Theme.px(40)
@@ -190,7 +190,7 @@ Item {
             }
         }
 
-        // Кнопки Cancel / Authenticate справа
+        // Cancel / Authenticate buttons on the right
         Item {
             width: parent.width
             height: Theme.px(32)

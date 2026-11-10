@@ -2,7 +2,7 @@ import QtQuick
 import Quickshell.Hyprland
 import qs.services
 
-// Индикаторы рабочих столов: вертикальные капсулы с лёгким свечением у активного стола.
+// Workspace indicators: vertical capsules with a subtle glow on the active workspace.
 Row {
     id: root
 
@@ -48,7 +48,7 @@ Row {
             Behavior on width { Spring { epsilon: 0.5 } }
             Behavior on height { Spring { epsilon: 0.5 } }
 
-            // Внешний мягкий ореол свечения (только у активной капсулы)
+            // Soft outer glow halo (active capsule only)
             Rectangle {
                 anchors.centerIn: parent
                 width: parent.width + Theme.px(6)
@@ -59,7 +59,7 @@ Row {
                 Behavior on opacity { NumberAnimation { duration: 220 } }
             }
 
-            // Внутренний ореол свечения
+            // Inner glow halo
             Rectangle {
                 anchors.centerIn: parent
                 width: parent.width + Theme.px(3)
@@ -70,7 +70,7 @@ Row {
                 Behavior on opacity { NumberAnimation { duration: 220 } }
             }
 
-            // Сама вертикальная капсула
+            // The vertical capsule itself
             Rectangle {
                 anchors.fill: parent
                 radius: width / 2

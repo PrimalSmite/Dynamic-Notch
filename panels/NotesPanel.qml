@@ -4,14 +4,14 @@ import Quickshell.Io
 import qs.services
 import qs.components
 
-// Панель быстрых заметок (сохраняются в ~/.local/state/dynamic-island/notes/).
+// Quick notes panel (saved in ~/.local/state/dynamic-notch/notes/).
 Item {
     id: root
     property var host: null
     property bool wantsKeyboard: true
     property bool wantsTextInput: true
     property var notes: []              // [{ name: "note.md", title: "note", path: "..." }]
-    property string currentTitle: "Заметка"
+    property string currentTitle: "Note"
     property string currentPath: ""
     property bool _loadingContent: false
 
@@ -22,7 +22,7 @@ Item {
         editor.forceActiveFocus();
     }
 
-    readonly property string notesDir: Quickshell.env("HOME") + "/.local/state/dynamic-island/notes"
+    readonly property string notesDir: Quickshell.env("HOME") + "/.local/state/dynamic-notch/notes"
 
     function refreshList() {
         listProc.running = false;
@@ -38,7 +38,7 @@ Item {
     }
 
     function createNote() {
-        const name = "Заметка_" + Qt.formatDateTime(new Date(), "hhmmss");
+        const name = "Note_" + Qt.formatDateTime(new Date(), "hhmmss");
         const path = notesDir + "/" + name + ".md";
         currentTitle = name;
         currentPath = path;
@@ -72,10 +72,8 @@ Item {
         running: true
         command: [
             "sh", "-c",
-            "mkdir -p ~/.local/state/dynamic-island/notes; "
-            + "if [ -z \"$(ls -A ~/.local/state/dynamic-island/notes 2>/dev/null)\" ] && [ -d ~/.local/state/ukishima/notes ]; then "
-            + "cp -n ~/.local/state/ukishima/notes/*.md ~/.local/state/dynamic-island/notes/ 2>/dev/null || true; fi; "
-            + "ls -1t ~/.local/state/dynamic-island/notes/*.md 2>/dev/null"
+            "mkdir -p ~/.local/state/dynamic-notch/notes && "
+            + "ls -1t ~/.local/state/dynamic-notch/notes/*.md 2>/dev/null"
         ]
         stdout: StdioCollector {
             onStreamFinished: {
@@ -109,7 +107,7 @@ Item {
         width: parent.width
         spacing: Theme.px(10)
 
-        // Левая колонка — список заметок
+        // Left column — notes list
         Rectangle {
             width: Theme.px(210)
             height: Theme.px(240)
@@ -121,7 +119,7 @@ Item {
                 anchors.margins: Theme.px(10)
                 spacing: Theme.px(8)
 
-                // Кнопка «+ Новая заметка»
+                // "+ New Note" button
                 Rectangle {
                     width: parent.width
                     height: Theme.px(34)
@@ -134,7 +132,7 @@ Item {
                         Icon { name: "add"; size: Theme.px(17); anchors.verticalCenter: parent.verticalCenter }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Новая заметка"
+                            text: "New Note"
                             color: Theme.text
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(12)
@@ -198,7 +196,7 @@ Item {
             }
         }
 
-        // Правая область — редактор заметки
+        // Right pane — note editor
         Rectangle {
             width: parent.width - Theme.px(220)
             height: Theme.px(240)
@@ -217,7 +215,7 @@ Item {
                     Text {
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        text: root.currentTitle || "Заметка"
+                        text: root.currentTitle || "Note"
                         color: Theme.text
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(14)
@@ -231,7 +229,7 @@ Item {
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Автосохранение"
+                            text: "Autosaved"
                             color: Theme.text3
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(10)
@@ -279,7 +277,7 @@ Item {
 
                         Text {
                             visible: editor.text.length === 0
-                            text: "Начни печатать заметку..."
+                            text: "Start typing a note..."
                             color: Theme.text3
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(13)

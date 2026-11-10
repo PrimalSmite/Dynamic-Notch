@@ -4,14 +4,14 @@ import Quickshell.Io
 import Quickshell.Services.Polkit
 import QtQuick
 
-// Сервис аутентификации Polkit + sudo askpass через чёлку (Notch).
+// Authentication service: Polkit + sudo askpass via notch.
 Singleton {
     id: root
 
     signal requested()
     signal finished()
 
-    // Режим ручного/sudo-askpass запроса (когда вызывается через IPC или тест)
+    // Manual/sudo-askpass request mode (when invoked via IPC or test)
     property bool manualActive: false
     property string manualMessage: ""
     property string manualActionId: ""
