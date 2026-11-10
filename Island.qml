@@ -875,39 +875,63 @@ PanelWindow {
                     }
                 }
 
-                // notification
+                // notification matching screenshot #3:
+                // Dark pill with circular letter badge (or app icon), appName/summary in subtitle, large bold summary/body
                 Item {
                     anchors.fill: parent
                     visible: win.lastOsd === "notif"
 
-                    ClippingRectangle {
+                    // Circular Avatar / Badge matching screenshot #3
+                    Rectangle {
                         id: notifIcon
                         anchors.left: parent.left
-                        anchors.leftMargin: Theme.px(14)
+                        anchors.leftMargin: Theme.px(16)
                         anchors.verticalCenter: parent.verticalCenter
-                        width: Theme.px(38); height: width
-                        radius: Theme.px(10)
-                        color: Theme.card
-                        Icon {
+                        width: Theme.px(34)
+                        height: width
+                        radius: width / 2
+                        color: "#181D1C"
+
+                        // If app icon is available, display it; otherwise show circular initial letter with mint tint
+                        Text {
                             anchors.centerIn: parent
-                            name: "notifications"
                             visible: notifImg.status !== Image.Ready
-                        }
-                        Image {
-                            id: notifImg
-                            anchors.fill: parent
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            sourceSize: Qt.size(width * 2, height * 2)
-                            source: {
+                            text: {
                                 const n = win.notif;
-                                if (!n) return "";
-                                if (n.image) return n.image;
-                                if (n.appIcon) return n.appIcon.indexOf("/") >= 0 ? n.appIcon : Quickshell.iconPath(n.appIcon, true);
-                                return "";
+                                if (!n) return "N";
+                                const name = (n.appName || n.summary || "N").trim();
+                                return name.charAt(0).toUpperCase();
+                            }
+                            color: Theme.mint
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(14)
+                            font.weight: Font.Bold
+                        }
+
+                        ClippingRectangle {
+                            anchors.fill: parent
+                            radius: width / 2
+                            visible: notifImg.status === Image.Ready
+                            color: "transparent"
+
+                            Image {
+                                id: notifImg
+                                anchors.fill: parent
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                sourceSize: Qt.size(width * 2, height * 2)
+                                source: {
+                                    const n = win.notif;
+                                    if (!n) return "";
+                                    if (n.image) return n.image;
+                                    if (n.appIcon) return n.appIcon.indexOf("/") >= 0 ? n.appIcon : Quickshell.iconPath(n.appIcon, true);
+                                    return "";
+                                }
                             }
                         }
                     }
+
+                    // Notification Text block: app name in muted text on top, summary in bold white, body below
                     Column {
                         anchors.left: notifIcon.right
                         anchors.leftMargin: Theme.px(12)
@@ -915,23 +939,35 @@ PanelWindow {
                         anchors.rightMargin: Theme.px(18)
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: Theme.px(1)
+
                         Text {
                             width: parent.width
                             elide: Text.ElideRight
-                            text: win.notif ? (win.notif.summary || win.notif.appName) : ""
-                            color: Theme.text
+                            text: win.notif ? (win.notif.appName || "notify-send") : "notify-send"
+                            color: "#6D7774"
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(11)
+                        }
+
+                        Text {
+                            width: parent.width
+                            elide: Text.ElideRight
+                            text: win.notif ? (win.notif.summary || "hello") : "hello"
+                            color: "#F0F4F3"
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(13)
-                            font.weight: Font.DemiBold
+                            font.weight: Font.Bold
                         }
+
                         Text {
                             width: parent.width
                             elide: Text.ElideRight
                             maximumLineCount: 1
-                            text: win.notif ? (win.notif.body || win.notif.appName).replace(/<[^>]*>/g, "") : ""
-                            color: Theme.text2
+                            visible: text.length > 0
+                            text: win.notif ? (win.notif.body || "").replace(/<[^>]*>/g, "") : ""
+                            color: "#A2ABA8"
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.px(12)
+                            font.pixelSize: Theme.px(11)
                         }
                     }
                 }
@@ -1001,7 +1037,7 @@ PanelWindow {
                                 }
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: clock.date.toLocaleDateString(Qt.locale("ru_RU"), "ddd d MMM").replace(/\./g, "").toUpperCase()
+                                    text: clock.date.toLocaleDateString(Qt.locale("en_US"), "ddd d MMM").replace(/\./g, "").toUpperCase()
                                     color: Theme.text2
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.px(10)

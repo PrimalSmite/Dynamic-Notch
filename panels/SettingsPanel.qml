@@ -5,20 +5,36 @@ import Quickshell.Services.Pipewire
 import qs.services
 import qs.components
 
-// Settings panel and system Control Center (Control Center & Notch Settings).
-// Desktop PC optimized: wired Ethernet (LAN), PipeWire audio sink selector (dropdown menu),
-// detailed dynamic notch and dashboard behavior preferences.
+// Settings panel and Control Center.
+// Categorized into 3 compact tabs:
+//   1: Notch & UI (Notch indicators, behavior, scale, font size, searchable font dropdown)
+//   2: Controls (Audio output sinks, Mic mute, Brightness, Night light, DND, Game mode, Keep awake)
+//   3: System (User/Host, Uptime, IP info, Screenshots, Quick app launchers)
 // Hotkeys:
+//   1 / 2 / 3 — Switch tabs
 //   N — Night Light, D — Do Not Disturb, G — Game Mode, A — Keep Awake,
 //   M — Mic Mute, S — Region Screenshot, L — Lock Screen, R — Reload Hyprland,
-//   ← / → — Screen Brightness.
+//   ← / → — Brightness.
 Item {
     id: root
     property var host: null
     property bool wantsKeyboard: true
+    property bool wantsTextInput: fontDropdownOpen && fontSearchInput.activeFocus
 
-    implicitWidth: Theme.px(420)
-    implicitHeight: mainCol.implicitHeight
+    implicitWidth: Theme.px(440)
+    implicitHeight: Theme.px(390)
+
+    property int activeTab: 0 // 0: Notch & UI, 1: Controls, 2: System
+
+    // ── Font Selector State ──
+    property bool fontDropdownOpen: false
+    property string fontQuery: ""
+    property var allFonts: []
+    readonly property var filteredFonts: {
+        if (!fontQuery.trim().length) return allFonts;
+        const q = fontQuery.trim().toLowerCase();
+        return allFonts.filter(f => f.toLowerCase().indexOf(q) !== -1);
+    }
 
     // ── Toggle states ──
     property bool nightLight: false
@@ -39,6 +55,7 @@ Item {
     // User and system
     readonly property string userName: Quickshell.env("USER") || "user"
     readonly property string hostName: Quickshell.env("HOSTNAME") || "archlinux"
+    property string uptimeStr: "Uptime: ..."
 
     readonly property PwNode defaultSource: Pipewire.defaultAudioSource
     readonly property bool micMuted: defaultSource && defaultSource.audio ? defaultSource.audio.muted : false
@@ -47,6 +64,7 @@ Item {
 
     Component.onCompleted: {
         refreshHardwareStatus();
+        initFonts();
     }
 
     Timer {
@@ -63,12 +81,41 @@ Item {
         onTriggered: root.ipCopied = false
     }
 
+    function initFonts() {
+        const raw = Qt.fontFamilies();
+        const map = {};
+        const list = [];
+        const popular = [
+            "SF Pro Rounded", "SF Pro Display", "Inter", "Roboto",
+            "Cantarell", "Adwaita Sans", "Ubuntu", "DejaVu Sans",
+            "JetBrains Mono", "Fira Code", "Noto Sans"
+        ];
+        for (let i = 0; i < popular.length; i++) {
+            const p = popular[i];
+            if (raw.indexOf(p) !== -1) {
+                map[p] = true;
+                list.push(p);
+            }
+        }
+        const rest = [];
+        for (let i = 0; i < raw.length; i++) {
+            const f = raw[i];
+            if (!map[f] && f.indexOf("@") === -1 && f.indexOf(".") === -1) {
+                map[f] = true;
+                rest.push(f);
+            }
+        }
+        rest.sort();
+        allFonts = list.concat(rest);
+    }
+
     function refreshHardwareStatus() {
         lanProc.running = false;
         lanProc.running = true;
+        uptimeProc.running = false;
+        uptimeProc.running = true;
     }
 
-    // ── Background polling processes ──
     Process {
         id: lanProc
         command: ["sh", "-c", "ip -4 -brief addr show scope global 2>/dev/null | awk '$1 ~ /^en|^eth|^wl/ {print $1, $3}' | head -n 1"]
@@ -85,10 +132,37 @@ Item {
         }
     }
 
-    // ── Keyboard shortcuts ──
+    Process {
+        id: uptimeProc
+        command: ["sh", "-c", "uptime -p 2>/dev/null || uptime | sed 's/.*up \\([^,]*\\), .*/\\1/'"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const out = text.trim();
+                if (out) root.uptimeStr = out;
+            }
+        }
+    }
+
+    function focusInput() {
+        if (fontDropdownOpen) fontSearchInput.forceActiveFocus();
+        else root.forceActiveFocus();
+    }
+
     Keys.onPressed: event => {
+        if (fontDropdownOpen) {
+            if (event.key === Qt.Key_Escape) {
+                fontDropdownOpen = false;
+                event.accepted = true;
+                return;
+            }
+            return;
+        }
+
         const t = (event.text || "").toLowerCase();
-        if (event.key === Qt.Key_N || t === "n" || t === "т") { toggleNightLight(); event.accepted = true; }
+        if (event.key === Qt.Key_1) { activeTab = 0; event.accepted = true; }
+        else if (event.key === Qt.Key_2) { activeTab = 1; event.accepted = true; }
+        else if (event.key === Qt.Key_3) { activeTab = 2; event.accepted = true; }
+        else if (event.key === Qt.Key_N || t === "n" || t === "т") { toggleNightLight(); event.accepted = true; }
         else if (event.key === Qt.Key_D || t === "d" || t === "в") { Notifs.dnd = !Notifs.dnd; event.accepted = true; }
         else if (event.key === Qt.Key_A || t === "a" || t === "ф") { toggleKeepAwake(); event.accepted = true; }
         else if (event.key === Qt.Key_G || t === "g" || t === "п") { toggleGameMode(); event.accepted = true; }
@@ -107,7 +181,6 @@ Item {
         }
     }
 
-    // ── Audio output and network management ──
     function cleanSinkName(n) {
         if (!n) return "Audio Output";
         let s = n.description || n.nickname || n.name || "";
@@ -121,9 +194,9 @@ Item {
     function sinkIcon(n) {
         if (!n) return "volume_up";
         const name = ((n.description || "") + " " + (n.name || "")).toLowerCase();
-        if (name.includes("headphone") || name.includes("headset") || name.includes("наушник")) return "headphones";
+        if (name.includes("headphone") || name.includes("headset")) return "headphones";
         if (name.includes("hdmi") || name.includes("displayport") || name.includes("tv")) return "tv";
-        if (name.includes("speaker") || name.includes("динамик")) return "speaker";
+        if (name.includes("speaker")) return "speaker";
         return "volume_up";
     }
 
@@ -139,7 +212,6 @@ Item {
         ipCopiedTimer.restart();
     }
 
-    // ── Launch user terminal (from Hyprland configuration) ──
     function openUserTerminal() {
         Quickshell.execDetached(["sh", "-c", "TERM_CMD=$(grep -oP 'terminal\\s*=\\s*\"\\K[^\"]+' ~/.config/hypr/variables.lua 2>/dev/null || true); [ -z \"$TERM_CMD\" ] && TERM_CMD=\"$TERMINAL\"; [ -z \"$TERM_CMD\" ] && command -v foot >/dev/null 2>&1 && TERM_CMD=\"foot\"; [ -z \"$TERM_CMD\" ] && command -v kitty >/dev/null 2>&1 && TERM_CMD=\"kitty\"; [ -z \"$TERM_CMD\" ] && command -v alacritty >/dev/null 2>&1 && TERM_CMD=\"alacritty\"; [ -z \"$TERM_CMD\" ] && TERM_CMD=\"xdg-terminal-exec\"; exec $TERM_CMD"]);
     }
@@ -148,20 +220,12 @@ Item {
         Quickshell.execDetached(["sh", "-c", "TERM_CMD=$(grep -oP 'terminal\\s*=\\s*\"\\K[^\"]+' ~/.config/hypr/variables.lua 2>/dev/null || true); [ -z \"$TERM_CMD\" ] && TERM_CMD=\"$TERMINAL\"; [ -z \"$TERM_CMD\" ] && command -v foot >/dev/null 2>&1 && TERM_CMD=\"foot\"; [ -z \"$TERM_CMD\" ] && command -v kitty >/dev/null 2>&1 && TERM_CMD=\"kitty\"; [ -z \"$TERM_CMD\" ] && command -v alacritty >/dev/null 2>&1 && TERM_CMD=\"alacritty\"; [ -z \"$TERM_CMD\" ] && TERM_CMD=\"xdg-terminal-exec\"; exec $TERM_CMD -e btop"]);
     }
 
-    // ── System control functions ──
     function toggleNightLight() {
         nightLight = !nightLight;
         if (nightLight) {
             Quickshell.execDetached(["sh", "-c", "pkill -x hyprsunset 2>/dev/null; hyprsunset -t " + nightTemp + " >/dev/null 2>&1 &"]);
         } else {
             Quickshell.execDetached(["pkill", "-x", "hyprsunset"]);
-        }
-    }
-
-    function applyNightTemp(v) {
-        nightTemp = Math.round(2600 + v * 3900);
-        if (nightLight) {
-            Quickshell.execDetached(["sh", "-c", "pkill -x hyprsunset 2>/dev/null; hyprsunset -t " + nightTemp + " >/dev/null 2>&1 &"]);
         }
     }
 
@@ -219,476 +283,648 @@ Item {
         }
     }
 
-    // ── Main layout ──
+    // ── Main UI Layout ──
     Column {
-        id: mainCol
-        width: parent.width
-        spacing: Theme.px(10)
+        anchors.fill: parent
+        spacing: Theme.px(8)
 
-        // 1. Header: User profile + Uptime + System actions
+        // ── Top Segmented Tab Switcher [Notch & UI | Controls | System] ──
         Rectangle {
             width: parent.width
-            height: Theme.px(54)
-            radius: Theme.px(16)
-            color: Theme.card
+            height: Theme.px(32)
+            radius: Theme.px(10)
+            color: Qt.rgba(1, 1, 1, 0.05)
 
             Row {
-                anchors.left: parent.left
-                anchors.leftMargin: Theme.px(12)
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: Theme.px(10)
+                anchors.fill: parent
+                anchors.margins: Theme.px(3)
+                spacing: Theme.px(4)
 
-                Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Theme.px(34); height: width
-                    radius: width / 2
-                    color: Qt.rgba(1, 1, 1, 0.1)
+                Repeater {
+                    model: [
+                        { name: "Notch & UI", icon: "tune" },
+                        { name: "Controls", icon: "tune" },
+                        { name: "System", icon: "desktop_windows" }
+                    ]
 
-                    Icon {
-                        anchors.centerIn: parent
-                        name: "person"
-                        size: Theme.px(20)
-                        color: Theme.text
-                    }
-                }
+                    Rectangle {
+                        id: tabItem
+                        required property var modelData
+                        required property int index
+                        width: (parent.width - Theme.px(8)) / 3
+                        height: parent.height
+                        radius: Theme.px(8)
+                        color: root.activeTab === index ? Theme.cardHover : (tabMa.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : Qt.transparent)
+                        border.width: root.activeTab === index ? 1 : 0
+                        border.color: Theme.controlFill
 
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: Theme.px(1)
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: Theme.px(5)
 
-                    Text {
-                        text: root.userName + " @ " + root.hostName
-                        color: Theme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(13)
-                        font.weight: Font.Bold
-                    }
+                            Icon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: tabItem.modelData.icon
+                                size: Theme.px(13)
+                                color: root.activeTab === tabItem.index ? Theme.controlFill : Theme.text2
+                            }
 
-                    Text {
-                        text: "Uptime: " + (SysInfo.uptime !== "" ? SysInfo.uptime : "active")
-                        color: Theme.text2
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(10)
-                        font.features: { "tnum": 1 }
-                    }
-                }
-            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: tabItem.modelData.name
+                                color: root.activeTab === tabItem.index ? Theme.text : Theme.text2
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: root.activeTab === tabItem.index ? Font.DemiBold : Font.Normal
+                            }
+                        }
 
-            // Quick header buttons (Reload, Lock)
-            Row {
-                anchors.right: parent.right
-                anchors.rightMargin: Theme.px(12)
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: Theme.px(6)
-
-                // Reload Hyprland [R]
-                Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Theme.px(30); height: width; radius: width / 2
-                    color: relMa.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.08)
-                    scale: relMa.pressed ? 0.90 : 1.0
-                    Behavior on scale { Spring { epsilon: 0.01 } }
-
-                    Icon {
-                        anchors.centerIn: parent
-                        name: "restart_alt"
-                        size: Theme.px(16)
-                        color: Theme.text
-                    }
-
-                    MouseArea {
-                        id: relMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.reloadHyprland()
-                    }
-                }
-
-                // Lock screen [L]
-                Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Theme.px(30); height: width; radius: width / 2
-                    color: lockMa.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.08)
-                    scale: lockMa.pressed ? 0.90 : 1.0
-                    Behavior on scale { Spring { epsilon: 0.01 } }
-
-                    Icon {
-                        anchors.centerIn: parent
-                        name: "lock"
-                        size: Theme.px(15)
-                        color: Theme.text
-                    }
-
-                    MouseArea {
-                        id: lockMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.lockScreen()
+                        MouseArea {
+                            id: tabMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.activeTab = tabItem.index
+                        }
                     }
                 }
             }
         }
 
-        // 2. Main PC connectivity and hardware matrix (2×2 cards + audio dropdown)
+        // ── Tab 0: Notch & UI ──
         Column {
-            id: hwCol
+            id: tabNotch
+            visible: root.activeTab === 0
             width: parent.width
             spacing: Theme.px(8)
-            readonly property real tileW: (width - Theme.px(8)) / 2
 
-            // Row 1: Ethernet (LAN) and Audio Output
-            Item {
+            // Card 1: Notch Indicators & Behavior
+            Rectangle {
                 width: parent.width
-                height: Theme.px(64)
+                height: Theme.px(164)
+                radius: Theme.px(14)
+                color: Theme.card
 
-                // Card 1: Wired Ethernet (LAN)
-                Rectangle {
-                    id: lanTile
-                    anchors.left: parent.left
-                    width: parent.parent.tileW
-                    height: parent.height
-                    radius: Theme.px(16)
-                    color: root.ipCopied ? Qt.rgba(Theme.ok.r, Theme.ok.g, Theme.ok.b, 0.22) : (lanMa.containsMouse ? Theme.cardHover : Theme.card)
-                    border.width: root.ipCopied ? 1 : 0
-                    border.color: Theme.ok
-                    scale: lanMa.pressed ? 0.94 : 1.0
-                    Behavior on scale { Spring { epsilon: 0.01 } }
-                    Behavior on color { ColorAnimation { duration: 160 } }
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: Theme.px(10)
+                    spacing: Theme.px(8)
 
+                    Text {
+                        text: "Compact Notch Indicator"
+                        color: Theme.text3
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.px(9)
+                        font.weight: Font.Bold
+                        font.letterSpacing: 0.5
+                    }
+
+                    // 4-way indicator switcher
                     Row {
-                        anchors.fill: parent
-                        anchors.margins: Theme.px(10)
-                        spacing: Theme.px(10)
+                        width: parent.width
+                        spacing: Theme.px(6)
 
-                        Rectangle {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Theme.px(34); height: width; radius: width / 2
-                            color: root.ipCopied ? Theme.ok : Qt.rgba(1, 1, 1, 0.1)
+                        Repeater {
+                            model: [
+                                { id: "weather", name: "Weather", icon: "cloud" },
+                                { id: "cpu",     name: "CPU / Temp", icon: "memory" },
+                                { id: "net",     name: "LAN Net", icon: "swap_vert" },
+                                { id: "none",    name: "Hide", icon: "visibility_off" }
+                            ]
 
-                            Icon {
-                                anchors.centerIn: parent
-                                name: root.ipCopied ? "check" : "lan"
-                                size: Theme.px(18)
-                                color: root.ipCopied ? "#000000" : Theme.controlFill
-                            }
-                        }
+                            Rectangle {
+                                id: indBtn
+                                required property var modelData
+                                width: (parent.width - Theme.px(18)) / 4
+                                height: Theme.px(26)
+                                radius: Theme.px(7)
+                                readonly property bool active: IslandPrefs.compactWidget === modelData.id
+                                color: active ? Theme.controlFill : (indMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05))
 
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - Theme.px(44)
-                            spacing: Theme.px(1)
-
-                            Row {
-                                spacing: Theme.px(4)
-                                Text {
-                                    text: "Ethernet"
-                                    color: Theme.text
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(12)
-                                    font.weight: Font.Bold
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: Theme.px(4)
+                                    Icon {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: indBtn.modelData.icon
+                                        size: Theme.px(12)
+                                        color: indBtn.active ? "#000000" : Theme.text2
+                                    }
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: indBtn.modelData.name
+                                        color: indBtn.active ? "#000000" : Theme.text2
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.px(9)
+                                        font.weight: indBtn.active ? Font.Bold : Font.Normal
+                                    }
                                 }
-                                Text {
-                                    text: "(" + root.lanInterface + ")"
-                                    color: Theme.text3
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(10)
+
+                                MouseArea {
+                                    id: indMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: IslandPrefs.compactWidget = indBtn.modelData.id
                                 }
                             }
-
-                            Text {
-                                width: parent.width
-                                elide: Text.ElideRight
-                                text: root.ipCopied ? "IP copied to clipboard!" : (root.lanIp !== "" ? root.lanIp : "Connected")
-                                color: root.ipCopied ? Theme.ok : Theme.text2
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(11)
-                                font.weight: root.ipCopied ? Font.Bold : Font.Normal
-                                font.features: { "tnum": 1 }
-                            }
-
-                            Text {
-                                width: parent.width
-                                elide: Text.ElideRight
-                                text: "↓ " + SysInfo.netDown + " · ↑ " + SysInfo.netUp
-                                color: Theme.text3
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(9)
-                                font.features: { "tnum": 1 }
-                            }
                         }
                     }
 
-                    MouseArea {
-                        id: lanMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        onClicked: mouse => {
-                            if (mouse.button === Qt.RightButton) {
-                                Quickshell.execDetached(["sh", "-c", "command -v nm-connection-editor >/dev/null 2>&1 && nm-connection-editor || command -v kitty >/dev/null 2>&1 && kitty -e nmtui || nmtui"]);
-                            } else {
-                                root.copyLanIp();
-                            }
+                    Rectangle { width: parent.width; height: 1; color: Theme.divider }
+
+                    // Toggles: Clock Seconds, Auto Collapse, Hide in Games
+                    Item {
+                        width: parent.width
+                        height: Theme.px(22)
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Clock Seconds (HH:MM:SS)"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(11)
                         }
-                    }
-                }
-
-                // Card 2: Audio Output (PipeWire Sink with dropdown menu)
-                Rectangle {
-                    id: audioTile
-                    anchors.right: parent.right
-                    width: parent.parent.tileW
-                    height: parent.height
-                    radius: Theme.px(16)
-                    color: root.audioMenuOpen ? Qt.rgba(1, 1, 1, 0.14) : (audioMa.containsMouse ? Theme.cardHover : Theme.card)
-                    border.width: root.audioMenuOpen ? 1 : 0
-                    border.color: Qt.rgba(1, 1, 1, 0.35)
-                    scale: audioMa.pressed ? 0.95 : 1.0
-                    Behavior on scale { Spring { epsilon: 0.01 } }
-                    Behavior on color { ColorAnimation { duration: 160 } }
-
-                    Row {
-                        anchors.fill: parent
-                        anchors.margins: Theme.px(10)
-                        spacing: Theme.px(10)
-
                         Rectangle {
+                            anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            width: Theme.px(34); height: width; radius: width / 2
-                            color: Audio.muted
-                                ? Qt.rgba(Theme.alert.r, Theme.alert.g, Theme.alert.b, 0.2)
-                                : (root.audioMenuOpen ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.1))
-
-                            Icon {
-                                anchors.centerIn: parent
-                                name: Audio.muted ? "volume_off" : root.sinkIcon(Audio.sink)
-                                size: Theme.px(18)
-                                color: Audio.muted ? Theme.alert : (root.audioMenuOpen ? "#000000" : Theme.text)
+                            width: Theme.px(34); height: Theme.px(18); radius: height / 2
+                            color: IslandPrefs.showSeconds ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.15)
+                            Rectangle {
+                                width: Theme.px(14); height: width; radius: width / 2
+                                anchors.verticalCenter: parent.verticalCenter
+                                x: IslandPrefs.showSeconds ? (parent.width - width - Theme.px(2)) : Theme.px(2)
+                                color: IslandPrefs.showSeconds ? "#000000" : Theme.text
+                                Behavior on x { Spring { epsilon: 0.1 } }
                             }
-                        }
-
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - Theme.px(70)
-                            spacing: Theme.px(1)
-
-                            Text {
-                                text: "Audio Output"
-                                color: Theme.text
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(12)
-                                font.weight: Font.Bold
-                            }
-
-                            Text {
-                                width: parent.width
-                                elide: Text.ElideRight
-                                text: root.cleanSinkName(Audio.sink)
-                                color: Theme.text2
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(10)
-                            }
-
-                            Text {
-                                width: parent.width
-                                elide: Text.ElideRight
-                                text: Audio.muted ? "Muted" : (Math.round(Audio.volume * 100) + "% · Devices")
-                                color: Audio.muted ? Theme.alert : Theme.text3
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(9)
-                                font.features: { "tnum": 1 }
-                            }
-                        }
-
-                        // Dropdown chevron in circular pill
-                        Rectangle {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Theme.px(22); height: width; radius: width / 2
-                            color: root.audioMenuOpen ? Qt.rgba(1, 1, 1, 0.2) : Qt.rgba(1, 1, 1, 0.06)
-
-                            Icon {
-                                anchors.centerIn: parent
-                                name: "expand_more"
-                                size: Theme.px(15)
-                                color: root.audioMenuOpen ? Theme.controlFill : Theme.text2
-                                rotation: root.audioMenuOpen ? 180 : 0
-                                Behavior on rotation { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: IslandPrefs.showSeconds = !IslandPrefs.showSeconds
                             }
                         }
                     }
 
-                    MouseArea {
-                        id: audioMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.audioMenuOpen = !root.audioMenuOpen
+                    Item {
+                        width: parent.width
+                        height: Theme.px(22)
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Auto Collapse When Cursor Leaves"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(11)
+                        }
+                        Rectangle {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(34); height: Theme.px(18); radius: height / 2
+                            color: IslandPrefs.autoCollapse ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.15)
+                            Rectangle {
+                                width: Theme.px(14); height: width; radius: width / 2
+                                anchors.verticalCenter: parent.verticalCenter
+                                x: IslandPrefs.autoCollapse ? (parent.width - width - Theme.px(2)) : Theme.px(2)
+                                color: IslandPrefs.autoCollapse ? "#000000" : Theme.text
+                                Behavior on x { Spring { epsilon: 0.1 } }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: IslandPrefs.autoCollapse = !IslandPrefs.autoCollapse
+                            }
+                        }
+                    }
+
+                    Item {
+                        width: parent.width
+                        height: Theme.px(22)
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Hide Notch in Fullscreen / Games"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(11)
+                        }
+                        Rectangle {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(34); height: Theme.px(18); radius: height / 2
+                            color: IslandPrefs.hideInGames ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.15)
+                            Rectangle {
+                                width: Theme.px(14); height: width; radius: width / 2
+                                anchors.verticalCenter: parent.verticalCenter
+                                x: IslandPrefs.hideInGames ? (parent.width - width - Theme.px(2)) : Theme.px(2)
+                                color: IslandPrefs.hideInGames ? "#000000" : Theme.text
+                                Behavior on x { Spring { epsilon: 0.1 } }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: IslandPrefs.hideInGames = !IslandPrefs.hideInGames
+                            }
+                        }
                     }
                 }
             }
 
-            // Audio devices dropdown block (smooth expansion without overlapping)
+            // Card 2: Scaling & Typography
             Rectangle {
-                id: audioDrawer
                 width: parent.width
-                visible: height > 0
-                height: root.audioMenuOpen ? (dropCol.implicitHeight + Theme.px(20)) : 0
-                radius: Theme.px(16)
-                color: Qt.rgba(1, 1, 1, 0.05)
-                border.width: root.audioMenuOpen ? 1 : 0
-                border.color: Theme.divider
-                clip: true
-                opacity: root.audioMenuOpen ? 1.0 : 0.0
-                Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-                Behavior on opacity { NumberAnimation { duration: 160 } }
+                height: Theme.px(176)
+                radius: Theme.px(14)
+                color: Theme.card
 
                 Column {
-                    id: dropCol
-                    width: parent.width - Theme.px(20)
-                    x: Theme.px(10)
-                    y: Theme.px(10)
-                    spacing: Theme.px(5)
+                    anchors.fill: parent
+                    anchors.margins: Theme.px(10)
+                    spacing: Theme.px(7)
 
-                    // Device list header + quick jump to Pavucontrol
+                    // ── Setting: Interface Scale ──
                     Item {
                         width: parent.width
-                        height: Theme.px(20)
+                        height: Theme.px(18)
 
                         Row {
                             anchors.left: parent.left
-                            anchors.leftMargin: Theme.px(4)
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: Theme.px(6)
 
                             Icon {
                                 anchors.verticalCenter: parent.verticalCenter
-                                name: "speaker_group"
-                                size: Theme.px(13)
-                                color: Theme.text2
+                                name: "aspect_ratio"
+                                size: Theme.px(14)
+                                color: Theme.text
                             }
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: "AUDIO OUTPUT DEVICE"
-                                color: Theme.text3
+                                text: "Interface Scale"
+                                color: Theme.text
                                 font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(9)
-                                font.weight: Font.Bold
-                                font.letterSpacing: 0.5
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.DemiBold
                             }
                         }
 
                         Rectangle {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            width: pavuHdrRow.implicitWidth + Theme.px(12)
-                            height: Theme.px(20)
-                            radius: Theme.px(6)
-                            color: pavuHdrMa.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.06)
+                            height: Theme.px(18)
+                            width: scaleValText.implicitWidth + Theme.px(10)
+                            radius: height / 2
+                            color: Qt.rgba(1, 1, 1, 0.1)
 
-                            Row {
-                                id: pavuHdrRow
+                            Text {
+                                id: scaleValText
                                 anchors.centerIn: parent
-                                spacing: Theme.px(4)
-                                Icon {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: "tune"
-                                    size: Theme.px(11)
-                                    color: Theme.text2
-                                }
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "Mixer"
-                                    color: Theme.text2
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(9)
-                                    font.weight: Font.DemiBold
-                                }
-                            }
-                            MouseArea {
-                                id: pavuHdrMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    Quickshell.execDetached(["pavucontrol"]);
-                                    root.audioMenuOpen = false;
-                                }
+                                text: Math.round(IslandPrefs.uiScale * 100) + "%"
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(10)
+                                font.weight: Font.Bold
+                                font.features: { "tnum": 1 }
                             }
                         }
                     }
 
-                    Repeater {
-                        model: root.sinks
+                    Item {
+                        width: parent.width
+                        height: Theme.px(24)
+
+                        Bar {
+                            anchors.left: parent.left
+                            anchors.right: scaleResetBtn.left
+                            anchors.rightMargin: Theme.px(8)
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: Theme.px(7)
+                            value: Math.max(0, Math.min(1, (IslandPrefs.uiScale - 0.8) / 0.7))
+                            tint: Theme.controlFill
+                            interactive: true
+                            onMoved: v => {
+                                const raw = 0.8 + v * 0.7;
+                                const stepped = Math.round(raw * 20) / 20;
+                                IslandPrefs.setScale(stepped);
+                            }
+                        }
+
                         Rectangle {
-                            id: sinkItem
-                            required property var modelData
-                            required property int index
-                            width: parent.width
-                            height: Theme.px(36)
-                            radius: Theme.px(10)
-                            readonly property bool isCurrent: root.isDefaultSink(modelData)
-                            color: isCurrent
-                                ? Theme.controlFill
-                                : (sinkItemMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.04))
-                            scale: sinkItemMa.pressed ? 0.98 : 1.0
-                            Behavior on color { ColorAnimation { duration: 140 } }
-                            Behavior on scale { Spring { epsilon: 0.01 } }
+                            id: scaleResetBtn
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(54)
+                            height: Theme.px(22)
+                            radius: Theme.px(5)
+                            color: scaleResetMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08)
 
-                            Item {
+                            Text {
+                                anchors.centerIn: parent
+                                text: "Reset"
+                                color: Theme.text2
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(10)
+                            }
+                            MouseArea {
+                                id: scaleResetMa
                                 anchors.fill: parent
-                                anchors.leftMargin: Theme.px(10)
-                                anchors.rightMargin: Theme.px(10)
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: IslandPrefs.setScale(1.15)
+                            }
+                        }
+                    }
 
-                                Icon {
-                                    id: sIcon
-                                    anchors.left: parent.left
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: root.sinkIcon(sinkItem.modelData)
-                                    size: Theme.px(16)
-                                    color: sinkItem.isCurrent ? "#000000" : Theme.text2
-                                }
+                    Rectangle { width: parent.width; height: 1; color: Theme.divider }
+
+                    // ── Setting: Base Font Size ──
+                    Item {
+                        width: parent.width
+                        height: Theme.px(18)
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Theme.px(6)
+
+                            Icon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: "format_size"
+                                size: Theme.px(14)
+                                color: Theme.text
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Base Font Size"
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.DemiBold
+                            }
+                        }
+
+                        Rectangle {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: Theme.px(18)
+                            width: fontValText.implicitWidth + Theme.px(10)
+                            radius: height / 2
+                            color: Qt.rgba(1, 1, 1, 0.1)
+
+                            Text {
+                                id: fontValText
+                                anchors.centerIn: parent
+                                text: IslandPrefs.fontSize + " pt"
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(10)
+                                font.weight: Font.Bold
+                                font.features: { "tnum": 1 }
+                            }
+                        }
+                    }
+
+                    Item {
+                        width: parent.width
+                        height: Theme.px(24)
+
+                        Bar {
+                            anchors.left: parent.left
+                            anchors.right: fontResetBtn.left
+                            anchors.rightMargin: Theme.px(8)
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: Theme.px(7)
+                            value: Math.max(0, Math.min(1, (IslandPrefs.fontSize - 10) / 8))
+                            tint: Theme.controlFill
+                            interactive: true
+                            onMoved: v => IslandPrefs.setFontSize(Math.round(10 + v * 8))
+                        }
+
+                        Rectangle {
+                            id: fontResetBtn
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(54)
+                            height: Theme.px(22)
+                            radius: Theme.px(5)
+                            color: fontResetMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08)
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "Reset"
+                                color: Theme.text2
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(10)
+                            }
+                            MouseArea {
+                                id: fontResetMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: IslandPrefs.setFontSize(13)
+                            }
+                        }
+                    }
+
+                    Rectangle { width: parent.width; height: 1; color: Theme.divider }
+
+                    // ── Setting: Font Family (Dropdown Trigger) ──
+                    Item {
+                        width: parent.width
+                        height: Theme.px(26)
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Theme.px(6)
+
+                            Icon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: "font_download"
+                                size: Theme.px(14)
+                                color: Theme.text
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Font Family"
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.DemiBold
+                            }
+                        }
+
+                        Rectangle {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: Theme.px(24)
+                            width: fontPickRow.implicitWidth + Theme.px(14)
+                            radius: Theme.px(6)
+                            color: fontPickMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08)
+                            border.width: 1
+                            border.color: Theme.controlFill
+
+                            Row {
+                                id: fontPickRow
+                                anchors.centerIn: parent
+                                spacing: Theme.px(5)
 
                                 Text {
-                                    anchors.left: sIcon.right
-                                    anchors.leftMargin: Theme.px(8)
-                                    anchors.right: sBadge.left
-                                    anchors.rightMargin: Theme.px(8)
                                     anchors.verticalCenter: parent.verticalCenter
-                                    elide: Text.ElideRight
-                                    text: root.cleanSinkName(sinkItem.modelData)
-                                    color: sinkItem.isCurrent ? "#000000" : Theme.text
+                                    text: IslandPrefs.fontFamily
+                                    color: Theme.text
+                                    font.family: IslandPrefs.fontFamily
+                                    font.pixelSize: Theme.px(10)
+                                    font.weight: Font.DemiBold
+                                }
+                                Icon {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    name: "expand_more"
+                                    size: Theme.px(13)
+                                    color: Theme.text2
+                                }
+                            }
+
+                            MouseArea {
+                                id: fontPickMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    root.fontQuery = "";
+                                    root.fontDropdownOpen = true;
+                                    focusTimer.restart();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Tab 1: Controls & Audio ──
+        Column {
+            id: tabControls
+            visible: root.activeTab === 1
+            width: parent.width
+            spacing: Theme.px(8)
+
+            // Card 1: Audio Output & Mic
+            Rectangle {
+                width: parent.width
+                height: root.audioMenuOpen ? Theme.px(180) : Theme.px(104)
+                radius: Theme.px(14)
+                color: Theme.card
+                clip: true
+                Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: Theme.px(10)
+                    spacing: Theme.px(8)
+
+                    Item {
+                        width: parent.width
+                        height: Theme.px(28)
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Theme.px(8)
+
+                            Rectangle {
+                                width: Theme.px(28); height: width; radius: width / 2
+                                color: Qt.rgba(1, 1, 1, 0.1)
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: root.sinkIcon(Audio.sink)
+                                    size: Theme.px(15)
+                                    color: Theme.text
+                                }
+                            }
+
+                            Column {
+                                anchors.verticalCenter: parent.verticalCenter
+                                Text {
+                                    text: root.cleanSinkName(Audio.sink)
+                                    color: Theme.text
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.px(11)
-                                    font.weight: sinkItem.isCurrent ? Font.Bold : Font.Medium
+                                    font.weight: Font.DemiBold
+                                    elide: Text.ElideRight
+                                    width: Theme.px(200)
                                 }
+                                Text {
+                                    text: Math.round(Audio.volume * 100) + "% Output Volume"
+                                    color: Theme.text3
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(9)
+                                }
+                            }
+                        }
 
-                                Row {
-                                    id: sBadge
-                                    anchors.right: parent.right
+                        // Chevron to toggle sink list
+                        Rectangle {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(26); height: width; radius: width / 2
+                            color: sinkChevronMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08)
+
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "expand_more"
+                                size: Theme.px(15)
+                                color: Theme.text2
+                                rotation: root.audioMenuOpen ? 180 : 0
+                                Behavior on rotation { NumberAnimation { duration: 160 } }
+                            }
+                            MouseArea {
+                                id: sinkChevronMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.audioMenuOpen = !root.audioMenuOpen
+                            }
+                        }
+                    }
+
+                    // Sink List when open
+                    ListView {
+                        visible: root.audioMenuOpen
+                        width: parent.width
+                        height: Theme.px(70)
+                        clip: true
+                        model: root.sinks
+                        spacing: Theme.px(3)
+                        delegate: Rectangle {
+                            id: sinkItem
+                            required property var modelData
+                            width: parent.width
+                            height: Theme.px(24)
+                            radius: Theme.px(6)
+                            readonly property bool isCurrent: root.isDefaultSink(modelData)
+                            color: isCurrent ? Qt.rgba(1, 1, 1, 0.12) : (sinkItemMa.containsMouse ? Theme.cardHover : Qt.transparent)
+
+                            Row {
+                                anchors.left: parent.left
+                                anchors.leftMargin: Theme.px(6)
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: Theme.px(6)
+
+                                Icon {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    spacing: Theme.px(4)
-
-                                    Text {
-                                        visible: sinkItem.isCurrent
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: "Active"
-                                        color: "#000000"
-                                        opacity: 0.65
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.px(9)
-                                        font.weight: Font.Bold
-                                    }
-
-                                    Icon {
-                                        visible: sinkItem.isCurrent
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        name: "check_circle"
-                                        size: Theme.px(15)
-                                        color: "#000000"
-                                    }
+                                    name: root.sinkIcon(sinkItem.modelData)
+                                    size: Theme.px(12)
+                                    color: sinkItem.isCurrent ? Theme.controlFill : Theme.text2
+                                }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: root.cleanSinkName(sinkItem.modelData)
+                                    color: sinkItem.isCurrent ? Theme.text : Theme.text2
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(10)
+                                    font.weight: sinkItem.isCurrent ? Font.DemiBold : Font.Normal
+                                    elide: Text.ElideRight
+                                    width: Theme.px(360)
                                 }
                             }
 
@@ -698,828 +934,693 @@ Item {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    Pipewire.preferredDefaultAudioSink = sinkItem.modelData;
+                                    Audio.setSink(sinkItem.modelData);
                                     root.audioMenuOpen = false;
                                 }
                             }
                         }
                     }
+
+                    Rectangle { width: parent.width; height: 1; color: Theme.divider }
+
+                    // Quick Audio Action Buttons
+                    Row {
+                        width: parent.width
+                        spacing: Theme.px(6)
+
+                        // Mic Toggle Button
+                        Rectangle {
+                            width: (parent.width - Theme.px(6)) / 2
+                            height: Theme.px(28)
+                            radius: Theme.px(7)
+                            color: root.micMuted ? Qt.rgba(1, 0.2, 0.2, 0.15) : Qt.rgba(1, 1, 1, 0.08)
+                            border.width: 1
+                            border.color: root.micMuted ? Theme.alert : Qt.rgba(1, 1, 1, 0.12)
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: Theme.px(5)
+                                Icon {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    name: root.micMuted ? "mic_off" : "mic"
+                                    size: Theme.px(14)
+                                    color: root.micMuted ? Theme.alert : Theme.text
+                                }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: root.micMuted ? "Mic Muted [M]" : "Mic Active [M]"
+                                    color: root.micMuted ? Theme.alert : Theme.text
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(10)
+                                    font.weight: Font.Medium
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.toggleMic()
+                            }
+                        }
+
+                        // Pavucontrol Button
+                        Rectangle {
+                            width: (parent.width - Theme.px(6)) / 2
+                            height: Theme.px(28)
+                            radius: Theme.px(7)
+                            color: pavuMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08)
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: Theme.px(5)
+                                Icon {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    name: "tune"
+                                    size: Theme.px(14)
+                                    color: Theme.text
+                                }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "Volume Mixer"
+                                    color: Theme.text
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(10)
+                                    font.weight: Font.Medium
+                                }
+                            }
+
+                            MouseArea {
+                                id: pavuMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: Quickshell.execDetached(["pavucontrol"])
+                            }
+                        }
+                    }
                 }
             }
 
-            // Row 2: Night Light and Do Not Disturb
+            // Card 2: Display & Lighting
+            Rectangle {
+                width: parent.width
+                height: Theme.px(130)
+                radius: Theme.px(14)
+                color: Theme.card
+
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: Theme.px(10)
+                    spacing: Theme.px(8)
+
+                    // Brightness slider
+                    Item {
+                        width: parent.width
+                        height: Theme.px(18)
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Theme.px(6)
+                            Icon { name: "brightness_6"; size: Theme.px(14); color: Theme.text }
+                            Text {
+                                text: "Display Brightness"
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.DemiBold
+                            }
+                        }
+
+                        Text {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Math.round(root.brightness * 100) + "%"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(11)
+                            font.weight: Font.Bold
+                            font.features: { "tnum": 1 }
+                        }
+                    }
+
+                    Bar {
+                        width: parent.width
+                        height: Theme.px(8)
+                        value: root.brightness
+                        tint: Theme.controlFill
+                        interactive: true
+                        onMoved: v => {
+                            root.brightness = v;
+                            brightDebounce.restart();
+                        }
+                    }
+
+                    Rectangle { width: parent.width; height: 1; color: Theme.divider }
+
+                    // Night Light & DND
+                    Row {
+                        width: parent.width
+                        spacing: Theme.px(8)
+
+                        Rectangle {
+                            width: (parent.width - Theme.px(8)) / 2
+                            height: Theme.px(34)
+                            radius: Theme.px(8)
+                            color: root.nightLight ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.08)
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: Theme.px(6)
+                                Icon {
+                                    name: "bedtime"
+                                    size: Theme.px(15)
+                                    color: root.nightLight ? "#000000" : Theme.text
+                                }
+                                Text {
+                                    text: root.nightLight ? "Night Light [N]" : "Night Light [N]"
+                                    color: root.nightLight ? "#000000" : Theme.text
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(10)
+                                    font.weight: Font.Medium
+                                }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.toggleNightLight()
+                            }
+                        }
+
+                        Rectangle {
+                            width: (parent.width - Theme.px(8)) / 2
+                            height: Theme.px(34)
+                            radius: Theme.px(8)
+                            color: Notifs.dnd ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.08)
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: Theme.px(6)
+                                Icon {
+                                    name: "do_not_disturb_on"
+                                    size: Theme.px(15)
+                                    color: Notifs.dnd ? "#000000" : Theme.text
+                                }
+                                Text {
+                                    text: Notifs.dnd ? "DND Active [D]" : "Do Not Disturb [D]"
+                                    color: Notifs.dnd ? "#000000" : Theme.text
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(10)
+                                    font.weight: Font.Medium
+                                }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: Notifs.dnd = !Notifs.dnd
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Card 3: Session & Modes
             Row {
                 width: parent.width
                 spacing: Theme.px(8)
 
-                // Card 3: Night Light [N]
                 Rectangle {
-                    width: parent.parent.tileW
-                    height: Theme.px(60)
-                    radius: Theme.px(16)
-                    color: root.nightLight ? Qt.rgba(Theme.warn.r, Theme.warn.g, Theme.warn.b, 0.22) : Theme.card
-                    border.width: 1
-                    border.color: root.nightLight ? Qt.rgba(Theme.warn.r, Theme.warn.g, Theme.warn.b, 0.55) : Theme.divider
-                    scale: nlMa.pressed ? 0.94 : 1.0
-                    Behavior on scale { Spring { epsilon: 0.01 } }
-                    Behavior on color { ColorAnimation { duration: 160 } }
+                    width: (parent.width - Theme.px(16)) / 3
+                    height: Theme.px(50)
+                    radius: Theme.px(12)
+                    color: root.gameMode ? Theme.controlFill : Theme.card
 
-                    Row {
-                        anchors.fill: parent
-                        anchors.margins: Theme.px(10)
-                        spacing: Theme.px(10)
-
-                        Rectangle {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Theme.px(34); height: width; radius: width / 2
-                            color: root.nightLight ? Theme.warn : Qt.rgba(1, 1, 1, 0.1)
-
-                            Icon {
-                                anchors.centerIn: parent
-                                name: "nightlight"
-                                size: Theme.px(17)
-                                color: root.nightLight ? "#000000" : Theme.text2
-                            }
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(3)
+                        Icon {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            name: "sports_esports"
+                            size: Theme.px(16)
+                            color: root.gameMode ? "#000000" : Theme.text
                         }
-
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - Theme.px(44)
-                            spacing: Theme.px(1)
-
-                            Text {
-                                text: "Night Light"
-                                color: Theme.text
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(12)
-                                font.weight: Font.Bold
-                            }
-
-                            Text {
-                                width: parent.width
-                                elide: Text.ElideRight
-                                text: root.nightLight ? (root.nightTemp + "K · On") : "[N] Off"
-                                color: root.nightLight ? Theme.warn : Theme.text2
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(10)
-                            }
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: "Game [G]"
+                            color: root.gameMode ? "#000000" : Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(10)
+                            font.weight: Font.Medium
                         }
                     }
-
                     MouseArea {
-                        id: nlMa
                         anchors.fill: parent
-                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: root.toggleNightLight()
+                        onClicked: root.toggleGameMode()
                     }
                 }
 
-                // Card 4: Do Not Disturb [D]
                 Rectangle {
-                    width: parent.parent.tileW
-                    height: Theme.px(60)
-                    radius: Theme.px(16)
-                    color: Notifs.dnd ? Qt.rgba(Theme.purple.r, Theme.purple.g, Theme.purple.b, 0.22) : Theme.card
-                    border.width: 1
-                    border.color: Notifs.dnd ? Qt.rgba(Theme.purple.r, Theme.purple.g, Theme.purple.b, 0.55) : Theme.divider
-                    scale: dndMa.pressed ? 0.94 : 1.0
-                    Behavior on scale { Spring { epsilon: 0.01 } }
-                    Behavior on color { ColorAnimation { duration: 160 } }
+                    width: (parent.width - Theme.px(16)) / 3
+                    height: Theme.px(50)
+                    radius: Theme.px(12)
+                    color: root.keepAwake ? Theme.controlFill : Theme.card
 
-                    Row {
-                        anchors.fill: parent
-                        anchors.margins: Theme.px(10)
-                        spacing: Theme.px(10)
-
-                        Rectangle {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Theme.px(34); height: width; radius: width / 2
-                            color: Notifs.dnd ? Theme.purple : Qt.rgba(1, 1, 1, 0.1)
-
-                            Icon {
-                                anchors.centerIn: parent
-                                name: "do_not_disturb_on"
-                                size: Theme.px(17)
-                                color: Notifs.dnd ? "#FFFFFF" : Theme.text2
-                            }
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(3)
+                        Icon {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            name: "coffee"
+                            size: Theme.px(16)
+                            color: root.keepAwake ? "#000000" : Theme.text
                         }
-
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - Theme.px(44)
-                            spacing: Theme.px(1)
-
-                            Text {
-                                text: "Do Not Disturb"
-                                color: Theme.text
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(12)
-                                font.weight: Font.Bold
-                            }
-
-                            Text {
-                                width: parent.width
-                                elide: Text.ElideRight
-                                text: Notifs.dnd ? "Notifications silenced" : "[D] Normal alerts"
-                                color: Notifs.dnd ? Theme.purple : Theme.text2
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(10)
-                            }
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: "Awake [A]"
+                            color: root.keepAwake ? "#000000" : Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(10)
+                            font.weight: Font.Medium
                         }
                     }
-
                     MouseArea {
-                        id: dndMa
                         anchors.fill: parent
-                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: Notifs.dnd = !Notifs.dnd
+                        onClicked: root.toggleKeepAwake()
+                    }
+                }
+
+                Rectangle {
+                    width: (parent.width - Theme.px(16)) / 3
+                    height: Theme.px(50)
+                    radius: Theme.px(12)
+                    color: Theme.card
+
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(3)
+                        Icon {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            name: "videocam"
+                            size: Theme.px(16)
+                            color: Theme.text
+                        }
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: "Record"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(10)
+                            font.weight: Font.Medium
+                        }
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (root.host) root.host.openPanel("recorder");
+                        }
                     }
                 }
             }
         }
 
-        // 3. Control sliders: Monitor Brightness + Night Light Warmth
+        // ── Tab 2: System & Tools ──
         Column {
+            id: tabSystem
+            visible: root.activeTab === 2
             width: parent.width
             spacing: Theme.px(8)
 
-            // Monitor brightness slider
+            // Card 1: User & System Header
             Rectangle {
                 width: parent.width
-                height: Theme.px(46)
+                height: Theme.px(64)
                 radius: Theme.px(14)
                 color: Theme.card
 
-                Row {
+                Item {
                     anchors.fill: parent
-                    anchors.margins: Theme.px(12)
-                    spacing: Theme.px(10)
+                    anchors.margins: Theme.px(10)
 
-                    Icon {
+                    Row {
+                        anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        name: "light_mode"
-                        size: Theme.px(18)
-                        color: Theme.controlFill
+                        spacing: Theme.px(10)
+
+                        Rectangle {
+                            width: Theme.px(36); height: width; radius: width / 2
+                            color: Qt.rgba(1, 1, 1, 0.1)
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "person"
+                                size: Theme.px(20)
+                                color: Theme.text
+                            }
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Theme.px(2)
+
+                            Text {
+                                text: root.userName + " @ " + root.hostName
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(12)
+                                font.weight: Font.Bold
+                            }
+
+                            Text {
+                                text: root.uptimeStr
+                                color: Theme.text3
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(10)
+                            }
+                        }
                     }
 
-                    Bar {
+                    // Reload & Lock Buttons
+                    Row {
+                        anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - Theme.px(76)
-                        height: Theme.px(6)
-                        value: root.brightness
-                        tint: Theme.controlFill
-                        interactive: true
-                        onMoved: v => { root.brightness = v; brightDebounce.restart(); }
-                    }
+                        spacing: Theme.px(6)
 
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: Math.round(root.brightness * 100) + "%"
-                        color: Theme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(11)
-                        font.weight: Font.Bold
-                        font.features: { "tnum": 1 }
+                        Rectangle {
+                            width: Theme.px(32); height: width; radius: width / 2
+                            color: reloadMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08)
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "refresh"
+                                size: Theme.px(16)
+                                color: Theme.text
+                            }
+                            MouseArea {
+                                id: reloadMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.reloadHyprland()
+                            }
+                        }
+
+                        Rectangle {
+                            width: Theme.px(32); height: width; radius: width / 2
+                            color: lockMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08)
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "lock"
+                                size: Theme.px(16)
+                                color: Theme.text
+                            }
+                            MouseArea {
+                                id: lockMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.lockScreen()
+                            }
+                        }
                     }
                 }
             }
 
-            // Night light warmth slider
+            // Card 2: Network IP Card
             Rectangle {
-                visible: root.nightLight
                 width: parent.width
-                height: Theme.px(46)
-                radius: Theme.px(14)
+                height: Theme.px(44)
+                radius: Theme.px(12)
                 color: Theme.card
 
-                Row {
+                Item {
                     anchors.fill: parent
-                    anchors.margins: Theme.px(12)
-                    spacing: Theme.px(10)
+                    anchors.margins: Theme.px(10)
 
-                    Icon {
+                    Row {
+                        anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        name: "thermostat"
-                        size: Theme.px(17)
-                        color: Theme.warn
+                        spacing: Theme.px(8)
+
+                        Icon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: "lan"
+                            size: Theme.px(16)
+                            color: Theme.text
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            Text {
+                                text: "LAN IP (" + (root.lanInterface || "network") + ")"
+                                color: Theme.text3
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(9)
+                            }
+                            Text {
+                                text: root.lanIp !== "" ? root.lanIp : "127.0.0.1"
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.DemiBold
+                            }
+                        }
                     }
 
-                    Bar {
+                    Rectangle {
+                        anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - Theme.px(76)
-                        height: Theme.px(6)
-                        value: (root.nightTemp - 2600) / 3900
-                        tint: Theme.warn
-                        interactive: true
-                        onMoved: v => root.applyNightTemp(v)
-                    }
+                        height: Theme.px(24)
+                        width: copyIpText.implicitWidth + Theme.px(14)
+                        radius: Theme.px(6)
+                        color: root.ipCopied ? Theme.controlFill : (copyIpMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08))
 
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: root.nightTemp + "K"
-                        color: Theme.warn
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(11)
-                        font.weight: Font.Bold
-                        font.features: { "tnum": 1 }
+                        Text {
+                            id: copyIpText
+                            anchors.centerIn: parent
+                            text: root.ipCopied ? "Copied!" : "Copy IP"
+                            color: root.ipCopied ? "#000000" : Theme.text2
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(10)
+                            font.weight: Font.Medium
+                        }
+
+                        MouseArea {
+                            id: copyIpMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.copyLanIp()
+                        }
                     }
                 }
             }
-        }
 
-        // 4. NOTCH & DASHBOARD SETTINGS (Dynamic Notch & Dashboard Configuration)
-        Rectangle {
-            width: parent.width
-            implicitHeight: prefsCol.implicitHeight + Theme.px(24)
-            radius: Theme.px(16)
-            color: Theme.card
+            // Card 3: Screenshot Actions
+            Rectangle {
+                width: parent.width
+                height: Theme.px(68)
+                radius: Theme.px(12)
+                color: Theme.card
 
-            Column {
-                id: prefsCol
-                width: parent.width - 2 * Theme.px(12)
-                x: Theme.px(12)
-                y: Theme.px(12)
-                spacing: Theme.px(10)
-
-                // Section header
-                Row {
-                    spacing: Theme.px(6)
-                    Icon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: "tune"
-                        size: Theme.px(16)
-                        color: Theme.controlFill
-                    }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Notch & Dashboard Settings"
-                        color: Theme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(12)
-                        font.weight: Font.Bold
-                    }
-                }
-
-                // Compact notch widget selector (Segmented selector)
                 Column {
-                    width: parent.width
-                    spacing: Theme.px(5)
+                    anchors.fill: parent
+                    anchors.margins: Theme.px(10)
+                    spacing: Theme.px(6)
 
                     Text {
-                        text: "Compact Notch Indicator"
-                        color: Theme.text2
+                        text: "Screenshots"
+                        color: Theme.text3
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(11)
+                        font.pixelSize: Theme.px(9)
+                        font.weight: Font.Bold
                     }
 
                     Row {
                         width: parent.width
-                        spacing: Theme.px(4)
-                        readonly property real segW: (width - 3 * spacing) / 4
+                        spacing: Theme.px(8)
 
-                        // Option 1: Weather
                         Rectangle {
-                            width: parent.segW; height: Theme.px(30); radius: Theme.px(8)
-                            color: IslandPrefs.compactWidget === "weather" ? Theme.controlFill : (wthMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05))
+                            width: (parent.width - Theme.px(8)) / 2
+                            height: Theme.px(28)
+                            radius: Theme.px(7)
+                            color: rShotMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08)
+
                             Row {
                                 anchors.centerIn: parent
-                                spacing: Theme.px(4)
-                                Icon { name: "cloud"; size: Theme.px(13); color: IslandPrefs.compactWidget === "weather" ? "#000000" : Theme.text }
-                                Text { text: "Weather"; color: IslandPrefs.compactWidget === "weather" ? "#000000" : Theme.text; font.pixelSize: Theme.px(10); font.weight: Font.DemiBold }
+                                spacing: Theme.px(5)
+                                Icon { name: "crop"; size: Theme.px(13); color: Theme.text }
+                                Text {
+                                    text: "Region Shot [S]"
+                                    color: Theme.text
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(10)
+                                    font.weight: Font.Medium
+                                }
                             }
                             MouseArea {
-                                id: wthMa
+                                id: rShotMa
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: IslandPrefs.setCompactWidget("weather")
+                                onClicked: root.takeScreenshotRegion()
                             }
                         }
 
-                        // Option 2: CPU & Temp
                         Rectangle {
-                            width: parent.segW; height: Theme.px(30); radius: Theme.px(8)
-                            color: IslandPrefs.compactWidget === "cpu" ? Theme.controlFill : (cpuMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05))
+                            width: (parent.width - Theme.px(8)) / 2
+                            height: Theme.px(28)
+                            radius: Theme.px(7)
+                            color: fShotMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08)
+
                             Row {
                                 anchors.centerIn: parent
-                                spacing: Theme.px(4)
-                                Icon { name: "memory"; size: Theme.px(13); color: IslandPrefs.compactWidget === "cpu" ? "#000000" : Theme.text }
-                                Text { text: "CPU / Temp"; color: IslandPrefs.compactWidget === "cpu" ? "#000000" : Theme.text; font.pixelSize: Theme.px(10); font.weight: Font.DemiBold }
+                                spacing: Theme.px(5)
+                                Icon { name: "fullscreen"; size: Theme.px(14); color: Theme.text }
+                                Text {
+                                    text: "Full Screen Shot"
+                                    color: Theme.text
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(10)
+                                    font.weight: Font.Medium
+                                }
                             }
                             MouseArea {
-                                id: cpuMa
+                                id: fShotMa
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: IslandPrefs.setCompactWidget("cpu")
+                                onClicked: root.takeScreenshotFull()
                             }
-                        }
-
-                        // Option 3: Network (LAN)
-                        Rectangle {
-                            width: parent.segW; height: Theme.px(30); radius: Theme.px(8)
-                            color: IslandPrefs.compactWidget === "net" ? Theme.controlFill : (netMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05))
-                            Row {
-                                anchors.centerIn: parent
-                                spacing: Theme.px(4)
-                                Icon { name: "swap_vert"; size: Theme.px(13); color: IslandPrefs.compactWidget === "net" ? "#000000" : Theme.text }
-                                Text { text: "LAN Net"; color: IslandPrefs.compactWidget === "net" ? "#000000" : Theme.text; font.pixelSize: Theme.px(10); font.weight: Font.DemiBold }
-                            }
-                            MouseArea {
-                                id: netMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: IslandPrefs.setCompactWidget("net")
-                            }
-                        }
-
-                        // Option 4: Hide
-                        Rectangle {
-                            width: parent.segW; height: Theme.px(30); radius: Theme.px(8)
-                            color: IslandPrefs.compactWidget === "none" ? Theme.controlFill : (noneMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05))
-                            Row {
-                                anchors.centerIn: parent
-                                spacing: Theme.px(4)
-                                Icon { name: "visibility_off"; size: Theme.px(13); color: IslandPrefs.compactWidget === "none" ? "#000000" : Theme.text }
-                                Text { text: "Hide"; color: IslandPrefs.compactWidget === "none" ? "#000000" : Theme.text; font.pixelSize: Theme.px(10); font.weight: Font.DemiBold }
-                            }
-                            MouseArea {
-                                id: noneMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: IslandPrefs.setCompactWidget("none")
-                            }
-                        }
-                    }
-                }
-
-                // Divider
-                Rectangle {
-                    width: parent.width
-                    height: 1
-                    color: Theme.divider
-                }
-
-                // Setting: Clock seconds
-                Item {
-                    width: parent.width
-                    height: Theme.px(32)
-
-                    Row {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: Theme.px(8)
-
-                        Icon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: "schedule"
-                            size: Theme.px(16)
-                            color: Theme.text
-                        }
-
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: Theme.px(1)
-                            Text {
-                                text: "Clock Seconds"
-                                color: Theme.text
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(11)
-                                font.weight: Font.DemiBold
-                            }
-                            Text {
-                                text: IslandPrefs.showSeconds ? "Format: HH:MM:SS" : "Format: HH:MM"
-                                color: Theme.text3
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(9)
-                            }
-                        }
-                    }
-
-                    // Toggle Switch
-                    Rectangle {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Theme.px(38); height: Theme.px(20); radius: height / 2
-                        color: IslandPrefs.showSeconds ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.12)
-                        Behavior on color { ColorAnimation { duration: 150 } }
-
-                        Rectangle {
-                            y: Theme.px(2)
-                            x: IslandPrefs.showSeconds ? parent.width - width - Theme.px(2) : Theme.px(2)
-                            width: Theme.px(16); height: width; radius: width / 2
-                            color: IslandPrefs.showSeconds ? "#000000" : Theme.text2
-                            Behavior on x { Spring { spring: 260; damping: 20 } }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: IslandPrefs.toggleSeconds()
-                        }
-                    }
-                }
-
-                // Setting: Floating OSD (Volume & Keyboard layout)
-                Item {
-                    width: parent.width
-                    height: Theme.px(32)
-
-                    Row {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: Theme.px(8)
-
-                        Icon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: "smart_display"
-                            size: Theme.px(16)
-                            color: Theme.text
-                        }
-
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: Theme.px(1)
-                            Text {
-                                text: "Floating OSD Popups"
-                                color: Theme.text
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(11)
-                                font.weight: Font.DemiBold
-                            }
-                            Text {
-                                text: "Volume and layout indicators in notch"
-                                color: Theme.text3
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(9)
-                            }
-                        }
-                    }
-
-                    Row {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: Theme.px(5)
-
-                        // Volume OSD
-                        Rectangle {
-                            width: Theme.px(64); height: Theme.px(24); radius: Theme.px(6)
-                            color: IslandPrefs.showVolumeOsd ? Qt.rgba(Theme.controlFill.r, Theme.controlFill.g, Theme.controlFill.b, 0.22) : Qt.rgba(1, 1, 1, 0.05)
-                            border.width: 1
-                            border.color: IslandPrefs.showVolumeOsd ? Theme.controlFill : Theme.divider
-                            Row {
-                                anchors.centerIn: parent
-                                spacing: Theme.px(3)
-                                Icon { name: "volume_up"; size: Theme.px(12); color: IslandPrefs.showVolumeOsd ? Theme.controlFill : Theme.text3 }
-                                Text { text: "Audio"; color: IslandPrefs.showVolumeOsd ? Theme.controlFill : Theme.text3; font.pixelSize: Theme.px(9); font.weight: Font.DemiBold }
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: IslandPrefs.toggleVolumeOsd()
-                            }
-                        }
-
-                        // Layout OSD
-                        Rectangle {
-                            width: Theme.px(64); height: Theme.px(24); radius: Theme.px(6)
-                            color: IslandPrefs.showLayoutOsd ? Qt.rgba(Theme.controlFill.r, Theme.controlFill.g, Theme.controlFill.b, 0.22) : Qt.rgba(1, 1, 1, 0.05)
-                            border.width: 1
-                            border.color: IslandPrefs.showLayoutOsd ? Theme.controlFill : Theme.divider
-                            Row {
-                                anchors.centerIn: parent
-                                spacing: Theme.px(3)
-                                Icon { name: "language"; size: Theme.px(12); color: IslandPrefs.showLayoutOsd ? Theme.controlFill : Theme.text3 }
-                                Text { text: "Layout"; color: IslandPrefs.showLayoutOsd ? Theme.controlFill : Theme.text3; font.pixelSize: Theme.px(9); font.weight: Font.DemiBold }
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: IslandPrefs.toggleLayoutOsd()
-                            }
-                        }
-                    }
-                }
-
-                // Setting: Auto-collapse dashboard
-                Item {
-                    width: parent.width
-                    height: Theme.px(32)
-
-                    Row {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: Theme.px(8)
-
-                        Icon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: "expand"
-                            size: Theme.px(16)
-                            color: Theme.text
-                        }
-
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: Theme.px(1)
-                            Text {
-                                text: "Auto Collapse"
-                                color: Theme.text
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(11)
-                                font.weight: Font.DemiBold
-                            }
-                            Text {
-                                text: "Collapse when cursor leaves"
-                                color: Theme.text3
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(9)
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Theme.px(38); height: Theme.px(20); radius: height / 2
-                        color: IslandPrefs.autoCollapse ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.12)
-                        Behavior on color { ColorAnimation { duration: 150 } }
-
-                        Rectangle {
-                            y: Theme.px(2)
-                            x: IslandPrefs.autoCollapse ? parent.width - width - Theme.px(2) : Theme.px(2)
-                            width: Theme.px(16); height: width; radius: width / 2
-                            color: IslandPrefs.autoCollapse ? "#000000" : Theme.text2
-                            Behavior on x { Spring { spring: 260; damping: 20 } }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: IslandPrefs.toggleAutoCollapse()
-                        }
-                    }
-                }
-
-                // Setting: Hide notch in games
-                Item {
-                    width: parent.width
-                    height: Theme.px(32)
-
-                    Row {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: Theme.px(8)
-
-                        Icon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: "sports_esports"
-                            size: Theme.px(16)
-                            color: Theme.text
-                        }
-
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: Theme.px(1)
-                            Text {
-                                text: "Hide in Games"
-                                color: Theme.text
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(11)
-                                font.weight: Font.DemiBold
-                            }
-                            Text {
-                                text: "Only notifications over games and fullscreen"
-                                color: Theme.text3
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(9)
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Theme.px(38); height: Theme.px(20); radius: height / 2
-                        color: IslandPrefs.hideInGames ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.12)
-                        Behavior on color { ColorAnimation { duration: 150 } }
-
-                        Rectangle {
-                            y: Theme.px(2)
-                            x: IslandPrefs.hideInGames ? parent.width - width - Theme.px(2) : Theme.px(2)
-                            width: Theme.px(16); height: width; radius: width / 2
-                            color: IslandPrefs.hideInGames ? "#000000" : Theme.text2
-                            Behavior on x { Spring { spring: 260; damping: 20 } }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: IslandPrefs.toggleHideInGames()
                         }
                     }
                 }
             }
-        }
 
-        // 5. Quick function toggles (4 horizontal pill buttons)
-        Row {
-            width: parent.width
-            spacing: Theme.px(6)
-            readonly property real chipW: (width - 3 * spacing) / 4
-
-            // Game mode [G]
-            Rectangle {
-                id: gmChip
-                width: parent.chipW
-                height: Theme.px(42)
-                radius: Theme.px(12)
-                color: root.gameMode ? Theme.controlFill : (gmMa.containsMouse ? Theme.cardHover : Theme.card)
-                scale: gmMa.pressed ? 0.92 : 1.0
-                Behavior on scale { Spring { epsilon: 0.01 } }
-                Behavior on color { ColorAnimation { duration: 140 } }
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Theme.px(5)
-                    Icon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: "sports_esports"
-                        size: Theme.px(16)
-                        color: root.gameMode ? "#000000" : Theme.text
-                    }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Game Mode [G]"
-                        color: root.gameMode ? "#000000" : Theme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(10)
-                        font.weight: Font.DemiBold
-                    }
-                }
-                MouseArea {
-                    id: gmMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.toggleGameMode()
-                }
-            }
-
-            // Keep awake [A] (prevents screen lock and sleep)
-            Rectangle {
-                id: awakeChip
-                width: parent.chipW
-                height: Theme.px(42)
-                radius: Theme.px(12)
-                color: root.keepAwake ? Theme.controlFill : (awakeMa.containsMouse ? Theme.cardHover : Theme.card)
-                scale: awakeMa.pressed ? 0.92 : 1.0
-                Behavior on scale { Spring { epsilon: 0.01 } }
-                Behavior on color { ColorAnimation { duration: 140 } }
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Theme.px(5)
-                    Icon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: "coffee"
-                        size: Theme.px(16)
-                        color: root.keepAwake ? "#000000" : Theme.text
-                    }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Keep Awake [A]"
-                        color: root.keepAwake ? "#000000" : Theme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(10)
-                        font.weight: Font.DemiBold
-                    }
-                }
-                MouseArea {
-                    id: awakeMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.toggleKeepAwake()
-                }
-            }
-
-            // Microphone [M]
-            Rectangle {
-                id: micChip
-                width: parent.chipW
-                height: Theme.px(42)
-                radius: Theme.px(12)
-                color: root.micMuted ? Qt.rgba(Theme.alert.r, Theme.alert.g, Theme.alert.b, 0.22) : (micMa.containsMouse ? Theme.cardHover : Theme.card)
-                border.width: root.micMuted ? 1 : 0
-                border.color: Theme.alert
-                scale: micMa.pressed ? 0.92 : 1.0
-                Behavior on scale { Spring { epsilon: 0.01 } }
-                Behavior on color { ColorAnimation { duration: 140 } }
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Theme.px(5)
-                    Icon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: root.micMuted ? "mic_off" : "mic"
-                        size: Theme.px(16)
-                        color: root.micMuted ? Theme.alert : Theme.text
-                    }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: root.micMuted ? "Muted" : "Mic [M]"
-                        color: root.micMuted ? Theme.alert : Theme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(10)
-                        font.weight: Font.DemiBold
-                    }
-                }
-                MouseArea {
-                    id: micMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.toggleMic()
-                }
-            }
-
-            // Screen recording
-            Rectangle {
-                id: recChip
-                width: parent.chipW
-                height: Theme.px(42)
-                radius: Theme.px(12)
-                color: Recorder.recording ? Qt.rgba(Theme.alert.r, Theme.alert.g, Theme.alert.b, 0.25) : (recMa.containsMouse ? Theme.cardHover : Theme.card)
-                border.width: Recorder.recording ? 1 : 0
-                border.color: Theme.alert
-                scale: recMa.pressed ? 0.92 : 1.0
-                Behavior on scale { Spring { epsilon: 0.01 } }
-                Behavior on color { ColorAnimation { duration: 140 } }
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Theme.px(5)
-                    Icon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: "videocam"
-                        size: Theme.px(16)
-                        color: Recorder.recording ? Theme.alert : Theme.text
-                    }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: Recorder.recording ? Recorder.elapsedText : "Record"
-                        color: Recorder.recording ? Theme.alert : Theme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(10)
-                        font.weight: Font.DemiBold
-                    }
-                }
-                MouseArea {
-                    id: recMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (Recorder.recording) Recorder.stop();
-                        else {
-                            const mon = (host && host.monitor && host.monitor.name) ? host.monitor.name : "screen";
-                            if (host) host.collapse();
-                            Recorder.start(mon);
-                        }
-                    }
-                }
-            }
-        }
-
-        // 6. Screenshot Hub (Region Screenshot and Fullscreen Screenshot)
-        Rectangle {
-            width: parent.width
-            implicitHeight: scCol.implicitHeight + Theme.px(20)
-            radius: Theme.px(16)
-            color: Theme.card
-
-            Column {
-                id: scCol
-                width: parent.width - 2 * Theme.px(12)
-                x: Theme.px(12)
-                y: Theme.px(10)
+            // Card 4: Quick Launch Apps
+            Row {
+                width: parent.width
                 spacing: Theme.px(8)
 
+                Rectangle {
+                    width: (parent.width - Theme.px(16)) / 3
+                    height: Theme.px(36)
+                    radius: Theme.px(10)
+                    color: pAppMa.containsMouse ? Theme.cardHover : Theme.card
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(5)
+                        Icon { name: "tune"; size: Theme.px(14); color: Theme.text }
+                        Text {
+                            text: "Pavucontrol"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(10)
+                            font.weight: Font.Medium
+                        }
+                    }
+                    MouseArea {
+                        id: pAppMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Quickshell.execDetached(["pavucontrol"])
+                    }
+                }
+
+                Rectangle {
+                    width: (parent.width - Theme.px(16)) / 3
+                    height: Theme.px(36)
+                    radius: Theme.px(10)
+                    color: btopMa.containsMouse ? Theme.cardHover : Theme.card
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(5)
+                        Icon { name: "speed"; size: Theme.px(14); color: Theme.text }
+                        Text {
+                            text: "Btop"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(10)
+                            font.weight: Font.Medium
+                        }
+                    }
+                    MouseArea {
+                        id: btopMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.openBtop()
+                    }
+                }
+
+                Rectangle {
+                    width: (parent.width - Theme.px(16)) / 3
+                    height: Theme.px(36)
+                    radius: Theme.px(10)
+                    color: termMa.containsMouse ? Theme.cardHover : Theme.card
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(5)
+                        Icon { name: "terminal"; size: Theme.px(14); color: Theme.text }
+                        Text {
+                            text: "Terminal"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(10)
+                            font.weight: Font.Medium
+                        }
+                    }
+                    MouseArea {
+                        id: termMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.openUserTerminal()
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Searchable Font Selector Dropdown Modal ──
+    Rectangle {
+        id: fontModal
+        visible: root.fontDropdownOpen
+        anchors.fill: parent
+        radius: Theme.px(16)
+        color: "#0F1211"
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.18)
+        z: 999
+
+        Column {
+            anchors.fill: parent
+            anchors.margins: Theme.px(12)
+            spacing: Theme.px(8)
+
+            // Header Row
+            Item {
+                width: parent.width
+                height: Theme.px(28)
+
                 Row {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
                     spacing: Theme.px(6)
+
                     Icon {
                         anchors.verticalCenter: parent.verticalCenter
-                        name: "photo_camera"
-                        size: Theme.px(16)
+                        name: "font_download"
+                        size: Theme.px(15)
                         color: Theme.controlFill
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Screenshots"
+                        text: "Choose Font Family"
                         color: Theme.text
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(12)
@@ -1527,184 +1628,182 @@ Item {
                     }
                 }
 
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Theme.px(24); height: width; radius: width / 2
+                    color: closeFontMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08)
+
+                    Icon {
+                        anchors.centerIn: parent
+                        name: "close"
+                        size: Theme.px(13)
+                        color: Theme.text2
+                    }
+                    MouseArea {
+                        id: closeFontMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.fontDropdownOpen = false
+                    }
+                }
+            }
+
+            // Search Input Box
+            Rectangle {
+                width: parent.width
+                height: Theme.px(30)
+                radius: Theme.px(7)
+                color: Qt.rgba(1, 1, 1, 0.07)
+                border.width: 1
+                border.color: fontSearchInput.activeFocus ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.12)
+
                 Row {
-                    width: parent.width
-                    spacing: Theme.px(8)
-                    readonly property real scBtnW: (width - spacing) / 2
+                    anchors.left: parent.left
+                    anchors.leftMargin: Theme.px(8)
+                    anchors.right: fontClearBtn.visible ? fontClearBtn.left : parent.right
+                    anchors.rightMargin: Theme.px(8)
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: Theme.px(6)
 
-                    // Button 1: Region screenshot
-                    Rectangle {
-                        width: parent.scBtnW
-                        height: Theme.px(48)
-                        radius: Theme.px(12)
-                        color: scRegMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05)
-                        scale: scRegMa.pressed ? 0.95 : 1.0
-                        Behavior on scale { Spring { epsilon: 0.01 } }
+                    Icon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: "search"
+                        size: Theme.px(14)
+                        color: Theme.text3
+                    }
 
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: Theme.px(10)
-                            spacing: Theme.px(8)
+                    TextInput {
+                        id: fontSearchInput
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - Theme.px(24)
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.px(12)
+                        color: Theme.text
+                        selectionColor: Theme.controlFill
+                        cursorDelegate: Caret {}
+                        clip: true
+                        onTextChanged: root.fontQuery = text
 
-                            Icon {
-                                anchors.verticalCenter: parent.verticalCenter
-                                name: "crop"
-                                size: Theme.px(18)
-                                color: Theme.text
-                            }
+                        Text {
+                            visible: fontSearchInput.text.length === 0
+                            text: "Type to search installed fonts..."
+                            color: Theme.text3
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(12)
+                        }
+                    }
+                }
 
-                            Column {
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: Theme.px(1)
+                Rectangle {
+                    id: fontClearBtn
+                    visible: fontSearchInput.text.length > 0
+                    anchors.right: parent.right
+                    anchors.rightMargin: Theme.px(6)
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Theme.px(18); height: width; radius: width / 2
+                    color: fontClearMa.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : Qt.transparent
 
-                                Text {
-                                    text: "Region Shot [S]"
-                                    color: Theme.text
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(11)
-                                    font.weight: Font.Bold
-                                }
+                    Icon {
+                        anchors.centerIn: parent
+                        name: "close"
+                        size: Theme.px(11)
+                        color: Theme.text3
+                    }
+                    MouseArea {
+                        id: fontClearMa
+                        anchors.fill: parent
+                        onClicked: fontSearchInput.text = ""
+                    }
+                }
+            }
 
-                                Text {
-                                    text: "Select rectangle"
-                                    color: Theme.text3
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(9)
-                                }
-                            }
+            // Scrollable List of Fonts
+            ListView {
+                id: fontListView
+                width: parent.width
+                height: parent.height - Theme.px(74)
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                model: root.filteredFonts
+                spacing: Theme.px(3)
+
+                delegate: Rectangle {
+                    id: fontDelegate
+                    required property string modelData
+                    required property int index
+                    width: fontListView.width
+                    height: Theme.px(30)
+                    radius: Theme.px(6)
+                    readonly property bool isCurrent: IslandPrefs.fontFamily === modelData
+                    color: isCurrent ? Qt.rgba(1, 1, 1, 0.14) : (fMa.containsMouse ? Theme.cardHover : Qt.transparent)
+
+                    Row {
+                        anchors.left: parent.left
+                        anchors.leftMargin: Theme.px(10)
+                        anchors.right: parent.right
+                        anchors.rightMargin: Theme.px(10)
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: fontDelegate.modelData
+                            color: fontDelegate.isCurrent ? Theme.controlFill : Theme.text
+                            font.family: fontDelegate.modelData
+                            font.pixelSize: Theme.px(12)
+                            font.weight: fontDelegate.isCurrent ? Font.Bold : Font.Normal
+                            elide: Text.ElideRight
+                            width: parent.width - (fontDelegate.isCurrent ? Theme.px(22) : 0)
                         }
 
-                        MouseArea {
-                            id: scRegMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.takeScreenshotRegion()
+                        Icon {
+                            visible: fontDelegate.isCurrent
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: "check"
+                            size: Theme.px(14)
+                            color: Theme.controlFill
                         }
                     }
 
-                    // Button 2: Fullscreen screenshot
-                    Rectangle {
-                        width: parent.scBtnW
-                        height: Theme.px(48)
-                        radius: Theme.px(12)
-                        color: scFullMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05)
-                        scale: scFullMa.pressed ? 0.95 : 1.0
-                        Behavior on scale { Spring { epsilon: 0.01 } }
-
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: Theme.px(10)
-                            spacing: Theme.px(8)
-
-                            Icon {
-                                anchors.verticalCenter: parent.verticalCenter
-                                name: "fullscreen"
-                                size: Theme.px(18)
-                                color: Theme.text
-                            }
-
-                            Column {
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: Theme.px(1)
-
-                                Text {
-                                    text: "Full Screen Shot"
-                                    color: Theme.text
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(11)
-                                    font.weight: Font.Bold
-                                }
-
-                                Text {
-                                    text: "Capture entire display"
-                                    color: Theme.text3
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(9)
-                                }
-                            }
+                    MouseArea {
+                        id: fMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            IslandPrefs.setFontFamily(fontDelegate.modelData);
+                            root.fontDropdownOpen = false;
                         }
+                    }
+                }
 
-                        MouseArea {
-                            id: scFullMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.takeScreenshotFull()
-                        }
+                // Empty state if search has no results
+                Column {
+                    visible: root.filteredFonts.length === 0
+                    anchors.centerIn: parent
+                    spacing: Theme.px(4)
+                    Icon {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        name: "search_off"
+                        size: Theme.px(22)
+                        color: Theme.text3
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "No fonts matching \"" + root.fontQuery + "\""
+                        color: Theme.text3
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.px(11)
                     }
                 }
             }
         }
+    }
 
-        // 7. Quick launch system utilities (Pavucontrol, Btop, User terminal)
-        Row {
-            width: parent.width
-            spacing: Theme.px(6)
-            readonly property real btnW: (width - 2 * spacing) / 3
-
-            // Pavucontrol
-            Rectangle {
-                width: parent.btnW
-                height: Theme.px(36)
-                radius: Theme.px(10)
-                color: pavuMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05)
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Theme.px(5)
-                    Icon { name: "tune"; size: Theme.px(14); color: Theme.text2 }
-                    Text { text: "Pavucontrol"; color: Theme.text2; font.family: Theme.fontFamily; font.pixelSize: Theme.px(10); font.weight: Font.Medium }
-                }
-                MouseArea {
-                    id: pavuMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: Quickshell.execDetached(["pavucontrol"])
-                }
-            }
-
-            // Btop
-            Rectangle {
-                width: parent.btnW
-                height: Theme.px(36)
-                radius: Theme.px(10)
-                color: btopMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05)
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Theme.px(5)
-                    Icon { name: "speed"; size: Theme.px(14); color: Theme.text2 }
-                    Text { text: "Btop"; color: Theme.text2; font.family: Theme.fontFamily; font.pixelSize: Theme.px(10); font.weight: Font.Medium }
-                }
-                MouseArea {
-                    id: btopMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.openBtop()
-                }
-            }
-
-            // Terminal (from user bind — foot)
-            Rectangle {
-                width: parent.btnW
-                height: Theme.px(36)
-                radius: Theme.px(10)
-                color: termMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05)
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Theme.px(5)
-                    Icon { name: "terminal"; size: Theme.px(14); color: Theme.text2 }
-                    Text { text: "Terminal"; color: Theme.text2; font.family: Theme.fontFamily; font.pixelSize: Theme.px(10); font.weight: Font.Medium }
-                }
-                MouseArea {
-                    id: termMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.openUserTerminal()
-                }
-            }
-        }
+    Timer {
+        id: focusTimer
+        interval: 50
+        onTriggered: fontSearchInput.forceActiveFocus()
     }
 }

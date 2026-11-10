@@ -9,330 +9,238 @@ Item {
     id: root
     property var host: null
     property bool wantsKeyboard: true
+    property bool wantsTextInput: searchInput.activeFocus
     property int selectedIndex: 0
 
-    readonly property var walls: Wallpapers.walls
-    implicitWidth: Theme.px(640)
+    property string query: ""
+    readonly property var filteredWalls: {
+        const list = Wallpapers.walls;
+        if (!list || !list.length) return [];
+        if (!query.trim().length) return list;
+        const q = query.trim().toLowerCase();
+        return list.filter(w => w.toLowerCase().indexOf(q) !== -1);
+    }
+
+    implicitWidth: Theme.px(580)
     implicitHeight: col.implicitHeight
 
     Component.onCompleted: {
         if (Wallpapers.allWalls.length === 0 && !Wallpapers.scanning)
             Wallpapers.refresh();
         syncSelection();
+        searchInput.forceActiveFocus();
     }
 
-    onWallsChanged: syncSelection()
+    onFilteredWallsChanged: syncSelection()
+
+    Connections {
+        target: Wallpapers
+        function onWallsChanged() { root.syncSelection(); }
+        function onCurrentWallChanged() { root.syncSelection(); }
+    }
 
     function syncSelection() {
-        const idx = walls.indexOf(Wallpapers.currentWall);
+        if (!filteredWalls || filteredWalls.length === 0) {
+            selectedIndex = 0;
+            return;
+        }
+        const idx = filteredWalls.indexOf(Wallpapers.currentWall);
         if (idx >= 0) {
             selectedIndex = idx;
-            wGrid.positionViewAtIndex(idx, GridView.Contain);
-        } else if (selectedIndex >= walls.length) {
-            selectedIndex = Math.max(0, walls.length - 1);
+            wList.positionViewAtIndex(idx, ListView.Center);
+        } else if (selectedIndex >= filteredWalls.length) {
+            selectedIndex = Math.max(0, filteredWalls.length - 1);
         }
     }
 
+    function focusInput() {
+        searchInput.forceActiveFocus();
+    }
+
     Keys.onPressed: event => {
-        if (event.key === Qt.Key_R) {
+        const t = (event.text || "").toLowerCase();
+        if (event.key === Qt.Key_R || t === "r" || t === "к") {
             const picked = Wallpapers.pickRandom();
-            const idx = walls.indexOf(picked);
+            const idx = filteredWalls.indexOf(picked);
             if (idx >= 0) {
                 selectedIndex = idx;
-                wGrid.positionViewAtIndex(idx, GridView.Contain);
+                wList.positionViewAtIndex(idx, ListView.Center);
             }
             event.accepted = true;
-        } else if (event.key === Qt.Key_O) {
+        } else if (event.key === Qt.Key_O || t === "o" || t === "щ") {
             Wallpapers.pickFolderDialog();
             event.accepted = true;
-        } else if (event.key === Qt.Key_F) {
+        } else if (event.key === Qt.Key_F || t === "f" || t === "а") {
             Wallpapers.pickFileDialog();
             event.accepted = true;
-        } else if (event.key === Qt.Key_Left && walls.length > 0) {
+        } else if (event.key === Qt.Key_Left && filteredWalls.length > 0) {
             selectedIndex = Math.max(0, selectedIndex - 1);
-            wGrid.positionViewAtIndex(selectedIndex, GridView.Contain);
+            wList.positionViewAtIndex(selectedIndex, ListView.Center);
             event.accepted = true;
-        } else if (event.key === Qt.Key_Right && walls.length > 0) {
-            selectedIndex = Math.min(walls.length - 1, selectedIndex + 1);
-            wGrid.positionViewAtIndex(selectedIndex, GridView.Contain);
-            event.accepted = true;
-        } else if (event.key === Qt.Key_Up && walls.length > 0) {
-            selectedIndex = Math.max(0, selectedIndex - 4);
-            wGrid.positionViewAtIndex(selectedIndex, GridView.Contain);
-            event.accepted = true;
-        } else if (event.key === Qt.Key_Down && walls.length > 0) {
-            selectedIndex = Math.min(walls.length - 1, selectedIndex + 4);
-            wGrid.positionViewAtIndex(selectedIndex, GridView.Contain);
+        } else if (event.key === Qt.Key_Right && filteredWalls.length > 0) {
+            selectedIndex = Math.min(filteredWalls.length - 1, selectedIndex + 1);
+            wList.positionViewAtIndex(selectedIndex, ListView.Center);
             event.accepted = true;
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-            if (walls[selectedIndex]) Wallpapers.apply(walls[selectedIndex]);
+            if (filteredWalls[selectedIndex]) Wallpapers.apply(filteredWalls[selectedIndex]);
             event.accepted = true;
+        } else if (event.key === Qt.Key_Escape) {
+            if (searchInput.text.length > 0) {
+                searchInput.text = "";
+                event.accepted = true;
+            }
         }
     }
 
     Column {
         id: col
         width: parent.width
-        spacing: Theme.px(10)
+        spacing: Theme.px(12)
 
-        // Header
+        // ── Top Bar: Search Input on left, Index Counter on right ──
         Item {
             width: parent.width
-            height: Theme.px(32)
+            height: Theme.px(28)
 
             Row {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: Theme.px(8)
-                Icon { name: "wallpaper"; size: Theme.px(17); color: Theme.pink; anchors.verticalCenter: parent.verticalCenter }
-                Text {
+
+                Icon {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Wallpapers · " + root.walls.length
-                    color: Theme.text
+                    name: "search"
+                    size: Theme.px(16)
+                    color: Theme.text3
+                }
+
+                TextInput {
+                    id: searchInput
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Theme.px(280)
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.px(14)
-                    font.weight: Font.Bold
+                    font.pixelSize: Theme.px(13)
+                    color: Theme.text
+                    selectionColor: Theme.controlFill
+                    cursorDelegate: Caret {}
+                    clip: true
+                    onTextChanged: {
+                        root.query = text;
+                        root.selectedIndex = 0;
+                    }
+
+                    Text {
+                        visible: searchInput.text.length === 0
+                        text: "Search wallpapers..."
+                        color: Theme.text3
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.px(13)
+                    }
                 }
             }
 
-            Row {
+            // Index counter (e.g. 2/19)
+            Text {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Theme.px(6)
-
-                // Choose file button
-                Rectangle {
-                    height: Theme.px(28)
-                    width: fileRow.implicitWidth + Theme.px(16)
-                    radius: height / 2
-                    color: fileMa.containsMouse ? Theme.cardHover : Theme.card
-
-                    Row {
-                        id: fileRow
-                        anchors.centerIn: parent
-                        spacing: Theme.px(5)
-                        Icon { name: "image"; size: Theme.px(14); anchors.verticalCenter: parent.verticalCenter }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "File [F]"
-                            color: Theme.text2
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.px(11)
-                            font.weight: Font.DemiBold
-                        }
-                    }
-                    MouseArea {
-                        id: fileMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: Wallpapers.pickFileDialog()
-                    }
-                }
-
-                // Choose folder button
-                Rectangle {
-                    height: Theme.px(28)
-                    width: dirRow.implicitWidth + Theme.px(16)
-                    radius: height / 2
-                    color: dirMa.containsMouse ? Theme.cardHover : Theme.card
-
-                    Row {
-                        id: dirRow
-                        anchors.centerIn: parent
-                        spacing: Theme.px(5)
-                        Icon { name: "folder_open"; size: Theme.px(14); anchors.verticalCenter: parent.verticalCenter }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "Folder [O]"
-                            color: Theme.text2
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.px(11)
-                            font.weight: Font.DemiBold
-                        }
-                    }
-                    MouseArea {
-                        id: dirMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: Wallpapers.pickFolderDialog()
-                    }
-                }
-
-                // Random wallpaper
-                Rectangle {
-                    height: Theme.px(28)
-                    width: rndRow.implicitWidth + Theme.px(16)
-                    radius: height / 2
-                    color: rndMa.containsMouse ? Theme.cardHover : Theme.card
-
-                    Row {
-                        id: rndRow
-                        anchors.centerIn: parent
-                        spacing: Theme.px(5)
-                        Icon { name: "shuffle"; size: Theme.px(14); anchors.verticalCenter: parent.verticalCenter }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "Random [R]"
-                            color: Theme.text
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.px(11)
-                            font.weight: Font.DemiBold
-                        }
-                    }
-                    MouseArea {
-                        id: rndMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            const picked = Wallpapers.pickRandom();
-                            const idx = root.walls.indexOf(picked);
-                            if (idx >= 0) {
-                                root.selectedIndex = idx;
-                                wGrid.positionViewAtIndex(idx, GridView.Contain);
-                            }
-                        }
-                    }
-                }
+                text: root.filteredWalls.length > 0 ? ((root.selectedIndex + 1) + "/" + root.filteredWalls.length) : "0/0"
+                color: Theme.text3
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.px(11)
+                font.features: { "tnum": 1 }
             }
         }
 
-        // Folder filter (if more than one folder found)
-        Flickable {
-            visible: Wallpapers.folders.length > 2
-            width: parent.width
-            height: Theme.px(26)
-            contentWidth: folderRow.implicitWidth
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-
-            Row {
-                id: folderRow
-                height: parent.height
-                spacing: Theme.px(6)
-
-                Repeater {
-                    model: Wallpapers.folders
-
-                    Rectangle {
-                        id: fChip
-                        required property var modelData
-                        readonly property bool active: Wallpapers.selectedFolder === modelData.path
-                        height: Theme.px(26)
-                        width: fTxt.implicitWidth + Theme.px(18)
-                        radius: height / 2
-                        color: active ? Theme.blue : (fMa.containsMouse ? Theme.cardHover : Theme.card)
-
-                        Text {
-                            id: fTxt
-                            anchors.centerIn: parent
-                            text: fChip.modelData.name + " (" + fChip.modelData.count + ")"
-                            color: fChip.active ? "white" : Theme.text2
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.px(11)
-                            font.weight: fChip.active ? Font.Bold : Font.Medium
-                        }
-
-                        MouseArea {
-                            id: fMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                Wallpapers.selectedFolder = fChip.modelData.path;
-                                root.selectedIndex = 0;
-                                wGrid.positionViewAtBeginning();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Wallpaper preview grid (4 per row)
+        // ── Horizontal Wallpaper Carousel Preview ──
         Item {
             width: parent.width
-            height: Theme.px(240)
+            height: Theme.px(130)
 
-            GridView {
-                id: wGrid
+            ListView {
+                id: wList
                 anchors.fill: parent
-                visible: root.walls.length > 0
-                cellWidth: Math.floor(width / 4)
-                cellHeight: Theme.px(120)
+                orientation: ListView.Horizontal
+                spacing: Theme.px(12)
                 clip: true
-                cacheBuffer: Theme.px(60)
-                model: root.walls
+                boundsBehavior: Flickable.StopAtBounds
+                model: root.filteredWalls
 
                 delegate: Item {
-                    id: wCell
+                    id: wCard
                     required property string modelData
                     required property int index
-                    width: wGrid.cellWidth
-                    height: wGrid.cellHeight
+                    width: Theme.px(170)
+                    height: Theme.px(116)
 
                     readonly property bool active: Wallpapers.currentWall === modelData
                     readonly property bool selected: root.selectedIndex === index
 
-                    ClippingRectangle {
+                    Rectangle {
                         anchors.fill: parent
-                        anchors.margins: Theme.px(4)
-                        radius: Theme.px(14)
-                        color: Theme.card
-                        border.width: wCell.active ? 2.5 : (wCell.selected ? 2 : 0)
-                        border.color: wCell.active ? Theme.green : Theme.blue
-                        scale: wMa.pressed ? 0.94 : wMa.containsMouse ? 1.02 : 1.0
+                        radius: Theme.px(18)
+                        color: "#121716"
+                        border.width: wCard.selected ? 2 : (wCard.active ? 1.5 : 1)
+                        border.color: wCard.selected ? Theme.controlFill : (wCard.active ? Theme.text2 : Qt.rgba(1, 1, 1, 0.12))
+                        scale: wMa.pressed ? 0.95 : (wMa.containsMouse ? 1.02 : 1.0)
                         Behavior on scale { Spring { epsilon: 0.01 } }
+                        Behavior on border.color { ColorAnimation { duration: 140 } }
 
-                        Image {
-                            id: thumbImg
+                        // Wallpaper preview image
+                        ClippingRectangle {
                             anchors.fill: parent
-                            source: Wallpapers.fileUrl(wCell.modelData)
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            sourceSize: Qt.size(Math.round(wGrid.cellWidth * 1.2), Math.round(wGrid.cellHeight * 1.2))
-                            cache: true
-                        }
+                            anchors.margins: Theme.px(3)
+                            radius: Theme.px(15)
+                            color: "#080B0B"
 
-                        // Active wallpaper badge
-                        Rectangle {
-                            visible: wCell.active
-                            anchors.top: parent.top
-                            anchors.right: parent.right
-                            anchors.margins: Theme.px(6)
-                            width: Theme.px(20)
-                            height: width
-                            radius: width / 2
-                            color: Theme.green
-
-                            Icon {
-                                anchors.centerIn: parent
-                                name: "check"
-                                size: Theme.px(13)
-                                color: "#000000"
+                            Image {
+                                anchors.fill: parent
+                                source: Wallpapers.fileUrl(wCard.modelData)
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                sourceSize: Qt.size(Theme.px(240), Theme.px(160))
+                                cache: true
                             }
-                        }
 
-                        Rectangle {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            height: Theme.px(24)
-                            color: Qt.rgba(0, 0, 0, 0.62)
-                            visible: wMa.containsMouse || wCell.active || wCell.selected
+                            // Dark gradient overlay at bottom for title readability
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                height: Theme.px(36)
+                                gradient: Gradient {
+                                    GradientStop { position: 0; color: "transparent" }
+                                    GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.85) }
+                                }
+                            }
 
+                            // Wallpaper file name
                             Text {
-                                anchors.centerIn: parent
-                                width: parent.width - Theme.px(12)
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: Theme.px(6)
+                                width: parent.width - Theme.px(14)
                                 elide: Text.ElideRight
                                 horizontalAlignment: Text.AlignHCenter
-                                text: wCell.modelData.split("/").pop()
+                                text: {
+                                    const raw = wCard.modelData.split("/").pop() || "";
+                                    return raw.replace(/\.[^/.]+$/, "");
+                                }
                                 color: Theme.text
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.px(10)
-                                font.weight: Font.Medium
+                                font.weight: Font.DemiBold
+                            }
+
+                            // Active wallpaper badge (Indicator dot in top right)
+                            Rectangle {
+                                visible: wCard.active
+                                anchors.top: parent.top
+                                anchors.right: parent.right
+                                anchors.margins: Theme.px(8)
+                                width: Theme.px(8)
+                                height: width
+                                radius: width / 2
+                                color: Theme.controlFill
                             }
                         }
 
@@ -342,35 +250,125 @@ Item {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                root.selectedIndex = wCell.index;
-                                Wallpapers.apply(wCell.modelData);
+                                root.selectedIndex = wCard.index;
+                                Wallpapers.apply(wCard.modelData);
                             }
                         }
                     }
                 }
             }
 
-            // Placeholder if no wallpapers found yet
+            // Empty state placeholder
             Column {
-                visible: root.walls.length === 0
+                visible: root.filteredWalls.length === 0
                 anchors.centerIn: parent
-                spacing: Theme.px(8)
-
+                spacing: Theme.px(6)
                 Icon {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    name: Wallpapers.scanning ? "hourglass_top" : "folder_open"
-                    size: Theme.px(28)
+                    name: Wallpapers.scanning ? "hourglass_top" : "image_not_supported"
+                    size: Theme.px(24)
                     color: Theme.text3
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: Wallpapers.scanning ? "Scanning wallpapers…" : "No wallpapers found. Press 'Folder [O]' or 'File [F]'"
-                    color: Theme.text2
+                    text: Wallpapers.scanning ? "Scanning wallpapers..." : "No matching wallpapers"
+                    color: Theme.text3
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(12)
                 }
             }
         }
+
+        // ── Bottom Action Row: File [F], Folder [O], Random [R], Enter Hint ──
+        Item {
+            width: parent.width
+            height: Theme.px(28)
+
+            Row {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Theme.px(8)
+
+                Rectangle {
+                    height: Theme.px(26)
+                    width: fRow.implicitWidth + Theme.px(14)
+                    radius: height / 2
+                    color: fMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.06)
+                    Row {
+                        id: fRow
+                        anchors.centerIn: parent
+                        spacing: Theme.px(4)
+                        Icon { name: "image"; size: Theme.px(13); color: Theme.text2 }
+                        Text { text: "File [F]"; color: Theme.text2; font.pixelSize: Theme.px(10); font.weight: Font.Medium }
+                    }
+                    MouseArea {
+                        id: fMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Wallpapers.pickFileDialog()
+                    }
+                }
+
+                Rectangle {
+                    height: Theme.px(26)
+                    width: oRow.implicitWidth + Theme.px(14)
+                    radius: height / 2
+                    color: oMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.06)
+                    Row {
+                        id: oRow
+                        anchors.centerIn: parent
+                        spacing: Theme.px(4)
+                        Icon { name: "folder_open"; size: Theme.px(13); color: Theme.text2 }
+                        Text { text: "Folder [O]"; color: Theme.text2; font.pixelSize: Theme.px(10); font.weight: Font.Medium }
+                    }
+                    MouseArea {
+                        id: oMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Wallpapers.pickFolderDialog()
+                    }
+                }
+
+                Rectangle {
+                    height: Theme.px(26)
+                    width: rRow.implicitWidth + Theme.px(14)
+                    radius: height / 2
+                    color: rMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.06)
+                    Row {
+                        id: rRow
+                        anchors.centerIn: parent
+                        spacing: Theme.px(4)
+                        Icon { name: "shuffle"; size: Theme.px(13); color: Theme.text2 }
+                        Text { text: "Random [R]"; color: Theme.text2; font.pixelSize: Theme.px(10); font.weight: Font.Medium }
+                    }
+                    MouseArea {
+                        id: rMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            const picked = Wallpapers.pickRandom();
+                            const idx = root.filteredWalls.indexOf(picked);
+                            if (idx >= 0) {
+                                root.selectedIndex = idx;
+                                wList.positionViewAtIndex(idx, ListView.Center);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Keyboard navigation hint matching screenshot
+            Text {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Enter to apply"
+                color: Theme.text3
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.px(10)
+            }
+        }
     }
 }
-

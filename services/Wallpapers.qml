@@ -26,7 +26,8 @@ Singleton {
 
     function fileUrl(path) {
         if (!path) return "";
-        return "file://" + path.split("/").map(encodeURIComponent).join("/");
+        if (path.startsWith("file://")) return path;
+        return "file://" + encodeURI(path);
     }
 
     function apply(path) {

@@ -18,6 +18,11 @@ Singleton {
     property bool hideInGames: true
     property bool showOsdInGames: false
 
+    // ── Appearance Preferences ──
+    property real uiScale: 1.15
+    property int fontSize: 13
+    property string fontFamily: "SF Pro Rounded"
+
     Process {
         id: initDirProc
         running: true
@@ -43,6 +48,9 @@ Singleton {
                 if (data.autoCollapse !== undefined) root.autoCollapse = !!data.autoCollapse;
                 if (data.hideInGames !== undefined) root.hideInGames = !!data.hideInGames;
                 if (data.showOsdInGames !== undefined) root.showOsdInGames = !!data.showOsdInGames;
+                if (data.uiScale !== undefined && typeof data.uiScale === "number") root.uiScale = Math.max(0.75, Math.min(2.0, data.uiScale));
+                if (data.fontSize !== undefined && typeof data.fontSize === "number") root.fontSize = Math.max(9, Math.min(20, data.fontSize));
+                if (data.fontFamily !== undefined && typeof data.fontFamily === "string" && data.fontFamily.length > 0) root.fontFamily = data.fontFamily;
             } catch (e) {
                 console.log("[IslandPrefs] Config load exception:", e);
             }
@@ -57,10 +65,28 @@ Singleton {
             showLayoutOsd: root.showLayoutOsd,
             autoCollapse: root.autoCollapse,
             hideInGames: root.hideInGames,
-            showOsdInGames: root.showOsdInGames
+            showOsdInGames: root.showOsdInGames,
+            uiScale: root.uiScale,
+            fontSize: root.fontSize,
+            fontFamily: root.fontFamily
         };
         const json = JSON.stringify(data, null, 2);
         Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "sh", root.configDir, json, root.configPath]);
+    }
+
+    function setScale(s) {
+        root.uiScale = Math.round(s * 100) / 100;
+        save();
+    }
+
+    function setFontSize(fs) {
+        root.fontSize = Math.max(9, Math.min(20, fs));
+        save();
+    }
+
+    function setFontFamily(ff) {
+        root.fontFamily = ff;
+        save();
     }
 
     function setCompactWidget(w) {

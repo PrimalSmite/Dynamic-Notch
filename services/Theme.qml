@@ -7,11 +7,11 @@ Singleton {
     id: t
 
     // ── Interface Scale ──
-    readonly property real s: 1.15
+    readonly property real s: IslandPrefs.uiScale
     function px(v) { return Math.round(v * s); }
 
     // ── Fonts ──
-    readonly property string fontFamily: "SF Pro Rounded"
+    readonly property string fontFamily: IslandPrefs.fontFamily
     readonly property string monoFamily: "JetBrainsMono Nerd Font Mono"
     readonly property string iconFamily: "Material Symbols Rounded"
     readonly property string glyphFamily: "Hack Nerd Font Propo"
@@ -32,9 +32,9 @@ Singleton {
     readonly property int minWorkspaces: 5
 
     // ── Typography ──
-    readonly property int fs: px(13)
-    readonly property int fsSmall: px(11)
-    readonly property int fsTitle: px(15)
+    readonly property int fs: px(IslandPrefs.fontSize)
+    readonly property int fsSmall: px(Math.max(9, IslandPrefs.fontSize - 2))
+    readonly property int fsTitle: px(IslandPrefs.fontSize + 2)
     readonly property int iconSize: px(17)
 
     // ── Animation (iOS-style spring) ──
@@ -49,20 +49,21 @@ Singleton {
 
     // ── Colors ──
     readonly property color bg: "#000000"
+    readonly property color surface: Qt.rgba(1, 1, 1, 0.06)
     readonly property color text: "#FFFFFF"
-    readonly property color text2: Qt.rgba(1, 1, 1, 0.55)
-    readonly property color text3: Qt.rgba(1, 1, 1, 0.28)
+    readonly property color text2: Qt.rgba(1, 1, 1, 0.65)
+    readonly property color text3: Qt.rgba(1, 1, 1, 0.35)
     readonly property color card: Qt.rgba(1, 1, 1, 0.08)
     readonly property color cardHover: Qt.rgba(1, 1, 1, 0.13)
-    readonly property color track: Qt.rgba(1, 1, 1, 0.12)
+    readonly property color track: Qt.rgba(1, 1, 1, 0.14)
     readonly property color divider: Qt.rgba(1, 1, 1, 0.10)
 
     // ── Premium control base (neutral matte-white foundation) ──
     readonly property color controlFill: "#FFFFFF"
-    readonly property color controlTrack: Qt.rgba(1, 1, 1, 0.12)
+    readonly property color controlTrack: Qt.rgba(1, 1, 1, 0.14)
     readonly property color controlMuted: Qt.rgba(1, 1, 1, 0.25)
 
-    // ── Semantic accents (strictly for states and alerts) ──
+    // ── Semantic accents ──
     readonly property color warn: "#FF9F0A"         // Attention / High temperature / High load
     readonly property color alert: "#FF453A"        // Error / Mute / Critical threshold
     readonly property color ok: "#30D158"           // Success / Normal state
@@ -74,5 +75,7 @@ Singleton {
     readonly property color red: "#FF453A"
     readonly property color pink: "#FF375F"
     readonly property color purple: "#BF5AF2"
-    readonly property color accent: red
+    readonly property color teal: "#64D2FF"
+    readonly property color mint: "#42D9A7"
+    readonly property color accent: controlFill
 }

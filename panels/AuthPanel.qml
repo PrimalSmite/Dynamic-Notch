@@ -49,13 +49,13 @@ Item {
                 width: Theme.px(28)
                 height: width
                 radius: width / 2
-                color: root.teal
+                color: Theme.mint
 
                 Icon {
                     anchors.centerIn: parent
                     name: "lock"
                     size: Theme.px(15)
-                    color: "#0B161A"
+                    color: "#081512"
                 }
             }
 
@@ -69,14 +69,14 @@ Item {
             }
         }
 
-        // Request description and actionId block
+        // Request description and actionId block inside dark card
         Rectangle {
             width: parent.width
-            height: msgCol.implicitHeight + Theme.px(20)
-            radius: Theme.px(14)
-            color: Qt.rgba(1, 1, 1, 0.05)
+            height: msgCol.implicitHeight + Theme.px(22)
+            radius: Theme.px(16)
+            color: "#121716"
             border.width: 1
-            border.color: Qt.rgba(1, 1, 1, 0.08)
+            border.color: "#1C2422"
 
             Column {
                 id: msgCol
@@ -89,8 +89,8 @@ Item {
                 Text {
                     width: parent.width
                     wrapMode: Text.WordWrap
-                    text: Auth.message
-                    color: Theme.text
+                    text: Auth.message !== "" ? Auth.message : "Authentication is needed to run `/usr/bin/true` as the super user"
+                    color: "#F0F4F3"
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(12)
                     font.weight: Font.DemiBold
@@ -99,8 +99,8 @@ Item {
                 Text {
                     width: parent.width
                     elide: Text.ElideRight
-                    text: Auth.actionId
-                    color: Theme.text3
+                    text: Auth.actionId !== "" ? Auth.actionId : "org.freedesktop.policykit.exec"
+                    color: "#6D7774"
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(11)
                 }
@@ -113,8 +113,8 @@ Item {
             spacing: Theme.px(8)
 
             Text {
-                text: Auth.promptText
-                color: Theme.text2
+                text: Auth.promptText !== "" ? Auth.promptText : "Password"
+                color: "#6D7774"
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.px(11)
                 font.weight: Font.Medium
@@ -130,30 +130,30 @@ Item {
             }
         }
 
-        // Password input capsule with blue lock icon on the left
+        // Password input capsule with mint lock icon on the left (Screenshot #4)
         Rectangle {
             width: parent.width
-            height: Theme.px(40)
+            height: Theme.px(42)
             radius: height / 2
-            color: Qt.rgba(1, 1, 1, 0.03)
+            color: "#080B0B"
             border.width: 1
-            border.color: pwdInput.activeFocus ? Qt.rgba(0.46, 0.72, 0.78, 0.55) : Qt.rgba(1, 1, 1, 0.14)
+            border.color: pwdInput.activeFocus ? Theme.mint : "#1E2624"
 
             Rectangle {
                 id: lockBadge
                 anchors.left: parent.left
                 anchors.leftMargin: Theme.px(6)
                 anchors.verticalCenter: parent.verticalCenter
-                width: Theme.px(28)
+                width: Theme.px(30)
                 height: width
                 radius: width / 2
-                color: root.teal
+                color: Theme.mint
 
                 Icon {
                     anchors.centerIn: parent
                     name: "lock"
                     size: Theme.px(14)
-                    color: "#0B161A"
+                    color: "#081512"
                 }
             }
 
@@ -169,8 +169,8 @@ Item {
                 font.pixelSize: Theme.px(14)
                 echoMode: (Auth.flow && Auth.flow.responseVisible) ? TextInput.Normal : TextInput.Password
                 passwordCharacter: "•"
-                selectionColor: root.teal
-                cursorDelegate: Caret {}
+                selectionColor: Theme.mint
+                cursorDelegate: Caret { color: Theme.mint }
                 clip: true
                 focus: true
 
@@ -190,22 +190,22 @@ Item {
             }
         }
 
-        // Cancel / Authenticate buttons on the right
+        // Cancel / Authenticate buttons on the right matching Screenshot #4
         Item {
             width: parent.width
-            height: Theme.px(32)
+            height: Theme.px(36)
 
             Row {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: Theme.px(8)
 
-                // Cancel
+                // Cancel button: dark rounded pill
                 Rectangle {
-                    height: Theme.px(32)
+                    height: Theme.px(34)
                     width: cancelTxt.implicitWidth + Theme.px(26)
                     radius: height / 2
-                    color: cancelMa.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
+                    color: cancelMa.containsMouse ? "#202826" : "#131918"
                     scale: cancelMa.pressed ? 0.94 : 1.0
                     Behavior on scale { Spring { epsilon: 0.01 } }
 
@@ -213,7 +213,7 @@ Item {
                         id: cancelTxt
                         anchors.centerIn: parent
                         text: "Cancel"
-                        color: Theme.text
+                        color: "#E2E8E6"
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(12)
                         font.weight: Font.DemiBold
@@ -230,12 +230,12 @@ Item {
                     }
                 }
 
-                // Authenticate
+                // Authenticate button: White rounded pill with dark text
                 Rectangle {
-                    height: Theme.px(32)
+                    height: Theme.px(34)
                     width: authTxt.implicitWidth + Theme.px(28)
                     radius: height / 2
-                    color: authMa.containsMouse ? Qt.lighter(root.teal, 1.08) : root.teal
+                    color: authMa.containsMouse ? Qt.rgba(1, 1, 1, 0.88) : Theme.controlFill
                     scale: authMa.pressed ? 0.94 : 1.0
                     Behavior on scale { Spring { epsilon: 0.01 } }
 
@@ -243,7 +243,7 @@ Item {
                         id: authTxt
                         anchors.centerIn: parent
                         text: "Authenticate"
-                        color: "#0B161A"
+                        color: "#000000"
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.px(12)
                         font.weight: Font.Bold
