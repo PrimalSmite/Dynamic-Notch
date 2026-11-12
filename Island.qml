@@ -30,7 +30,7 @@ PanelWindow {
     WlrLayershell.namespace: "dynamic-notch"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: (mode === "dashboard" || mode === "panel")
-                                 ? WlrKeyboardFocus.Exclusive
+                                 ? (win.trayMenuOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
                                  : WlrKeyboardFocus.None
     mask: Region { item: win.notchHidden ? null : ((win.mode === "dashboard" || win.mode === "panel") ? outsideCatcher : notch) }
 
@@ -44,13 +44,16 @@ PanelWindow {
         }
     }
 
+    property var activeTrayMenu: null
+    readonly property bool trayMenuOpen: activeTrayMenu !== null
+
     // Protect against false-positive HyprlandFocusGrab triggers during Exclusive focus handover
     property bool grabArmed: false
     Timer {
         id: grabArmTimer
         interval: 180
         onTriggered: {
-            if (win.mode === "dashboard" || win.mode === "panel") {
+            if ((win.mode === "dashboard" || win.mode === "panel") && !win.trayMenuOpen) {
                 win.grabArmed = true;
                 focusGrab.active = false;
                 focusGrab.active = true;
@@ -61,9 +64,9 @@ PanelWindow {
     HyprlandFocusGrab {
         id: focusGrab
         windows: [win]
-        active: (win.mode === "dashboard" || win.mode === "panel") && win.grabArmed
+        active: (win.mode === "dashboard" || win.mode === "panel") && win.grabArmed && !win.trayMenuOpen
         onCleared: {
-            if (!win.grabArmed) return;
+            if (!win.grabArmed || win.trayMenuOpen) return;
             if (win.panel === "auth") Auth.cancel();
             win.collapse();
         }
@@ -176,6 +179,10 @@ PanelWindow {
     }
 
     function collapse() {
+        if (activeTrayMenu) {
+            try { activeTrayMenu.close(); } catch (e) {}
+            activeTrayMenu = null;
+        }
         grabArmed = false;
         grabArmTimer.stop();
         focusGrab.active = false;
@@ -257,7 +264,7 @@ PanelWindow {
     property bool armed: false
     Timer { interval: 1500; running: true; onTriggered: win.armed = true }
     Timer { id: osdTimer; interval: Theme.osdMs; onTriggered: win.osd = "" }
-    Timer { id: collapseTimer; interval: 650; onTriggered: if (win.mode === "dashboard") win.collapse() }
+    Timer { id: collapseTimer; interval: 350; onTriggered: if (win.mode === "dashboard" && !win.trayMenuOpen) win.collapse() }
     Timer { id: unloadTimer; interval: 300; onTriggered: if (win.panel === "") win.loadedPanel = "" }
 
     Connections {
@@ -352,6 +359,10 @@ PanelWindow {
         enabled: win.mode === "dashboard" || win.mode === "panel"
         acceptedButtons: Qt.AllButtons
         onPressed: mouse => {
+            if (win.activeTrayMenu) {
+                try { win.activeTrayMenu.close(); } catch (e) {}
+                win.activeTrayMenu = null;
+            }
             if (win.panel === "auth") Auth.cancel();
             win.collapse();
         }
@@ -413,7 +424,7 @@ PanelWindow {
             enabled: !win.notchHidden
             onHoveredChanged: {
                 if (hovered) collapseTimer.stop();
-                else if (win.mode === "dashboard" && IslandPrefs.autoCollapse) collapseTimer.restart();
+                else if (win.mode === "dashboard" && IslandPrefs.autoCollapse && !win.trayMenuOpen) collapseTimer.restart();
             }
         }
 
@@ -1225,6 +1236,23 @@ PanelWindow {
                                     scale: trayMa.pressed ? 0.86 : trayMa.containsMouse ? 1.1 : 1.0
                                     Behavior on scale { Spring { epsilon: 0.01 } }
 
+                                    QsMenuAnchor {
+                                        id: trayMenu
+                                        menu: (trayBtn.modelData && trayBtn.modelData.hasMenu) ? trayBtn.modelData.menu : null
+                                        anchor.item: trayBtn
+                                        anchor.edges: Edges.Bottom
+                                        anchor.gravity: Edges.Bottom
+                                        onOpened: {
+                                            win.activeTrayMenu = trayMenu;
+                                        }
+                                        onClosed: {
+                                            if (win.activeTrayMenu === trayMenu) {
+                                                win.activeTrayMenu = null;
+                                                win.armGrab();
+                                            }
+                                        }
+                                    }
+
                                     IconImage {
                                         anchors.centerIn: parent
                                         implicitSize: Theme.px(17)
@@ -1247,13 +1275,33 @@ PanelWindow {
                                             if (!it) return;
                                             const pt = trayBtn.mapToItem(null, trayBtn.width / 2, trayBtn.height);
                                             if (mouse.button === Qt.RightButton) {
-                                                if (it.hasMenu) it.display(win, Math.round(pt.x), Math.round(pt.y));
-                                                else it.secondaryActivate();
+                                                if (it.hasMenu) {
+                                                    win.activeTrayMenu = trayMenu;
+                                                    focusGrab.active = false;
+                                                    if (it.menu) {
+                                                        trayMenu.anchor.updateAnchor();
+                                                        trayMenu.open();
+                                                    } else {
+                                                        it.display(win, Math.round(pt.x), Math.round(pt.y));
+                                                    }
+                                                } else {
+                                                    it.secondaryActivate();
+                                                }
                                             } else if (mouse.button === Qt.MiddleButton) {
                                                 it.secondaryActivate();
                                             } else {
-                                                if (it.onlyMenu && it.hasMenu) it.display(win, Math.round(pt.x), Math.round(pt.y));
-                                                else it.activate();
+                                                if (it.onlyMenu && it.hasMenu) {
+                                                    win.activeTrayMenu = trayMenu;
+                                                    focusGrab.active = false;
+                                                    if (it.menu) {
+                                                        trayMenu.anchor.updateAnchor();
+                                                        trayMenu.open();
+                                                    } else {
+                                                        it.display(win, Math.round(pt.x), Math.round(pt.y));
+                                                    }
+                                                } else {
+                                                    it.activate();
+                                                }
                                             }
                                         }
                                         onWheel: w => {
