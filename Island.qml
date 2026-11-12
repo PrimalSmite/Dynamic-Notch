@@ -637,7 +637,7 @@ PanelWindow {
                     Item {
                         id: clkItem
                         anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool hasRightItems: liveItem.active || weatherItem.showInCompact || compactStatItem.showInCompact || layoutItem.shouldShow
+                        readonly property bool hasRightItems: liveItem.activeCompact || weatherItem.showInCompact || compactStatItem.showInCompact || layoutItem.shouldShow
                         readonly property real compactW: clockPill.compactW + (hasRightItems ? Theme.px(7) : 0)
                         readonly property real dashW: clockPill.dashW + Theme.px(12)
                         width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
@@ -700,13 +700,15 @@ PanelWindow {
                     Item {
                         id: liveItem
                         anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool active: Recorder.recording || Timers.running || Notifs.dnd || (!Notifs.dnd && Notifs.unread > 0)
+                        readonly property bool activeCompact: Recorder.recording || Timers.running || Notifs.dnd || (!Notifs.dnd && Notifs.unread > 0)
+                        readonly property bool activeDash: Recorder.recording || Timers.running
+                        readonly property bool active: homeView.p > 0.5 ? activeDash : activeCompact
                         readonly property bool hasNextCompact: weatherItem.showInCompact || compactStatItem.showInCompact || layoutItem.shouldShow
-                        readonly property real compactW: active ? (liveRow.implicitWidth + (hasNextCompact ? Theme.px(7) : 0)) : 0
-                        readonly property real dashW: active ? (liveRow.implicitWidth + Theme.px(12)) : 0
+                        readonly property real compactW: activeCompact ? (liveRow.implicitWidth + (hasNextCompact ? Theme.px(7) : 0)) : 0
+                        readonly property real dashW: activeDash ? (liveRow.implicitWidth + Theme.px(12)) : 0
                         width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
                         height: Theme.px(38)
-                        opacity: active ? 1 : 0
+                        opacity: active ? (homeView.p > 0.5 ? homeView.dashAlpha : 1.0) : 0
                         clip: true
 
                         Row {
@@ -798,16 +800,16 @@ PanelWindow {
                                 TapHandler { onTapped: win.openPanel("timer") }
                             }
 
-                            // unread notifications / do not disturb
+                            // unread notifications / do not disturb (compact notch only)
                             Icon {
-                                visible: Notifs.dnd
+                                visible: Notifs.dnd && homeView.p < 0.5
                                 anchors.verticalCenter: parent.verticalCenter
                                 name: "do_not_disturb_on"
                                 size: Theme.px(13)
                                 color: Theme.purple
                             }
                             Rectangle {
-                                visible: !Notifs.dnd && Notifs.unread > 0
+                                visible: !Notifs.dnd && Notifs.unread > 0 && homeView.p < 0.5
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: Theme.px(6); height: width; radius: width / 2
                                 color: Theme.accent
