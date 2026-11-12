@@ -139,6 +139,7 @@ Row {
         font.family: Theme.fontFamily
         font.pixelSize: root.fontSize
         font.weight: root.fontWeight
+        font.features: { "tnum": 1 }
         text: "0"
     }
 
@@ -147,6 +148,7 @@ Row {
         font.family: Theme.fontFamily
         font.pixelSize: root.fontSize
         font.weight: root.fontWeight
+        font.features: { "tnum": 1 }
         text: ":"
     }
 }

@@ -600,7 +600,7 @@ PanelWindow {
                     Item {
                         id: wsItem
                         anchors.verticalCenter: parent.verticalCenter
-                        readonly property real compactW: wsCompact.implicitWidth + Theme.px(11)
+                        readonly property real compactW: wsCompact.implicitWidth + Theme.px(6)
                         readonly property real dashW: wsCompact.implicitWidth + Theme.px(12)
                         width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
                         height: Theme.px(38)
@@ -638,7 +638,7 @@ PanelWindow {
                         id: clkItem
                         anchors.verticalCenter: parent.verticalCenter
                         readonly property bool hasRightItems: liveItem.active || weatherItem.showInCompact || compactStatItem.showInCompact || layoutItem.shouldShow
-                        readonly property real compactW: clockPill.compactW + (hasRightItems ? Theme.px(11) : 0)
+                        readonly property real compactW: clockPill.compactW + (hasRightItems ? Theme.px(7) : 0)
                         readonly property real dashW: clockPill.dashW + Theme.px(12)
                         width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
                         height: Theme.px(38)
