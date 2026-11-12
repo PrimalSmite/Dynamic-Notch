@@ -334,11 +334,10 @@ PanelWindow {
 
     // ───────── Dimensions ─────────
     // Balanced compact Notch width with harmonious padding
-    readonly property real compactW: wsItem.compactW + clkItem.compactW + liveItem.compactW + weatherItem.compactW + compactStatItem.compactW + layoutItem.compactW + Theme.px(16) * 2
+    readonly property real compactW: wsCompact.implicitWidth + clockText.implicitWidth + rightCompact.implicitWidth + Theme.px(8) * 2 + Theme.px(16) * 2
     readonly property real layoutOsdW: Math.max(compactW, layoutOsdRow.implicitWidth + Theme.px(32))
-    readonly property real topRowTargetW: wsItem.dashW + divItem.dashW + clkItem.dashW + liveItem.dashW + weatherItem.dashW + mediaItem.dashW + layoutItem.dashW + trayItem.dashW
     readonly property real dashW: Math.max(Theme.px(520),
-                                  Math.max(topRowTargetW, dockBar.implicitWidth) + Theme.px(36))
+                                  Math.max(topRow.implicitWidth, dockBar.implicitWidth) + Theme.px(36))
     readonly property real activePanelInnerW: (panelLoader.item && panelLoader.item.implicitWidth > 0)
                                               ? panelLoader.item.implicitWidth
                                               : Theme.px(600)
@@ -393,7 +392,7 @@ PanelWindow {
         Behavior on cw { Spring { epsilon: 0.5 } }
         Behavior on ch { Spring { epsilon: 0.5 } }
         Behavior on y { Spring { epsilon: 0.5 } }
-        Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: Theme.fadeIn; easing.type: Easing.OutCubic } }
 
         // Prevent clicks on notch ears from passing through to outsideCatcher
         MouseArea {
@@ -550,350 +549,176 @@ PanelWindow {
                 }
             }
 
-            // ═════════ HOME SURFACE (Compact Notch & Expanded Dashboard with shared continuous elements) ═════════
-            Item {
-                id: homeView
-                anchors.fill: parent
-                visible: opacity > 0.001
-                opacity: (win.mode === "compact" || win.mode === "dashboard") && !win.notchHidden ? 1 : 0
-                scale: (win.mode === "compact" || win.mode === "dashboard") ? 1.0 : 0.88
-                clip: true
+            // ═════════ COMPACT (Centered clock, workspace capsules on left, weather & layout on right) ═════════
+            MorphView {
+                id: compactView
+                shown: win.mode === "compact" && !win.notchHidden
+                hiddenScale: 0.85
+                hiddenY: -Theme.px(6)
+                transformOrigin: Item.Top
+                width: notch.cw
+                height: notch.ch
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
 
-                readonly property bool isDash: win.mode === "dashboard"
-                property real p: isDash ? 1.0 : 0.0
-                property real dashAlpha: isDash ? 1.0 : 0.0
-                property real compactAlpha: isDash ? 0.0 : 1.0
-
-                Behavior on p { Spring { epsilon: 0.002 } }
-                Behavior on dashAlpha {
-                    NumberAnimation {
-                        duration: homeView.isDash ? Theme.fadeIn : Theme.fadeOut
-                        easing.type: homeView.isDash ? Easing.OutCubic : Easing.InQuad
-                    }
-                }
-                Behavior on compactAlpha {
-                    NumberAnimation {
-                        duration: homeView.isDash ? Theme.fadeOut : Theme.fadeIn
-                        easing.type: homeView.isDash ? Easing.InQuad : Easing.OutCubic
-                    }
-                }
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: homeView.opacity > 0 ? Theme.fadeIn : Theme.fadeOut
-                        easing.type: homeView.opacity > 0 ? Easing.OutCubic : Easing.InQuad
-                    }
-                }
-                Behavior on scale { Spring { epsilon: 0.01 } }
-
-                // ── ROW 1: Workspaces · Clock/Calendar · Live Activities · Weather · Media · Layout · System Tray ──
                 Row {
-                    id: topRow
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    y: Math.round((Theme.compactH - height) / 2) * (1 - homeView.p) + Theme.px(8) * homeView.p
-                    height: Theme.px(38)
-                    spacing: 0
-                    scale: (!homeView.isDash && notch.compactHovered) ? 1.04 : 1.0
-
+                    anchors.centerIn: parent
+                    spacing: Theme.px(8)
+                    scale: notch.compactHovered ? 1.04 : 1.0
                     Behavior on scale { Spring { epsilon: 0.01 } }
 
-                    // 1. Workspaces
-                    Item {
-                        id: wsItem
+                    // Left section: vertical workspace capsules
+                    Workspaces {
+                        id: wsCompact
+                        monitor: win.monitor
                         anchors.verticalCenter: parent.verticalCenter
-                        readonly property real compactW: wsCompact.implicitWidth + Theme.px(6)
-                        readonly property real dashW: wsCompact.implicitWidth + Theme.px(12)
-                        width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
-                        height: Theme.px(38)
-
-                        Workspaces {
-                            id: wsCompact
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            monitor: win.monitor
-                        }
                     }
 
-                    // 2. Divider (between Workspaces and Clock in dashboard)
-                    Item {
-                        id: divItem
+                    // Center: flip clock
+                    RollingClock {
+                        id: clockText
                         anchors.verticalCenter: parent.verticalCenter
-                        readonly property real compactW: 0
-                        readonly property real dashW: Theme.px(1) + Theme.px(12)
-                        width: Math.max(0, dashW * homeView.p)
-                        height: Theme.px(38)
-                        opacity: homeView.dashAlpha
-                        clip: true
-
-                        Rectangle {
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 1
-                            height: Theme.px(18)
-                            color: Theme.divider
-                        }
+                        timeString: Qt.formatTime(clock.date, IslandPrefs.showSeconds ? "HH:mm:ss" : "HH:mm")
+                        fontSize: Theme.px(14)
+                        fontWeight: Font.DemiBold
+                        textColor: Theme.text
                     }
 
-                    // 3. Clock & Calendar pill
-                    Item {
-                        id: clkItem
+                    // Right section: live activities + widget + layout
+                    Row {
+                        id: rightCompact
                         anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool hasRightItems: liveItem.activeCompact || weatherItem.showInCompact || compactStatItem.showInCompact || layoutItem.shouldShow
-                        readonly property real compactW: clockPill.compactW + (hasRightItems ? Theme.px(7) : 0)
-                        readonly property real dashW: clockPill.dashW + Theme.px(12)
-                        width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
-                        height: Theme.px(38)
+                        spacing: Theme.px(7)
 
-                        Rectangle {
-                            id: clockPill
-                            anchors.left: parent.left
+                        // screen recording (pulsing halo + breathing scale + flip timer digits)
+                        Row {
+                            visible: Recorder.recording
                             anchors.verticalCenter: parent.verticalCenter
-                            readonly property real compactScale: Theme.px(14) / Theme.px(17)
-                            readonly property real compactW: Math.round(clockText.implicitWidth * compactScale)
-                            readonly property real dashW: clockText.implicitWidth + Theme.px(7) + dateText.implicitWidth + Theme.px(16)
-                            width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
-                            height: Theme.px(32)
-                            radius: Theme.px(10)
-                            color: (homeView.isDash && clkMa.containsMouse) ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-                            scale: (homeView.isDash && clkMa.pressed) ? 0.93 : (homeView.isDash && clkMa.containsMouse ? 1.03 : 1.0)
-                            clip: true
-                            Behavior on scale { Spring { epsilon: 0.01 } }
+                            spacing: Theme.px(5)
+
+                            Item {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Theme.px(10); height: width
+
+                                // Pulsing halo
+                                Rectangle {
+                                    id: recHalo
+                                    anchors.centerIn: parent
+                                    width: Theme.px(7); height: width; radius: width / 2
+                                    color: Theme.red
+                                    opacity: 0
+                                    scale: 1
+                                    ParallelAnimation {
+                                        running: Recorder.recording
+                                        loops: Animation.Infinite
+                                        NumberAnimation { target: recHalo; property: "scale"; from: 0.9; to: 2.3; duration: 1400; easing.type: Easing.OutCubic }
+                                        NumberAnimation { target: recHalo; property: "opacity"; from: 0.55; to: 0.0; duration: 1400; easing.type: Easing.OutCubic }
+                                    }
+                                }
+
+                                // Indicator core with sinusoidal scale breathing
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: Theme.px(7); height: width; radius: width / 2
+                                    color: Theme.red
+                                    SequentialAnimation on scale {
+                                        running: Recorder.recording
+                                        loops: Animation.Infinite
+                                        NumberAnimation { to: 1.16; duration: 700; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 0.88; duration: 700; easing.type: Easing.InOutSine }
+                                    }
+                                }
+                            }
 
                             RollingClock {
-                                id: clockText
-                                anchors.left: parent.left
-                                anchors.leftMargin: Theme.px(8) * homeView.p
                                 anchors.verticalCenter: parent.verticalCenter
-                                timeString: Qt.formatTime(clock.date, IslandPrefs.showSeconds ? "HH:mm:ss" : "HH:mm")
-                                fontSize: Theme.px(17)
-                                fontWeight: homeView.p > 0.5 ? Font.Bold : Font.DemiBold
-                                textColor: Theme.text
-                                transformOrigin: Item.Left
-                                scale: clockPill.compactScale + (1.0 - clockPill.compactScale) * homeView.p
+                                timeString: Recorder.elapsedText
+                                fontSize: Theme.px(12)
+                                fontWeight: Font.DemiBold
+                                textColor: Theme.red
                             }
-
-                            Text {
-                                id: dateText
-                                anchors.left: clockText.left
-                                anchors.leftMargin: clockText.implicitWidth * clockText.scale + Theme.px(7)
-                                anchors.verticalCenter: parent.verticalCenter
-                                opacity: homeView.dashAlpha
-                                text: clock.date.toLocaleDateString(Qt.locale("en_US"), "ddd d MMM").replace(/\./g, "").toUpperCase()
-                                color: Theme.text2
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(10)
-                                font.weight: Font.Bold
-                                font.letterSpacing: Theme.px(1)
-                            }
-
-                            MouseArea {
-                                id: clkMa
-                                anchors.fill: parent
-                                hoverEnabled: homeView.isDash
-                                cursorShape: homeView.isDash ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                enabled: homeView.isDash
-                                onClicked: win.openPanel("calendar")
-                            }
+                            TapHandler { onTapped: win.openPanel("recorder") }
                         }
-                    }
 
-                    // 4. Live activities (recording halo/timer, stopwatch/timer, unread notification dot)
-                    Item {
-                        id: liveItem
-                        anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool activeCompact: Recorder.recording || Timers.running || Notifs.dnd || (!Notifs.dnd && Notifs.unread > 0)
-                        readonly property bool activeDash: Recorder.recording || Timers.running
-                        readonly property bool active: homeView.p > 0.5 ? activeDash : activeCompact
-                        readonly property bool hasNextCompact: weatherItem.showInCompact || compactStatItem.showInCompact || layoutItem.shouldShow
-                        readonly property real compactW: activeCompact ? (liveRow.implicitWidth + (hasNextCompact ? Theme.px(7) : 0)) : 0
-                        readonly property real dashW: activeDash ? (liveRow.implicitWidth + Theme.px(12)) : 0
-                        width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
-                        height: Theme.px(38)
-                        opacity: active ? (homeView.p > 0.5 ? homeView.dashAlpha : 1.0) : 0
-                        clip: true
-
+                        // timer / stopwatch (with micro-pulse icon and flip second digits)
                         Row {
-                            id: liveRow
-                            anchors.left: parent.left
+                            visible: Timers.running
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: Theme.px(7)
-
-                            // screen recording (pulsing halo + breathing scale + flip timer digits)
-                            Row {
-                                visible: Recorder.recording
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: Theme.px(5)
-
-                                Item {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: Theme.px(10); height: width
-
-                                    Rectangle {
-                                        id: recHalo
-                                        anchors.centerIn: parent
-                                        width: Theme.px(7); height: width; radius: width / 2
-                                        color: Theme.red
-                                        opacity: 0
-                                        scale: 1
-                                        ParallelAnimation {
-                                            running: Recorder.recording
-                                            loops: Animation.Infinite
-                                            NumberAnimation { target: recHalo; property: "scale"; from: 0.9; to: 2.3; duration: 1400; easing.type: Easing.OutCubic }
-                                            NumberAnimation { target: recHalo; property: "opacity"; from: 0.55; to: 0.0; duration: 1400; easing.type: Easing.OutCubic }
-                                        }
-                                    }
-
-                                    Rectangle {
-                                        anchors.centerIn: parent
-                                        width: Theme.px(7); height: width; radius: width / 2
-                                        color: Theme.red
-                                        SequentialAnimation on scale {
-                                            running: Recorder.recording
-                                            loops: Animation.Infinite
-                                            NumberAnimation { to: 1.16; duration: 700; easing.type: Easing.InOutSine }
-                                            NumberAnimation { to: 0.88; duration: 700; easing.type: Easing.InOutSine }
-                                        }
-                                    }
-                                }
-
-                                RollingClock {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    timeString: Recorder.elapsedText
-                                    fontSize: Theme.px(12)
-                                    fontWeight: Font.DemiBold
-                                    textColor: Theme.red
-                                }
-                                TapHandler { onTapped: win.openPanel("recorder") }
-                            }
-
-                            // timer / stopwatch
-                            Row {
-                                visible: Timers.running
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: Theme.px(3)
-                                Icon {
-                                    id: timerCompactIcon
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: Timers.mode === "stopwatch" ? "timer_play" : "timer"
-                                    size: Theme.px(13)
-                                    color: Theme.orange
-                                    SpringAnimation {
-                                        id: timerTickPulse
-                                        target: timerCompactIcon
-                                        property: "scale"
-                                        from: 1.18
-                                        to: 1.0
-                                        spring: Theme.springK
-                                        damping: Theme.springDamp
-                                        epsilon: 0.01
-                                    }
-                                }
-                                RollingClock {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    timeString: Timers.display
-                                    fontSize: Theme.px(12)
-                                    fontWeight: Font.DemiBold
-                                    textColor: Theme.orange
-                                    onTimeStringChanged: {
-                                        if (Timers.running) timerTickPulse.restart();
-                                    }
-                                }
-                                TapHandler { onTapped: win.openPanel("timer") }
-                            }
-
-                            // unread notifications / do not disturb (compact notch only)
+                            spacing: Theme.px(3)
                             Icon {
-                                visible: Notifs.dnd && homeView.p < 0.5
+                                id: timerCompactIcon
                                 anchors.verticalCenter: parent.verticalCenter
-                                name: "do_not_disturb_on"
+                                name: Timers.mode === "stopwatch" ? "timer_play" : "timer"
                                 size: Theme.px(13)
-                                color: Theme.purple
+                                color: Theme.orange
+                                SpringAnimation {
+                                    id: timerTickPulse
+                                    target: timerCompactIcon
+                                    property: "scale"
+                                    from: 1.18
+                                    to: 1.0
+                                    spring: Theme.springK
+                                    damping: Theme.springDamp
+                                    epsilon: 0.01
+                                }
                             }
-                            Rectangle {
-                                visible: !Notifs.dnd && Notifs.unread > 0 && homeView.p < 0.5
+                            RollingClock {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: Theme.px(6); height: width; radius: width / 2
-                                color: Theme.accent
+                                timeString: Timers.display
+                                fontSize: Theme.px(12)
+                                fontWeight: Font.DemiBold
+                                textColor: Theme.orange
+                                onTimeStringChanged: {
+                                    if (Timers.running) timerTickPulse.restart();
+                                }
                             }
+                            TapHandler { onTapped: win.openPanel("timer") }
                         }
-                    }
 
-                    // 5. Weather pill (glides between compact and dashboard)
-                    Item {
-                        id: weatherItem
-                        anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool showInCompact: IslandPrefs.compactWidget === "weather" && Weather.ready
-                        readonly property bool showInDash: Weather.ready
-                        readonly property real compactW: showInCompact ? (wthRow.implicitWidth + (layoutItem.shouldShow ? Theme.px(7) : 0)) : 0
-                        readonly property real dashW: showInDash ? (wthRow.implicitWidth + Theme.px(14) + Theme.px(12)) : 0
-                        width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
-                        height: Theme.px(38)
-                        opacity: showInCompact ? 1.0 : (showInDash ? homeView.dashAlpha : 0.0)
-                        clip: true
 
-                        Rectangle {
-                            id: wthPill
-                            anchors.left: parent.left
+                        // unread notifications / do not disturb
+                        Icon {
+                            visible: Notifs.dnd
                             anchors.verticalCenter: parent.verticalCenter
-                            width: wthRow.implicitWidth + Theme.px(14) * homeView.p
-                            height: Theme.px(20) + Theme.px(12) * homeView.p
-                            radius: Theme.px(10)
-                            color: (homeView.isDash && wthMa.containsMouse) ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-                            scale: (homeView.isDash && wthMa.pressed) ? 0.93 : (homeView.isDash && wthMa.containsMouse ? 1.03 : 1.0)
-                            Behavior on scale { Spring { epsilon: 0.01 } }
-
-                            Row {
-                                id: wthRow
-                                anchors.centerIn: parent
-                                spacing: Theme.px(5)
-                                scale: 0.9 + 0.1 * homeView.p
-                                Icon {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: Weather.icon
-                                    size: Theme.px(15)
-                                    color: Weather.iconColor
-                                }
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: isNaN(Weather.temp) ? "" : Math.round(Weather.temp) + "°"
-                                    color: Theme.text
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(13)
-                                    font.weight: Font.DemiBold
-                                }
-                            }
-
-                            MouseArea {
-                                id: wthMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: mouse => {
-                                    if (mouse.button === Qt.RightButton) Weather.refresh();
-                                    else win.openPanel("weather");
-                                }
-                            }
+                            name: "do_not_disturb_on"
+                            size: Theme.px(13)
+                            color: Theme.purple
                         }
-                    }
+                        Rectangle {
+                            visible: !Notifs.dnd && Notifs.unread > 0
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(6); height: width; radius: width / 2
+                            color: Theme.accent
+                        }
 
-                    // 6. Compact-only stat widget (CPU or Net when chosen)
-                    Item {
-                        id: compactStatItem
-                        anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool showInCompact: IslandPrefs.compactWidget === "cpu" || IslandPrefs.compactWidget === "net"
-                        readonly property real compactW: showInCompact ? (statRow.implicitWidth + (layoutItem.shouldShow ? Theme.px(7) : 0)) : 0
-                        readonly property real dashW: 0
-                        width: Math.max(0, compactW * (1 - homeView.p))
-                        height: Theme.px(38)
-                        opacity: showInCompact ? homeView.compactAlpha : 0
-                        clip: true
-
+                        // Customizable notch widget (Weather / CPU / Network / Off)
                         Row {
-                            id: statRow
-                            anchors.left: parent.left
+                            visible: IslandPrefs.compactWidget !== "none"
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: Theme.px(3)
 
+                            // 1. Weather
+                            Icon {
+                                visible: IslandPrefs.compactWidget === "weather"
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: Weather.ready ? Weather.icon : "thermostat"
+                                size: Theme.px(13)
+                                color: Weather.ready ? Weather.iconColor : Theme.blue
+                            }
+                            Text {
+                                visible: IslandPrefs.compactWidget === "weather"
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: Weather.ready && !isNaN(Weather.temp)
+                                      ? (Math.round(Weather.temp) + "°")
+                                      : (SysInfo.cpuTemp > 0 ? Math.round(SysInfo.cpuTemp) + "°" : Math.round(SysInfo.cpu * 100) + "%")
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(12)
+                                font.weight: Font.DemiBold
+                                font.features: { "tnum": 1 }
+                            }
+
+                            // 2. CPU and temperature
                             Icon {
                                 visible: IslandPrefs.compactWidget === "cpu"
                                 anchors.verticalCenter: parent.verticalCenter
@@ -912,6 +737,7 @@ PanelWindow {
                                 font.features: { "tnum": 1 }
                             }
 
+                            // 3. Network (LAN throughput)
                             Icon {
                                 visible: IslandPrefs.compactWidget === "net"
                                 anchors.verticalCenter: parent.verticalCenter
@@ -931,276 +757,27 @@ PanelWindow {
                             }
 
                             TapHandler {
-                                onTapped: win.openPanel("sysmon")
-                            }
-                        }
-                    }
-
-                    // 7. Media pill (dashboard)
-                    Item {
-                        id: mediaItem
-                        anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool showInDash: Media.player !== null
-                        readonly property real compactW: 0
-                        readonly property real dashW: showInDash ? (medPill.width + Theme.px(12)) : 0
-                        width: Math.max(0, dashW * homeView.p)
-                        height: Theme.px(38)
-                        opacity: showInDash ? homeView.dashAlpha : 0
-                        clip: true
-
-                        Rectangle {
-                            id: medPill
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: medRow.implicitWidth + Theme.px(16)
-                            height: Theme.px(32)
-                            radius: Theme.px(10)
-                            color: medMa.containsMouse ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(1, 1, 1, 0.05)
-                            scale: medMa.pressed ? 0.94 : (medMa.containsMouse ? 1.02 : 1.0)
-                            Behavior on scale { Spring { epsilon: 0.01 } }
-
-                            Row {
-                                id: medRow
-                                anchors.centerIn: parent
-                                spacing: Theme.px(7)
-
-                                ClippingRectangle {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: Theme.px(22); height: width
-                                    radius: Theme.px(6)
-                                    color: Qt.rgba(1, 1, 1, 0.10)
-
-                                    Icon {
-                                        anchors.centerIn: parent
-                                        name: "music_note"
-                                        size: Theme.px(14)
-                                        color: Theme.text2
-                                        visible: !medThumb.visible
-                                    }
-                                    Image {
-                                        id: medThumb
-                                        anchors.fill: parent
-                                        source: Media.trackArtUrl
-                                        cache: false
-                                        fillMode: Image.PreserveAspectCrop
-                                        asynchronous: true
-                                        sourceSize: Qt.size(64, 64)
-                                        visible: status === Image.Ready && source !== ""
-                                    }
-                                }
-
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: Math.min(implicitWidth, Theme.px(120))
-                                    elide: Text.ElideRight
-                                    text: Media.trackTitle !== "" ? Media.trackTitle : (Media.player ? Media.player.identity : "")
-                                    color: Theme.text
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.px(12)
-                                    font.weight: Font.Medium
-                                }
-
-                                Icon {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: Media.playing ? "equalizer" : "pause"
-                                    size: Theme.px(14)
-                                    color: Media.playing ? Theme.accent : Theme.text3
-                                }
-                            }
-
-                            MouseArea {
-                                id: medMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: mouse => {
-                                    if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton) {
-                                        Media.togglePlay();
-                                    } else {
-                                        win.openPanel("media");
-                                    }
-                                }
-                                onWheel: w => {
-                                    Audio.step(w.angleDelta.y > 0 ? 0.03 : -0.03);
+                                onTapped: {
+                                    if (IslandPrefs.compactWidget === "weather" && Weather.ready) win.openPanel("weather");
+                                    else win.openPanel("sysmon");
                                 }
                             }
                         }
-                    }
 
-                    // 8. Keyboard Layout pill
-                    Item {
-                        id: layoutItem
-                        anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool shouldShow: Keyboard.shortCode !== ""
-                        readonly property real compactW: shouldShow ? kbTxt.implicitWidth : 0
-                        readonly property real dashW: shouldShow ? (kbTxt.implicitWidth + Theme.px(12) + (SystemTray.items.values.length > 0 ? Theme.px(12) : 0)) : 0
-                        width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
-                        height: Theme.px(38)
-                        opacity: shouldShow ? 1 : 0
-                        clip: true
-
-                        Rectangle {
-                            id: kbPill
-                            anchors.left: parent.left
+                        // layout — simple text, click to cycle
+                        Text {
+                            visible: Keyboard.shortCode !== ""
                             anchors.verticalCenter: parent.verticalCenter
-                            width: kbTxt.implicitWidth + Theme.px(12) * homeView.p
-                            height: Theme.px(20) + Theme.px(4) * homeView.p
-                            radius: Theme.px(7)
-                            color: homeView.isDash ? (kbMa.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.07)) : Qt.rgba(1, 1, 1, 0.07 * homeView.p)
-                            scale: (homeView.isDash && kbMa.pressed) ? 0.90 : (homeView.isDash && kbMa.containsMouse ? 1.05 : 1.0)
-                            Behavior on scale { Spring { epsilon: 0.01 } }
-
-                            Text {
-                                id: kbTxt
-                                anchors.centerIn: parent
-                                text: Keyboard.shortCode
-                                color: Theme.text2
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.px(11)
-                                font.weight: Font.Bold
-                            }
+                            text: Keyboard.shortCode
+                            color: Theme.text2
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(12)
+                            font.weight: Font.Bold
                             MouseArea {
-                                id: kbMa
                                 anchors.fill: parent
-                                anchors.margins: homeView.isDash ? 0 : -Theme.px(5)
-                                hoverEnabled: true
+                                anchors.margins: -Theme.px(5)
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: Keyboard.next()
-                            }
-                        }
-                    }
-
-                    // 9. System Tray (with separator)
-                    Item {
-                        id: trayItem
-                        anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool showInDash: SystemTray.items.values.length > 0
-                        readonly property real compactW: 0
-                        readonly property real dashW: showInDash ? trayInner.implicitWidth : 0
-                        width: Math.max(0, dashW * homeView.p)
-                        height: Theme.px(38)
-                        opacity: showInDash ? homeView.dashAlpha : 0
-                        clip: true
-
-                        Row {
-                            id: trayInner
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: Theme.px(12)
-
-                            StripDivider {}
-
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: Theme.px(6)
-
-                                Repeater {
-                                    model: SystemTray.items
-
-                                    Rectangle {
-                                        id: trayBtn
-                                        required property var modelData
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: Theme.px(26)
-                                        height: width
-                                        radius: Theme.px(7)
-                                        color: trayMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.05)
-                                        scale: trayMa.pressed ? 0.86 : trayMa.containsMouse ? 1.1 : 1.0
-                                        Behavior on scale { Spring { epsilon: 0.01 } }
-
-                                        IconImage {
-                                            anchors.centerIn: parent
-                                            implicitSize: Theme.px(17)
-                                            source: {
-                                                const ic = (trayBtn.modelData && trayBtn.modelData.icon) ? trayBtn.modelData.icon : "";
-                                                if (!ic) return Quickshell.iconPath("application-x-executable");
-                                                if (ic.indexOf("?path=") >= 0 || ic.indexOf("/") >= 0 || ic.indexOf("image://") === 0) return ic;
-                                                return Quickshell.iconPath(ic, "application-x-executable");
-                                            }
-                                        }
-
-                                        MouseArea {
-                                            id: trayMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: mouse => {
-                                                const it = trayBtn.modelData;
-                                                if (!it) return;
-                                                const pt = trayBtn.mapToItem(null, trayBtn.width / 2, trayBtn.height);
-                                                if (mouse.button === Qt.RightButton) {
-                                                    if (it.hasMenu) it.display(win, Math.round(pt.x), Math.round(pt.y));
-                                                    else it.secondaryActivate();
-                                                } else if (mouse.button === Qt.MiddleButton) {
-                                                    it.secondaryActivate();
-                                                } else {
-                                                    if (it.onlyMenu && it.hasMenu) it.display(win, Math.round(pt.x), Math.round(pt.y));
-                                                    else it.activate();
-                                                }
-                                            }
-                                            onWheel: w => {
-                                                if (trayBtn.modelData)
-                                                    trayBtn.modelData.scroll(w.angleDelta.y, false);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ── ROW 2: Clean dock icons capsule ──
-                Rectangle {
-                    id: dockBar
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    y: Theme.px(52) - Theme.px(12) * (1 - homeView.p)
-                    implicitWidth: dockInner.implicitWidth + Theme.px(14)
-                    width: implicitWidth
-                    height: Theme.px(36)
-                    radius: Theme.px(13)
-                    color: Qt.rgba(1, 1, 1, 0.06)
-                    transformOrigin: Item.Top
-                    opacity: homeView.dashAlpha
-                    scale: 0.85 + 0.15 * homeView.p
-                    visible: opacity > 0.001
-
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.NoButton
-                        property real wAcc: 0
-                        onWheel: w => {
-                            wAcc += w.angleDelta.y;
-                            if (Math.abs(wAcc) < 120) return;
-                            win.cyclePanel(wAcc > 0 ? -1 : 1);
-                            wAcc = 0;
-                        }
-                    }
-
-                    Row {
-                        id: dockInner
-                        anchors.centerIn: parent
-                        spacing: Theme.px(3)
-
-                        Repeater {
-                            model: win.dockItems
-                            StripButton {
-                                required property var modelData
-                                anchors.verticalCenter: parent.verticalCenter
-                                icon: modelData.key === "notifications" && Notifs.dnd ? "notifications_off"
-                                    : modelData.key === "mixer" ? Audio.icon
-                                    : modelData.icon
-                                active: win.panel === modelData.key
-                                badge: (modelData.key === "notifications" && Notifs.unread > 0 && !Notifs.dnd)
-                                tint: modelData.key === "recorder" && Recorder.recording ? Theme.red
-                                    : modelData.key === "timer" && Timers.running ? Theme.orange
-                                    : modelData.key === "mixer" && Audio.muted ? Theme.red
-                                    : modelData.key === "notifications" && Notifs.dnd ? Theme.purple
-                                    : Theme.text
-                                onClicked: win.openPanel(modelData.key)
-                                onRightClicked: win.handleRightClick(modelData.key)
                             }
                         }
                     }
@@ -1394,6 +971,351 @@ PanelWindow {
                         }
                     }
                 }
+            }
+
+            // ═════════ DASHBOARD (Two-row compact dashboard with system tray) ═════════
+            Item {
+                anchors.fill: parent
+                anchors.leftMargin: Theme.px(15)
+                anchors.rightMargin: Theme.px(15)
+                anchors.bottomMargin: Theme.px(5)
+                clip: true
+
+                MorphView {
+                    id: dashboardView
+                    shown: win.mode === "dashboard"
+                    hiddenScale: 0.85
+                    hiddenY: -Theme.px(12)
+                    transformOrigin: Item.Top
+                    width: win.dashW
+                    height: Theme.stripH
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+
+                Column {
+                    id: strip
+                    width: parent.width
+                    height: Theme.stripH
+                    topPadding: Theme.px(8)
+                    spacing: Theme.px(6)
+
+                    // ROW 1: Workspaces · Clock/Calendar · Weather · Media · Layout · System Tray
+                    Row {
+                        id: topRow
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        height: Theme.px(38)
+                        spacing: Theme.px(12)
+
+                        Workspaces {
+                            anchors.verticalCenter: parent.verticalCenter
+                            monitor: win.monitor
+                        }
+
+                        StripDivider {}
+
+                        // time and date → calendar [C]
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: clkRow.implicitWidth + Theme.px(16)
+                            height: Theme.px(32)
+                            radius: Theme.px(10)
+                            color: clkMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            scale: clkMa.pressed ? 0.93 : (clkMa.containsMouse ? 1.03 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.01 } }
+
+                            Row {
+                                id: clkRow
+                                anchors.centerIn: parent
+                                spacing: Theme.px(7)
+
+                                RollingClock {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    timeString: Qt.formatTime(clock.date, IslandPrefs.showSeconds ? "HH:mm:ss" : "HH:mm")
+                                    fontSize: Theme.px(17)
+                                    fontWeight: Font.Bold
+                                    textColor: Theme.text
+                                }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: clock.date.toLocaleDateString(Qt.locale("en_US"), "ddd d MMM").replace(/\./g, "").toUpperCase()
+                                    color: Theme.text2
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(10)
+                                    font.weight: Font.Bold
+                                    font.letterSpacing: Theme.px(1)
+                                }
+                            }
+                            MouseArea {
+                                id: clkMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: win.openPanel("calendar")
+                            }
+                        }
+
+                        // weather → [W], Right-click — refresh
+                        Rectangle {
+                            visible: Weather.ready
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: wthRow.implicitWidth + Theme.px(14)
+                            height: Theme.px(32)
+                            radius: Theme.px(10)
+                            color: wthMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            scale: wthMa.pressed ? 0.93 : (wthMa.containsMouse ? 1.03 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.01 } }
+
+                            Row {
+                                id: wthRow
+                                anchors.centerIn: parent
+                                spacing: Theme.px(5)
+                                Icon {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    name: Weather.icon
+                                    size: Theme.px(16)
+                                    color: Weather.iconColor
+                                }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: isNaN(Weather.temp) ? "" : Math.round(Weather.temp) + "°"
+                                    color: Theme.text
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(13)
+                                    font.weight: Font.DemiBold
+                                }
+                            }
+                            MouseArea {
+                                id: wthMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: mouse => {
+                                    if (mouse.button === Qt.RightButton) Weather.refresh();
+                                    else win.openPanel("weather");
+                                }
+                            }
+                        }
+
+                        // now playing → media [M] (LMB — open panel, RMB/MMB — pause, wheel — volume)
+                        Rectangle {
+                            visible: Media.player !== null
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: medRow.implicitWidth + Theme.px(16)
+                            height: Theme.px(32)
+                            radius: Theme.px(10)
+                            color: medMa.containsMouse ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(1, 1, 1, 0.05)
+                            scale: medMa.pressed ? 0.94 : (medMa.containsMouse ? 1.02 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.01 } }
+
+                            Row {
+                                id: medRow
+                                anchors.centerIn: parent
+                                spacing: Theme.px(7)
+
+                                ClippingRectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Theme.px(22); height: width
+                                    radius: Theme.px(6)
+                                    color: Qt.rgba(1, 1, 1, 0.10)
+
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "music_note"
+                                        size: Theme.px(14)
+                                        color: Theme.text2
+                                        visible: !medThumb.visible
+                                    }
+                                    Image {
+                                        id: medThumb
+                                        anchors.fill: parent
+                                        source: Media.trackArtUrl
+                                        cache: false
+                                        fillMode: Image.PreserveAspectCrop
+                                        asynchronous: true
+                                        sourceSize: Qt.size(64, 64)
+                                        visible: status === Image.Ready && source !== ""
+                                    }
+                                }
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Math.min(implicitWidth, Theme.px(120))
+                                    elide: Text.ElideRight
+                                    text: Media.trackTitle !== "" ? Media.trackTitle : (Media.player ? Media.player.identity : "")
+                                    color: Theme.text
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(12)
+                                    font.weight: Font.Medium
+                                }
+
+                                Icon {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    name: Media.playing ? "equalizer" : "pause"
+                                    size: Theme.px(14)
+                                    color: Media.playing ? Theme.accent : Theme.text3
+                                }
+                            }
+
+                            MouseArea {
+                                id: medMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: mouse => {
+                                    if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton) {
+                                        Media.togglePlay();
+                                    } else {
+                                        win.openPanel("media");
+                                    }
+                                }
+                                onWheel: w => {
+                                    Audio.step(w.angleDelta.y > 0 ? 0.03 : -0.03);
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            visible: Keyboard.shortCode !== ""
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: kbTxt.implicitWidth + Theme.px(12)
+                            height: Theme.px(24)
+                            radius: Theme.px(7)
+                            color: kbMa.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.07)
+                            scale: kbMa.pressed ? 0.90 : (kbMa.containsMouse ? 1.05 : 1.0)
+                            Behavior on scale { Spring { epsilon: 0.01 } }
+                            Text {
+                                id: kbTxt
+                                anchors.centerIn: parent
+                                text: Keyboard.shortCode
+                                color: Theme.text2
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.Bold
+                            }
+                            MouseArea {
+                                id: kbMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: Keyboard.next()
+                            }
+                        }
+
+                        StripDivider { visible: SystemTray.items.values.length > 0 }
+
+                        // System tray (instead of pinned applications)
+                        Row {
+                            visible: SystemTray.items.values.length > 0
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Theme.px(6)
+
+                            Repeater {
+                                model: SystemTray.items
+
+                                Rectangle {
+                                    id: trayBtn
+                                    required property var modelData
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Theme.px(26)
+                                    height: width
+                                    radius: Theme.px(7)
+                                    color: trayMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.05)
+                                    scale: trayMa.pressed ? 0.86 : trayMa.containsMouse ? 1.1 : 1.0
+                                    Behavior on scale { Spring { epsilon: 0.01 } }
+
+                                    IconImage {
+                                        anchors.centerIn: parent
+                                        implicitSize: Theme.px(17)
+                                        source: {
+                                            const ic = (trayBtn.modelData && trayBtn.modelData.icon) ? trayBtn.modelData.icon : "";
+                                            if (!ic) return Quickshell.iconPath("application-x-executable");
+                                            if (ic.indexOf("?path=") >= 0 || ic.indexOf("/") >= 0 || ic.indexOf("image://") === 0) return ic;
+                                            return Quickshell.iconPath(ic, "application-x-executable");
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: trayMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: mouse => {
+                                            const it = trayBtn.modelData;
+                                            if (!it) return;
+                                            const pt = trayBtn.mapToItem(null, trayBtn.width / 2, trayBtn.height);
+                                            if (mouse.button === Qt.RightButton) {
+                                                if (it.hasMenu) it.display(win, Math.round(pt.x), Math.round(pt.y));
+                                                else it.secondaryActivate();
+                                            } else if (mouse.button === Qt.MiddleButton) {
+                                                it.secondaryActivate();
+                                            } else {
+                                                if (it.onlyMenu && it.hasMenu) it.display(win, Math.round(pt.x), Math.round(pt.y));
+                                                else it.activate();
+                                            }
+                                        }
+                                        onWheel: w => {
+                                            if (trayBtn.modelData)
+                                                trayBtn.modelData.scroll(w.angleDelta.y, false);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ROW 2: Clean dock icons capsule (without label on the right)
+                    Rectangle {
+                        id: dockBar
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        implicitWidth: dockInner.implicitWidth + Theme.px(14)
+                        width: implicitWidth
+                        height: Theme.px(36)
+                        radius: Theme.px(13)
+                        color: Qt.rgba(1, 1, 1, 0.06)
+
+                        MouseArea {
+                            anchors.fill: parent
+                            acceptedButtons: Qt.NoButton
+                            property real wAcc: 0
+                            onWheel: w => {
+                                wAcc += w.angleDelta.y;
+                                if (Math.abs(wAcc) < 120) return;
+                                win.cyclePanel(wAcc > 0 ? -1 : 1);
+                                wAcc = 0;
+                            }
+                        }
+
+                        Row {
+                            id: dockInner
+                            anchors.centerIn: parent
+                            spacing: Theme.px(3)
+
+                            Repeater {
+                                model: win.dockItems
+                                StripButton {
+                                    required property var modelData
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    icon: modelData.key === "notifications" && Notifs.dnd ? "notifications_off"
+                                        : modelData.key === "mixer" ? Audio.icon
+                                        : modelData.icon
+                                    active: win.panel === modelData.key
+                                    badge: (modelData.key === "notifications" && Notifs.unread > 0 && !Notifs.dnd)
+                                    tint: modelData.key === "recorder" && Recorder.recording ? Theme.red
+                                        : modelData.key === "timer" && Timers.running ? Theme.orange
+                                        : modelData.key === "mixer" && Audio.muted ? Theme.red
+                                        : modelData.key === "notifications" && Notifs.dnd ? Theme.purple
+                                        : Theme.text
+                                    onClicked: win.openPanel(modelData.key)
+                                    onRightClicked: win.handleRightClick(modelData.key)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             }
 
             // ═════════ PANEL (Dedicated panel inside notch, without dashboard header) ═════════
