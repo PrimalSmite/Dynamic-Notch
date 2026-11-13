@@ -83,7 +83,7 @@ Row {
                     property: "y"
                     from: 0
                     to: -slot.height * 0.55
-                    duration: 220
+                    duration: 280
                     easing.type: Easing.OutCubic
                 }
                 NumberAnimation {
@@ -91,7 +91,7 @@ Row {
                     property: "opacity"
                     from: 0.9
                     to: 0
-                    duration: 190
+                    duration: 240
                     easing.type: Easing.OutCubic
                 }
                 NumberAnimation {
@@ -99,7 +99,7 @@ Row {
                     property: "scale"
                     from: 1.0
                     to: 0.78
-                    duration: 200
+                    duration: 260
                     easing.type: Easing.OutCubic
                 }
 
@@ -118,7 +118,7 @@ Row {
                     property: "opacity"
                     from: 0
                     to: 1
-                    duration: 170
+                    duration: 220
                     easing.type: Easing.OutCubic
                 }
                 SpringAnimation {

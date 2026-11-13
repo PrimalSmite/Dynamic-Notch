@@ -23,7 +23,7 @@ Item {
         radius: height / 2
         width: root.clamped > 0.001 ? Math.max(height, parent.width * root.clamped) : 0
         color: root.tint
-        Behavior on width { enabled: !ma.pressed; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        Behavior on width { enabled: !ma.pressed; NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
     }
 
     MouseArea {
