@@ -56,7 +56,7 @@ Row {
                 radius: width / 2
                 color: root.activeColor
                 opacity: d.active ? 0.14 : 0
-                Behavior on opacity { NumberAnimation { duration: 220 } }
+                Behavior on opacity { NumberAnimation { duration: 160 } }
             }
 
             // Inner glow halo
@@ -67,7 +67,7 @@ Row {
                 radius: width / 2
                 color: root.activeColor
                 opacity: d.active ? 0.26 : 0
-                Behavior on opacity { NumberAnimation { duration: 220 } }
+                Behavior on opacity { NumberAnimation { duration: 160 } }
             }
 
             // The vertical capsule itself
@@ -75,10 +75,10 @@ Row {
                 anchors.fill: parent
                 radius: width / 2
                 color: d.active ? root.activeColor : Theme.text
-                Behavior on color { ColorAnimation { duration: 200 } }
+                Behavior on color { ColorAnimation { duration: 160 } }
                 opacity: d.active ? 1 : d.busy ? 0.45 : 0.24
                 scale: ma.containsMouse && !d.active ? 1.18 : 1
-                Behavior on opacity { NumberAnimation { duration: 220 } }
+                Behavior on opacity { NumberAnimation { duration: 160 } }
                 Behavior on scale { Spring { epsilon: 0.01 } }
             }
 

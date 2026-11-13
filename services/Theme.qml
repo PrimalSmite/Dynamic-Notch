@@ -38,14 +38,14 @@ Singleton {
     readonly property int iconSize: px(17)
 
     // ── Animation (iOS-style spring) ──
-    readonly property real springK: 4.8
-    readonly property real springDamp: 0.43
-    readonly property int fadeIn: 220
-    readonly property int fadeOut: 110
-    readonly property int fadeDelay: 60
-    readonly property int osdMs: 1450
-    readonly property int layoutOsdMs: 850      // layout switch — fast badge
-    readonly property int notifMs: 4500
+    readonly property real springK: 5.8
+    readonly property real springDamp: 0.46
+    readonly property int fadeIn: 180
+    readonly property int fadeOut: 90
+    readonly property int fadeDelay: 40
+    readonly property int osdMs: 1300
+    readonly property int layoutOsdMs: 750      // layout switch — fast badge
+    readonly property int notifMs: 4000
 
     // ── Colors ──
     readonly property color bg: "#000000"

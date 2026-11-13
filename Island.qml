@@ -404,7 +404,7 @@ PanelWindow {
         Behavior on cw { Spring { epsilon: 0.5 } }
         Behavior on ch { Spring { epsilon: 0.5 } }
         Behavior on y { Spring { epsilon: 0.5 } }
-        Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: Theme.fadeIn; easing.type: Easing.OutCubic } }
 
         // Prevent clicks on notch ears from passing through to outsideCatcher
         MouseArea {
@@ -600,7 +600,7 @@ PanelWindow {
                 Row {
                     id: topRow
                     anchors.horizontalCenter: parent.horizontalCenter
-                    y: Math.round((Theme.compactH - height) / 2) * (1 - homeView.p) + Theme.px(8) * homeView.p
+                    y: ((notch.ch - height) / 2) * (1 - homeView.p) + Theme.px(8) * homeView.p
                     height: Theme.px(38)
                     spacing: 0
                     scale: (!homeView.isDash && notch.compactHovered) ? 1.04 : 1.0
