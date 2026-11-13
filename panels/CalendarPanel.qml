@@ -10,7 +10,7 @@ Item {
     property bool wantsKeyboard: true
     property var viewDate: new Date()
 
-    implicitWidth: Theme.px(260)
+    implicitWidth: Theme.px(360)
     implicitHeight: col.implicitHeight
 
     Keys.onPressed: event => {
@@ -22,8 +22,9 @@ Item {
     }
 
     readonly property string viewTitle: {
-        const m = viewDate.toLocaleDateString(Qt.locale(), "MMMM yyyy");
-        return m ? (m.charAt(0).toUpperCase() + m.slice(1)) : "";
+        const m = Qt.locale().standaloneMonthName(viewDate.getMonth(), Locale.LongFormat);
+        const cap = m ? (m.charAt(0).toUpperCase() + m.slice(1)) : "";
+        return cap + " " + viewDate.getFullYear();
     }
 
     readonly property var dayHeaders: {
@@ -89,19 +90,19 @@ Item {
     Column {
         id: col
         width: parent.width
-        spacing: Theme.px(8)
+        spacing: Theme.px(10)
 
         // Month Navigation Header
         Item {
             width: parent.width
-            height: Theme.px(30)
+            height: Theme.px(36)
 
             // Previous month button
             Rectangle {
                 id: prevBtn
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                width: Theme.px(28)
+                width: Theme.px(34)
                 height: width
                 radius: width / 2
                 color: prevMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08)
@@ -109,7 +110,7 @@ Item {
                 Icon {
                     anchors.centerIn: parent
                     name: "arrow_back"
-                    size: Theme.px(15)
+                    size: Theme.px(18)
                     color: Theme.text
                 }
 
@@ -128,7 +129,7 @@ Item {
                 text: root.viewTitle
                 color: Theme.text
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.px(13)
+                font.pixelSize: Theme.px(15)
                 font.weight: Font.DemiBold
 
                 MouseArea {
@@ -143,7 +144,7 @@ Item {
                 id: nextBtn
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                width: Theme.px(28)
+                width: Theme.px(34)
                 height: width
                 radius: width / 2
                 color: nextMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.08)
@@ -151,7 +152,7 @@ Item {
                 Icon {
                     anchors.centerIn: parent
                     name: "arrow_forward"
-                    size: Theme.px(15)
+                    size: Theme.px(18)
                     color: Theme.text
                 }
 
@@ -178,9 +179,9 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     text: modelData
-                    color: Qt.rgba(1, 1, 1, 0.42)
+                    color: Qt.rgba(1, 1, 1, 0.45)
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.px(11)
+                    font.pixelSize: Theme.px(12)
                     font.weight: Font.DemiBold
                 }
             }
@@ -190,7 +191,7 @@ Item {
         Grid {
             width: parent.width
             columns: 7
-            rowSpacing: Theme.px(2)
+            rowSpacing: Theme.px(4)
 
             Repeater {
                 model: root.cells
@@ -198,16 +199,16 @@ Item {
                     id: dCell
                     required property var modelData
                     width: col.width / 7
-                    height: Theme.px(26)
+                    height: Theme.px(34)
 
                     Rectangle {
                         id: cellBg
                         anchors.centerIn: parent
-                        width: Theme.px(24)
+                        width: Theme.px(30)
                         height: width
                         radius: width / 2
                         color: dCell.modelData.today ? "#8ab4f8"
-                             : cellMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08)
+                             : cellMa.containsMouse ? Qt.rgba(1, 1, 1, 0.10)
                              : "transparent"
                     }
 
@@ -218,7 +219,7 @@ Item {
                              : !dCell.modelData.current ? Qt.rgba(1, 1, 1, 0.28)
                              : Theme.text
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(11.5)
+                        font.pixelSize: Theme.px(13)
                         font.weight: dCell.modelData.today ? Font.Bold : Font.Normal
                     }
 
