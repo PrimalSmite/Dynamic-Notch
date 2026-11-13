@@ -92,7 +92,7 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
   - **Weather Forecast (`weather`)**:
     - Live Open-Meteo weather with condition badges, hourly precipitation/temperature graphs, 7-day outlook, global city geocoding search (Cyrillic & Latin support), automatic IP geolocation, and persistent location caching.
   - **Calendar (`calendar`)**:
-    - Dual-card layout with localized dates, weather overview, and interactive month navigation.
+    - Compact minimalist month grid with localized weekday/month headers, today highlight, and keyboard/wheel navigation.
   - **Media Player (`media`)**:
     - MPRIS integration with smart YouTube thumbnail extraction, title cleanup, and lazy progress polling (0% idle CPU overhead).
   - **Audio Mixer (`mixer`)**:

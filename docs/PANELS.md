@@ -21,7 +21,7 @@ Item {
 ```
 - A panel is loaded via `Loader` only when open, so perform heavy work (Process, scanning) upon load or on demand. Keep persistent state in services.
 - Esc is handled by the host (closes the panel). If the panel handles Esc itself (e.g. exiting an editor) — set `event.accepted = true`.
-- The window grabs keyboard input (`WlrKeyboardFocus.OnDemand` + `HyprlandFocusGrab`) while the notch is expanded.
+- The window grabs keyboard input (`WlrKeyboardFocus.Exclusive`, or `OnDemand` while a tray menu is open, + `HyprlandFocusGrab`) while the notch is expanded.
 - Clicking outside the notch collapses it. After launching an app or copying content, call `host.collapse()`.
 
 ## Style
@@ -29,7 +29,7 @@ Item {
 - Font is `Theme.fontFamily`, icons use `Icon { name: "<material symbol>" }` (Material Symbols Rounded font, ligatures by name).
 - Colors: `Theme.text/text2/text3`, cards `Theme.card` (hover `Theme.cardHover`), card radius `Theme.px(18..22)`, accents `Theme.blue/green/orange/red/pink/purple/accent`.
 - Animations: `Behavior on x { Spring {} }` — iOS spring. Press — scale 0.85–0.9, hover — `Theme.cardHover`.
-- Shared components: `Icon`, `Bar` (progress bar / slider: `value`, `tint`, `interactive`, `moved(v)` signal), `Spring`, `MorphView`, `StatTile`, `MediaCard`, `VolumeCard`, `Workspaces`, `StripButton`, `Caret` (smooth text insertion point in iOS/macOS style).
+- Shared components: `Icon`, `Bar` (progress bar / slider: `value`, `tint`, `interactive`, `moved(v)` signal), `Spring`, `MorphView`, `StatTile`, `MediaCard`, `VolumeCard`, `Workspaces`, `StripButton`, `Caret` (smooth text insertion point in iOS/macOS style), `NotchShape`, `RollingClock`.
 - Interface text should be clean and consistent.
 
 ## Service Contracts Island Relies On
