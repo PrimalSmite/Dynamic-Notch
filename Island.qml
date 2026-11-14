@@ -573,6 +573,7 @@ PanelWindow {
                     }
                     if (win.mode === "osd" && (win.lastOsd === "notif" || win.lastOsd === "dnd")) win.openPanel("notifications");
                     else if (win.mode === "osd" && win.lastOsd === "clipboard") win.openPanel("clipboard");
+                    else if (win.mode === "osd" && win.lastOsd === "caps") win.openPanel("settings");
                     else if (win.mode === "dashboard") win.collapse();
                     else if (win.mode === "compact") win.toggle();
                 }

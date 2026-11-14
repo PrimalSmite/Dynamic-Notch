@@ -102,13 +102,6 @@ Row {
             height: width
             radius: width / 2
             color: Theme.orange
-
-            SequentialAnimation on opacity {
-                running: root.kind === "mic" && !Audio.micMuted && Audio.micInUse && root.visible
-                loops: Animation.Infinite
-                NumberAnimation { to: 0.35; duration: 750; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 1.0; duration: 750; easing.type: Easing.InOutSine }
-            }
         }
 
         Icon {
