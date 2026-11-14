@@ -33,6 +33,24 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
 | :---: | :---: |
 | <img src="assets/screenshots/03-osd-keyboard-layout.png" width="340" alt="Keyboard Layout OSD" /><br><sub>**Keyboard Layout OSD**: Instant badge upon layout switch</sub> | <img src="assets/screenshots/04-osd-notification-toast.png" width="440" alt="Notification Toast OSD" /><br><sub>**Notification Toast OSD**: Popup banner in notch on incoming notifications</sub> |
 
+### Live Activity & Instant OSD
+
+| Media Player (Split LA) | Timer (Split LA) |
+| :---: | :---: |
+| <img src="assets/screenshots/18-live-activity-media.png" width="400" alt="Media Player Live Activity" /><br><sub>**Media Player**: Album art & progress on the left, 4-band `cava` audio wave on the right</sub> | <img src="assets/screenshots/19-live-activity-timer.png" width="400" alt="Timer Live Activity" /><br><sub>**Timer**: Crisp vector progress ring on the left and live countdown (`0:58`) on the right</sub> |
+
+| Screen Recorder (Split LA) | Dual LA: Recorder + Media |
+| :---: | :---: |
+| <img src="assets/screenshots/20-live-activity-recorder.png" width="400" alt="Screen Recorder Live Activity" /><br><sub>**Screen Recorder**: Pulsing indicator on the left and recording duration on the right</sub> | <img src="assets/screenshots/24-live-activity-duo-rec-media.png" width="400" alt="Dual Live Activity Recorder and Media" /><br><sub>**Dual Widgets**: Screen recording (`0:01`) + media artwork & equalizer side-by-side</sub> |
+
+| Dual LA: Media + Timer | Clipboard Instant OSD |
+| :---: | :---: |
+| <img src="assets/screenshots/25-live-activity-duo-timer-media.png" width="400" alt="Dual Live Activity Media and Timer" /><br><sub>**Dual Widgets**: Media album art on the left + compact timer icon on the right</sub> | <img src="assets/screenshots/21-instant-osd-clipboard.png" width="400" alt="Clipboard Instant OSD" /><br><sub>**Clipboard OSD**: Full-notch instant confirmation upon copying</sub> |
+
+| Do Not Disturb On OSD | Notifications On OSD |
+| :---: | :---: |
+| <img src="assets/screenshots/22-instant-osd-dnd-on.png" width="400" alt="Do Not Disturb OSD" /><br><sub>**DND Enabled**: Instant full-notch feedback when toggling Do Not Disturb</sub> | <img src="assets/screenshots/23-instant-osd-dnd-off.png" width="400" alt="Notifications On OSD" /><br><sub>**Notifications On**: Matching full-notch feedback when DND is disabled</sub> |
+
 ### Interactive Panels
 
 | Launcher & App Search | Integrated Scientific Calculator |
@@ -72,6 +90,10 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
   - Compact widgets: Workspaces capsules with active glow, rolling clock, weather / CPU / LAN stats, and keyboard layout indicator.
   - Dynamic OSD popups on volume changes, keyboard layout switches, and incoming desktop notifications.
   - Native fullscreen and game detection to automatically hide or yield focus during gameplay.
+- **Live Activity & Instant OSD**:
+  - Unified priority queue for persistent wings: Screen Recorder, Timer/Stopwatch, Media Player (album art + 4-band `cava` audio-reactive wave), Microphone Privacy, Thermal/Load alerts, System Modes, Muted Output, and IPC background tasks.
+  - Supports both **Inside Notch** (side-by-side dual widgets with scroll-wheel cycling and transition animations) and **Duo Circles** modes, configurable in Settings.
+  - Full-notch **Instant OSD** popups for Keyboard Layout, Clipboard Copy, Do Not Disturb, and Caps Lock.
 - **Rich Interactive Panels**:
   - **Settings & Control Center (`settings`)**:
     - **Notch & UI**: Compact widget switcher, clock seconds toggle, auto-collapse, interface scale slider, base font size slider, and a searchable modal font family selector with live filtering.

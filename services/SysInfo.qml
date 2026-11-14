@@ -23,6 +23,9 @@ Singleton {
     property var cpuHistory: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     property var topProcs: []     // [{ pid, comm, cpu, mem }]
 
+    property int _highCpuStreak: 0
+    property bool highLoadAlert: false
+
     property real _prevTotal: 0
     property real _prevIdle: 0
     property real _prevRx: 0
@@ -62,6 +65,13 @@ Singleton {
             const dt = total - _prevTotal;
             if (_prevTotal > 0 && dt > 0) {
                 cpu = Math.max(0, Math.min(1, 1 - (idle - _prevIdle) / dt));
+                if (cpu >= 0.85) {
+                    _highCpuStreak++;
+                    if (_highCpuStreak >= 2) highLoadAlert = true;
+                } else if (cpu < 0.78) {
+                    _highCpuStreak = 0;
+                    highLoadAlert = false;
+                }
                 let hist = cpuHistory.slice();
                 if (root._firstHistorySample) {
                     root._firstHistorySample = false;

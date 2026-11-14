@@ -42,5 +42,20 @@ Singleton {
         function askpass(msg: string, actionId: string, replyFile: string) {
             Auth.openAskpass(msg, actionId, replyFile);
         }
+        function liveStart(id: string, label: string, icon: string, progress: real) {
+            LiveActivity.startTask(id, label, icon, progress);
+        }
+        function liveProgress(id: string, progress: real, label: string) {
+            LiveActivity.updateTask(id, progress, label);
+        }
+        function liveDone(id: string, ok: bool) {
+            LiveActivity.finishTask(id, ok);
+        }
+        function liveClear(id: string) {
+            LiveActivity.clearTask(id);
+        }
+        function toggleMic() { Audio.toggleMic(); }
+        function toggleKeepAwake() { SysToggles.toggleKeepAwake(); }
+        function toggleNightLight() { SysToggles.toggleNightLight(); }
     }
 }

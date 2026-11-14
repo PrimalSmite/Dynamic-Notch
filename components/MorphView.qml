@@ -1,10 +1,9 @@
 import QtQuick
-import QtQuick.Effects
 import qs.services
 
 // Island content container with iOS-style transition:
-// entrance — short delay, fade + spring scale + defocus → sharpness;
-// exit — fast fade with blur.
+// entrance — short delay, fade + spring scale + slide;
+// exit — fast fade without GPU-heavy offscreen blur shader passes.
 Item {
     id: v
     property bool shown: false
@@ -29,13 +28,4 @@ Item {
     }
     Behavior on scale { Spring { epsilon: 0.01 } }
     Behavior on offsetY { Spring { epsilon: 0.05 } }
-
-    // Enable blur only during transition — layer is not needed at rest
-    layer.enabled: opacity > 0.001 && opacity < 0.999
-    layer.effect: MultiEffect {
-        autoPaddingEnabled: false
-        blurEnabled: true
-        blurMax: 8
-        blur: 1 - v.opacity
-    }
 }

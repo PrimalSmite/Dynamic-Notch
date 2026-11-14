@@ -24,6 +24,11 @@ Singleton {
         : ((elapsedSec % 60) / 60)
 
     readonly property string display: fmt(mode === "timer" ? remainSec : elapsedSec)
+    readonly property string compactDisplay: {
+        const s = Math.max(0, Math.floor(mode === "timer" ? remainSec : elapsedSec));
+        if (s < 60) return "0:" + (s < 10 ? "0" : "") + s;
+        return display;
+    }
 
     signal finished()
 

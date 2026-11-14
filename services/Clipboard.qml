@@ -14,6 +14,9 @@ Singleton {
     property bool surfaceOpen: false
     property bool dirty: true
     property var delQueue: []
+    property bool _watchPrimed: false
+
+    signal copied()
 
     readonly property string thumbDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/dynamic-notch/cliphist-thumbs/"
     readonly property string thumbScript: {
@@ -83,13 +86,21 @@ Singleton {
         running: true
         stdout: SplitParser {
             onRead: {
+                if (!root._watchPrimed) {
+                    root._watchPrimed = true;
+                } else {
+                    root.copied();
+                }
                 if (root.surfaceOpen)
                     debounce.restart();
                 else
                     root.dirty = true;
             }
         }
-        onExited: respawn.restart()
+        onExited: {
+            root._watchPrimed = false;
+            respawn.restart();
+        }
     }
 
     Timer {

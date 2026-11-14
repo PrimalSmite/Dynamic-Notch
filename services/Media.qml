@@ -182,6 +182,19 @@ Singleton {
         function onTrackIdChanged() { root.sync(); }
     }
 
+    // Also watch every MPRIS player so starting playback in a secondary player/tab triggers sync()
+    Instantiator {
+        model: root.players
+        delegate: Connections {
+            required property var modelData
+            target: modelData
+            ignoreUnknownSignals: true
+            function onPlaybackStateChanged() { root.sync(); }
+            function onIsPlayingChanged() { root.sync(); }
+            function onMetadataChanged() { root.sync(); }
+        }
+    }
+
     function togglePlay() {
         if (!player) return;
         if (player.canTogglePlaying) {

@@ -4,11 +4,9 @@ import qs.services
 
 // Notch shape: body attached to the top edge of the screen,
 // rounded bottom corners and concave upper ears (fillets).
-//
-//   ╭──╮                 ╭──╮   ← fillet (concave)
-//      │                 │
-//      ╰─────────────────╯     ← radius
-Shape {
+// Uses native Rectangle primitives for the resizing body + static corner ear Shapes
+// so bw/bh spring animations never trigger expensive curve re-tessellation on GPU.
+Item {
     id: s
     property real bodyW: 180
     property real bodyH: 38
@@ -21,20 +19,61 @@ Shape {
 
     width: bodyW + 2 * f
     height: bodyH
-    preferredRendererType: Shape.CurveRenderer
 
-    ShapePath {
-        fillColor: s.color
-        strokeWidth: -1
-        startX: 0; startY: 0
+    // Upper flush cap (covers top rounded corners of the body Rectangle)
+    Rectangle {
+        x: s.f
+        y: 0
+        width: s.bodyW
+        height: Math.min(s.bodyH, s.r)
+        color: s.color
+    }
 
-        PathArc { x: s.f; y: s.f; radiusX: s.f; radiusY: s.f; direction: PathArc.Clockwise }
-        PathLine { x: s.f; y: s.bodyH - s.r }
-        PathArc { x: s.f + s.r; y: s.bodyH; radiusX: s.r; radiusY: s.r; direction: PathArc.Counterclockwise }
-        PathLine { x: s.f + s.bodyW - s.r; y: s.bodyH }
-        PathArc { x: s.f + s.bodyW; y: s.bodyH - s.r; radiusX: s.r; radiusY: s.r; direction: PathArc.Counterclockwise }
-        PathLine { x: s.f + s.bodyW; y: s.f }
-        PathArc { x: s.width; y: 0; radiusX: s.f; radiusY: s.f; direction: PathArc.Clockwise }
-        PathLine { x: 0; y: 0 }
+    // Main rounded-bottom body
+    Rectangle {
+        x: s.f
+        y: 0
+        width: s.bodyW
+        height: s.bodyH
+        radius: s.r
+        color: s.color
+    }
+
+    // Static left concave ear
+    Shape {
+        x: 0
+        y: 0
+        width: s.f + 1
+        height: s.f
+        preferredRendererType: Shape.GeometryRenderer
+
+        ShapePath {
+            fillColor: s.color
+            strokeWidth: -1
+            startX: 0; startY: 0
+            PathArc { x: s.f; y: s.f; radiusX: s.f; radiusY: s.f; direction: PathArc.Clockwise }
+            PathLine { x: s.f + 1; y: s.f }
+            PathLine { x: s.f + 1; y: 0 }
+            PathLine { x: 0; y: 0 }
+        }
+    }
+
+    // Static right concave ear
+    Shape {
+        x: s.f + s.bodyW - 1
+        y: 0
+        width: s.f + 1
+        height: s.f
+        preferredRendererType: Shape.GeometryRenderer
+
+        ShapePath {
+            fillColor: s.color
+            strokeWidth: -1
+            startX: 0; startY: 0
+            PathLine { x: s.f + 1; y: 0 }
+            PathArc { x: 1; y: s.f; radiusX: s.f; radiusY: s.f; direction: PathArc.Counterclockwise }
+            PathLine { x: 0; y: s.f }
+            PathLine { x: 0; y: 0 }
+        }
     }
 }
