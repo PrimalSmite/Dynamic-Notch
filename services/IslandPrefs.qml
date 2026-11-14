@@ -34,7 +34,6 @@ Singleton {
     property bool liveSystemModes: true
     property bool liveAudioMuted: true
     property bool liveCapsLock: true
-    property bool liveDndEnabled: true
 
     Process {
         id: initDirProc
@@ -74,7 +73,6 @@ Singleton {
                 if (data.liveSystemModes !== undefined) root.liveSystemModes = !!data.liveSystemModes;
                 if (data.liveAudioMuted !== undefined) root.liveAudioMuted = !!data.liveAudioMuted;
                 if (data.liveCapsLock !== undefined) root.liveCapsLock = !!data.liveCapsLock;
-                if (data.liveDndEnabled !== undefined) root.liveDndEnabled = !!data.liveDndEnabled;
             } catch (e) {
                 console.log("[IslandPrefs] Config load exception:", e);
             }
@@ -102,8 +100,7 @@ Singleton {
             liveThermalAlert: root.liveThermalAlert,
             liveSystemModes: root.liveSystemModes,
             liveAudioMuted: root.liveAudioMuted,
-            liveCapsLock: root.liveCapsLock,
-            liveDndEnabled: root.liveDndEnabled
+            liveCapsLock: root.liveCapsLock
         };
         const json = JSON.stringify(data, null, 2);
         Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "sh", root.configDir, json, root.configPath]);

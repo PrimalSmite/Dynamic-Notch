@@ -42,7 +42,7 @@ Row {
                 id: artImg
                 anchors.fill: parent
                 source: Media.trackArtUrl
-                cache: false
+                cache: true
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 sourceSize: Qt.size(48, 48)
@@ -260,32 +260,7 @@ Row {
         }
     }
 
-    // ── 7. Caps Lock ──
-    Row {
-        visible: root.kind === "caps"
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: Theme.px(4)
-
-        Icon {
-            visible: root.part === "left"
-            anchors.verticalCenter: parent.verticalCenter
-            name: "keyboard_capslock"
-            size: Theme.px(14)
-            color: Theme.warn
-        }
-        Text {
-            visible: root.part === "right" || root.part === "compact"
-            anchors.verticalCenter: parent.verticalCenter
-            text: "CAPS"
-            color: Theme.warn
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.px(10)
-            font.weight: Font.Bold
-            font.letterSpacing: Theme.px(0.5)
-        }
-    }
-
-    // ── 8. Screen Recorder ──
+    // ── 7. Screen Recorder ──
     Row {
         visible: root.kind === "recorder"
         anchors.verticalCenter: parent.verticalCenter
@@ -294,40 +269,25 @@ Row {
         Item {
             visible: root.part === "left" || root.part === "compact"
             anchors.verticalCenter: parent.verticalCenter
-            width: Theme.px(18)
-            height: Theme.px(18)
+            width: Theme.px(11)
+            height: Theme.px(14)
 
             Rectangle {
                 id: recHalo
                 anchors.centerIn: parent
-                width: Theme.px(8)
+                width: Theme.px(10)
                 height: width
                 radius: width / 2
                 color: Theme.red
-                opacity: 0
-                scale: 1
-
-                ParallelAnimation {
-                    running: root.kind === "recorder" && Recorder.recording && root.visible
-                    loops: Animation.Infinite
-                    NumberAnimation { target: recHalo; property: "scale"; from: 0.9; to: 2.2; duration: 1400; easing.type: Easing.OutCubic }
-                    NumberAnimation { target: recHalo; property: "opacity"; from: 0.55; to: 0.0; duration: 1400; easing.type: Easing.OutCubic }
-                }
+                opacity: Recorder.recording ? 0.28 : 0
             }
 
             Rectangle {
                 anchors.centerIn: parent
-                width: Theme.px(8)
+                width: Theme.px(6)
                 height: width
                 radius: width / 2
                 color: Theme.red
-
-                SequentialAnimation on scale {
-                    running: root.kind === "recorder" && Recorder.recording && root.visible
-                    loops: Animation.Infinite
-                    NumberAnimation { to: 1.16; duration: 700; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0.88; duration: 700; easing.type: Easing.InOutSine }
-                }
             }
         }
 
@@ -351,13 +311,13 @@ Row {
             id: liveTimerIcon
             visible: root.part === "left" || root.part === "compact"
             anchors.verticalCenter: parent.verticalCenter
-            width: Theme.px(19)
-            height: Theme.px(19)
+            width: Theme.px(17)
+            height: Theme.px(17)
 
             ProgressRing {
                 anchors.centerIn: parent
-                size: Theme.px(19)
-                strokeWidth: Theme.px(2.1)
+                size: Theme.px(15)
+                strokeWidth: Theme.px(1.8)
                 value: Timers.progress
                 fillColor: Theme.orange
                 trackColor: Qt.rgba(1, 0.62, 0.04, 0.24)
@@ -374,8 +334,8 @@ Row {
                 Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     y: parent.height / 2 - height
-                    width: Theme.px(2)
-                    height: Theme.px(5.5)
+                    width: Theme.px(1.8)
+                    height: Theme.px(4.2)
                     radius: width / 2
                     color: Theme.orange
                     antialiasing: true
@@ -384,60 +344,21 @@ Row {
 
             Rectangle {
                 anchors.centerIn: parent
-                width: Theme.px(3.2)
+                width: Theme.px(2.8)
                 height: width
                 radius: width / 2
                 color: Theme.orange
                 antialiasing: true
             }
-
-            SpringAnimation {
-                id: liveTimerPulse
-                target: liveTimerIcon
-                property: "scale"
-                from: 1.10
-                to: 1.0
-                spring: Theme.springK
-                damping: Theme.springDamp
-                epsilon: 0.01
-            }
         }
 
         RollingClock {
-            visible: root.part === "right" || root.part === "compact"
+            visible: root.part === "right"
             anchors.verticalCenter: parent.verticalCenter
-            timeString: Timers.display
+            timeString: Timers.compactDisplay
             fontSize: Theme.px(12)
             fontWeight: Font.DemiBold
             textColor: Theme.orange
-            onTimeStringChanged: {
-                if (root.kind === "timer" && Timers.running && root.visible) liveTimerPulse.restart();
-            }
-        }
-    }
-
-    // ── 10. Do Not Disturb ──
-    Row {
-        visible: root.kind === "dnd"
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: Theme.px(4)
-
-        Icon {
-            visible: root.part === "left" || root.part === "compact"
-            anchors.verticalCenter: parent.verticalCenter
-            name: "do_not_disturb_on"
-            size: Theme.px(14)
-            color: Theme.purple
-        }
-        Text {
-            visible: root.part === "right" || root.part === "compact"
-            anchors.verticalCenter: parent.verticalCenter
-            text: "DND"
-            color: Theme.purple
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.px(10)
-            font.weight: Font.Bold
-            font.letterSpacing: Theme.px(0.5)
         }
     }
 

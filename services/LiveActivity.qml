@@ -135,12 +135,6 @@ Singleton {
         if (IslandPrefs.liveAudioMuted && Audio.muted) {
             list.push("muted");
         }
-        if (IslandPrefs.liveDndEnabled && Notifs.dnd) {
-            list.push("dnd");
-        }
-        if (IslandPrefs.liveCapsLock && Keyboard.capsLock) {
-            list.push("caps");
-        }
         return list;
     }
 
@@ -156,7 +150,6 @@ Singleton {
         else if (kind === "media") host.openPanel("media");
         else if (kind === "mic" || kind === "muted") host.openPanel("mixer");
         else if (kind === "thermal" || kind === "ipc") host.openPanel("sysmon");
-        else if (kind === "dnd") host.openPanel("notifications");
-        else if (kind === "modes" || kind === "caps") host.openPanel("settings");
+        else if (kind === "modes") host.openPanel("settings");
     }
 }

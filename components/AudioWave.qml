@@ -1,8 +1,8 @@
 import QtQuick
 import qs.services
 
-// Minimal 3-bar audio level wave for compact Live Activity media wing.
-// Animates smoothly when active and settles gently at rest on pause.
+// 4-band audio-reactive wave for compact Live Activity media wing.
+// Driven by Spectrum (cava at 12 Hz) when active & visible, with smooth fade-out when silent/paused.
 Row {
     id: root
 
@@ -14,43 +14,43 @@ Row {
     spacing: Theme.px(1.5)
     height: maxH
 
+    readonly property bool _consume: root.active && root.visible
+    property bool _registered: false
+
+    on_ConsumeChanged: {
+        if (_consume && !_registered) {
+            Spectrum.activeConsumers++;
+            _registered = true;
+        } else if (!_consume && _registered) {
+            Spectrum.activeConsumers = Math.max(0, Spectrum.activeConsumers - 1);
+            _registered = false;
+        }
+    }
+
+    Component.onDestruction: {
+        if (_registered) {
+            Spectrum.activeConsumers = Math.max(0, Spectrum.activeConsumers - 1);
+            _registered = false;
+        }
+    }
+
     Repeater {
-        model: [
-            { duration: 360, peak: 0.72, low: 0.28 },
-            { duration: 470, peak: 1.00, low: 0.35 },
-            { duration: 410, peak: 0.82, low: 0.24 }
-        ]
+        model: 4
 
         Rectangle {
-            id: bar
-            required property var modelData
+            required property int index
             anchors.verticalCenter: parent.verticalCenter
             width: Theme.px(2)
             radius: width / 2
             color: root.color
 
-            property real targetH: root.minH
-            height: root.active ? targetH : root.minH
+            readonly property real _lvl: (root.active && Spectrum.levels.length > index) ? Spectrum.levels[index] : 0
+            readonly property real _shaped: Math.pow(Math.max(0, Math.min(1, _lvl)), 1.4)
+            height: root.minH + (root.maxH - root.minH) * _shaped
 
             Behavior on height {
-                enabled: !root.active
-                Spring { epsilon: 0.05 }
-            }
-
-            SequentialAnimation on targetH {
-                running: root.active && root.visible
-                loops: Animation.Infinite
-                alwaysRunToEnd: false
-                NumberAnimation {
-                    to: root.maxH * bar.modelData.peak
-                    duration: bar.modelData.duration
-                    easing.type: Easing.InOutSine
-                }
-                NumberAnimation {
-                    to: Math.max(root.minH, root.maxH * bar.modelData.low)
-                    duration: bar.modelData.duration
-                    easing.type: Easing.InOutSine
-                }
+                enabled: !root.active || _lvl === 0
+                Spring { epsilon: 0.03 }
             }
         }
     }

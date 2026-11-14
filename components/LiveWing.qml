@@ -57,8 +57,8 @@ Item {
         }
     }
 
-    // Track Media progress lazily ONLY when media is actively shown
-    readonly property bool _mediaShown: active && activeKind === "media" && homeProgress < 0.5 && (side === "left" || LiveActivity.isSplitMode)
+    // Track Media progress lazily ONLY when media is actively playing on left wing
+    readonly property bool _mediaShown: active && activeKind === "media" && Media.playing && homeProgress < 0.5 && side === "left"
     property bool _mediaConsumerRegistered: false
     on_MediaShownChanged: {
         if (_mediaShown && !_mediaConsumerRegistered) {
@@ -88,11 +88,8 @@ Item {
     width: Math.max(0, compactW * (1 - homeProgress))
     height: Theme.px(38)
     opacity: active ? compactAlpha : 0
+    visible: active && homeProgress < 0.99
     clip: true
-
-    Behavior on opacity {
-        NumberAnimation { duration: Theme.fadeIn; easing.type: Easing.OutCubic }
-    }
 
     function cycleSecondary(delta) {
         if (secItems.length <= 1) return;
@@ -104,6 +101,16 @@ Item {
     }
 
     property real _slotScale: 1.0
+    property string _prevKind: ""
+
+    onActiveKindChanged: {
+        if (_prevKind !== "" && activeKind !== "" && _prevKind !== activeKind) {
+            slotPulse.restart();
+            slotFade.restart();
+        }
+        _prevKind = activeKind;
+    }
+
     SpringAnimation {
         id: slotPulse
         target: root
@@ -113,6 +120,16 @@ Item {
         spring: Theme.springK
         damping: Theme.springDamp
         epsilon: 0.01
+    }
+
+    NumberAnimation {
+        id: slotFade
+        target: contentBox
+        property: "opacity"
+        from: 0.2
+        to: 1.0
+        duration: 180
+        easing.type: Easing.OutCubic
     }
 
     Row {
@@ -128,7 +145,7 @@ Item {
             width: implicitWidth
             height: implicitHeight
 
-            scale: (wingMa.pressed ? 0.92 : (wingMa.containsMouse ? 1.05 : 1.0)) * root._slotScale
+            scale: (wingMa.pressed ? 0.92 : 1.0) * root._slotScale
             Behavior on scale { Spring { epsilon: 0.01 } }
 
             LiveSlotContent {

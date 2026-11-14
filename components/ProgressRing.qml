@@ -23,7 +23,6 @@ Item {
     property real _animValue: Math.max(0, Math.min(1, value))
 
     onValueChanged: _animValue = Math.max(0, Math.min(1, value))
-    Behavior on _animValue { Spring { epsilon: 0.005 } }
 
     Shape {
         id: ringShape

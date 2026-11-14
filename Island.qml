@@ -19,6 +19,12 @@ PanelWindow {
     required property ShellScreen modelData
     screen: modelData
     readonly property var monitor: Hyprland.monitorFor(modelData)
+    readonly property bool isFocusedMonitor: {
+        const fm = Hyprland.focusedMonitor;
+        if (!fm) return true;
+        if (win.modelData && fm.name) return fm.name === win.modelData.name;
+        return !win.monitor || win.monitor.focused;
+    }
 
     anchors.top: true
     anchors.left: true
@@ -247,16 +253,17 @@ PanelWindow {
 
     function showOsd(kind) {
         if ((mode !== "compact" && mode !== "osd") || !armed) return;
-        if (monitor && !monitor.focused) return;
+        if (!win.isFocusedMonitor) return;
         if (isGameActive && kind !== "notif" && !IslandPrefs.showOsdInGames) return;
         if (kind === "volume" && !IslandPrefs.showVolumeOsd) return;
         if (kind === "layout" && !IslandPrefs.showLayoutOsd) return;
         if (kind === "clipboard" && !IslandPrefs.liveClipboardPulse) return;
+        if (kind === "caps" && !IslandPrefs.liveCapsLock) return;
         lastOsd = kind;
         osd = kind;
         osdTimer.interval = kind === "notif" ? Theme.notifMs
                           : kind === "layout" ? Theme.layoutOsdMs
-                          : (kind === "clipboard" || kind === "dnd") ? 1100
+                          : (kind === "clipboard" || kind === "caps" || kind === "dnd") ? 1100
                           : Theme.osdMs;
         osdTimer.restart();
     }
@@ -291,6 +298,7 @@ PanelWindow {
     Connections {
         target: Keyboard
         function onSwitched() { win.showOsd("layout"); }
+        function onCapsLockChanged() { if (win.armed) win.showOsd("caps"); }
     }
     Connections {
         target: Clipboard
@@ -304,7 +312,7 @@ PanelWindow {
     Connections {
         target: Auth
         function onRequested() {
-            if (win.monitor && !win.monitor.focused) return;
+            if (!win.isFocusedMonitor) return;
             if (win.panel !== "auth") win.openPanel("auth");
             else win.focusActivePanel();
         }
@@ -320,7 +328,7 @@ PanelWindow {
                 win.collapse();
                 return;
             }
-            if (win.monitor && !win.monitor.focused) return;
+            if (!win.isFocusedMonitor) return;
             win.toggle();
         }
         function onCloseRequested() {
@@ -333,14 +341,14 @@ PanelWindow {
                 win.collapse();
                 return;
             }
-            if (win.monitor && !win.monitor.focused) {
+            if (!win.isFocusedMonitor) {
                 if (win.mode === "dashboard" || win.mode === "panel") win.collapse();
                 return;
             }
             win.openPanel(name);
         }
         function onCycleRequested(delta) {
-            if (win.monitor && !win.monitor.focused) return;
+            if (!win.isFocusedMonitor) return;
             win.cyclePanel(delta);
         }
     }
@@ -351,13 +359,13 @@ PanelWindow {
     }
 
     // ───────── Dimensions ─────────
-    // Symmetrical compact Notch width with RollingClock locked to center
-    readonly property real leftZoneCompactW: (leftWingItem.active ? leftWingItem.compactW + Theme.px(6) : 0) + wsItem.compactW
+    // Tight compact Notch width with equal 12px outer padding and 10px clock gaps
+    readonly property real leftZoneCompactW: (leftWingItem.active ? leftWingItem.compactW + Theme.px(10) : 0) + wsItem.compactW + Theme.px(10)
     readonly property real rightCoreCompactW: liveItem.compactW + weatherItem.compactW + compactStatItem.compactW + layoutItem.compactW
-    readonly property real rightZoneCompactW: (rightCoreCompactW > 0 ? Theme.px(7) + rightCoreCompactW : 0) + (rightWingItem.active ? rightWingItem.compactW + Theme.px(6) : 0)
-    readonly property real symSideCompactW: Math.max(leftZoneCompactW, rightZoneCompactW)
-    readonly property real compactW: 2 * symSideCompactW + clockPill.compactW + Theme.px(16) * 2
-    readonly property real instantOsdW: Math.max(compactW, layoutOsdRow.implicitWidth + Theme.px(36), Theme.px(290))
+    readonly property real rightZoneCompactW: (rightCoreCompactW > 0 ? (liveItem.activeCompact ? Theme.px(7) : Theme.px(10)) + rightCoreCompactW : 0) + (rightWingItem.active ? rightWingItem.compactW + Theme.px(10) : 0)
+    readonly property real compactW: leftZoneCompactW + clockPill.compactW + rightZoneCompactW + Theme.px(12) * 2
+    readonly property real instantOsdW: Math.max(compactW, Theme.px(256))
+    readonly property bool isInstantOsd: win.lastOsd === "layout" || win.lastOsd === "clipboard" || win.lastOsd === "caps" || win.lastOsd === "dnd"
     readonly property real topRowTargetW: wsItem.dashW + divItem.dashW + clkItem.dashW + liveItem.dashW + weatherItem.dashW + mediaItem.dashW + layoutItem.dashW + trayItem.dashW
     readonly property real dashW: Math.max(Theme.px(520),
                                   Math.max(topRowTargetW, dockBar.implicitWidth) + Theme.px(36))
@@ -400,13 +408,13 @@ PanelWindow {
         property real bw: win.mode === "panel" ? win.activePanelW
                         : win.mode === "dashboard" ? win.dashW
                         : win.mode === "osd" ? (win.lastOsd === "notif" ? Theme.notifW
-                                              : (win.lastOsd === "layout" || win.lastOsd === "clipboard" || win.lastOsd === "dnd") ? win.instantOsdW
+                                              : win.isInstantOsd ? win.instantOsdW
                                               : Theme.osdW)
                         : win.compactW + (compactHovered ? Theme.hoverGrowW : 0)
         property real bh: win.mode === "panel" ? win.activePanelH
                         : win.mode === "dashboard" ? Theme.stripH
                         : win.mode === "osd" ? (win.lastOsd === "notif" ? Theme.notifH
-                                              : (win.lastOsd === "layout" || win.lastOsd === "clipboard" || win.lastOsd === "dnd") ? Theme.compactH
+                                              : win.isInstantOsd ? Theme.compactH
                                               : Theme.osdH)
                         : Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)
         property real rad: (win.mode === "dashboard" || win.mode === "panel") ? Theme.expandedRadius
@@ -628,7 +636,7 @@ PanelWindow {
                         id: leftZone
                         anchors.verticalCenter: parent.verticalCenter
                         readonly property real dashW: wsItem.dashW + divItem.dashW
-                        width: Math.max(0, win.symSideCompactW + (dashW - win.symSideCompactW) * homeView.p)
+                        width: Math.max(0, win.leftZoneCompactW + (dashW - win.leftZoneCompactW) * homeView.p)
                         height: Theme.px(38)
 
                         // 0. Left Live Activity wing
@@ -647,8 +655,8 @@ PanelWindow {
                         Item {
                             id: wsItem
                             anchors.verticalCenter: parent.verticalCenter
-                            x: leftWingItem.active ? (leftWingItem.width + Theme.px(6) * (1 - homeView.p)) : 0
-                            readonly property real compactW: wsCompact.implicitWidth + Theme.px(6)
+                            x: leftWingItem.active ? (leftWingItem.width + Theme.px(10) * (1 - homeView.p)) : 0
+                            readonly property real compactW: wsCompact.implicitWidth
                             readonly property real dashW: wsCompact.implicitWidth + Theme.px(12)
                             width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
                             height: Theme.px(38)
@@ -750,29 +758,41 @@ PanelWindow {
                         id: rightZone
                         anchors.verticalCenter: parent.verticalCenter
                         readonly property real dashW: liveItem.dashW + weatherItem.dashW + mediaItem.dashW + layoutItem.dashW + trayItem.dashW
-                        width: Math.max(0, win.symSideCompactW + (dashW - win.symSideCompactW) * homeView.p)
+                        width: Math.max(0, win.rightZoneCompactW + (dashW - win.rightZoneCompactW) * homeView.p)
                         height: Theme.px(38)
 
                         Row {
                             id: rightCoreRow
                             x: (win.rightCoreCompactW > 0
-                                ? Math.max(Theme.px(7), parent.width - (rightWingItem.active ? rightWingItem.width + Theme.px(6) : 0) - width)
+                                ? Math.max(liveItem.activeCompact ? Theme.px(7) : Theme.px(10), parent.width - (rightWingItem.active ? rightWingItem.width + Theme.px(10) : 0) - width)
                                 : 0) * (1 - homeView.p)
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 0
 
-                    // 4. Compact status slot kept empty (DND migrated to LiveActivity; unread badge lives in dashboard dockBar)
+                    // 4. Compact DND indicator (single small icon with balanced spacing)
                     Item {
                         id: liveItem
                         anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool activeCompact: false
+                        readonly property bool activeCompact: Notifs.dnd && homeView.p < 0.5
                         readonly property bool activeDash: false
-                        readonly property bool active: false
-                        readonly property real compactW: 0
+                        readonly property bool active: activeCompact
+                        readonly property bool hasNextCompact: weatherItem.showInCompact || compactStatItem.showInCompact || layoutItem.shouldShow
+                        readonly property real compactW: activeCompact ? (Theme.px(13) + (hasNextCompact ? Theme.px(5) : 0)) : 0
                         readonly property real dashW: 0
-                        width: 0
+                        width: Math.max(0, compactW * (1 - homeView.p))
                         height: Theme.px(38)
-                        visible: false
+                        opacity: active ? homeView.compactAlpha : 0
+                        visible: width > 0.5 && opacity > 0.001
+
+                        Icon {
+                            x: 0
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: "do_not_disturb_on"
+                            size: Theme.px(13)
+                            color: Theme.purple
+                        }
+
+                        TapHandler { onTapped: win.openPanel("notifications") }
                     }
 
                     // 5. Weather pill (glides between compact and dashboard)
@@ -1224,10 +1244,10 @@ PanelWindow {
                 hiddenY: -Theme.px(8)
                 transformOrigin: Item.Top
                 width: win.lastOsd === "notif" ? Theme.notifW
-                     : (win.lastOsd === "layout" || win.lastOsd === "clipboard" || win.lastOsd === "dnd") ? win.instantOsdW
+                     : win.isInstantOsd ? win.instantOsdW
                      : Theme.osdW
                 height: win.lastOsd === "notif" ? Theme.notifH
-                      : (win.lastOsd === "layout" || win.lastOsd === "clipboard" || win.lastOsd === "dnd") ? Theme.compactH
+                      : win.isInstantOsd ? Theme.compactH
                       : Theme.osdH
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
@@ -1299,6 +1319,8 @@ PanelWindow {
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: Keyboard.layout
+                            width: Math.min(implicitWidth, Theme.px(130))
+                            elide: Text.ElideRight
                             color: Theme.text2
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(12)
@@ -1353,6 +1375,32 @@ PanelWindow {
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: Notifs.dnd ? "Do Not Disturb" : "Notifications On"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(13)
+                            font.weight: Font.DemiBold
+                        }
+                    }
+                }
+
+                // caps — compact popup sized to the notch
+                Item {
+                    anchors.fill: parent
+                    visible: win.lastOsd === "caps"
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(8)
+
+                        Icon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: "keyboard_capslock"
+                            size: Theme.px(15)
+                            color: Keyboard.capsLock ? Theme.warn : Theme.text2
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Keyboard.capsLock ? "Caps Lock ON" : "Caps Lock OFF"
                             color: Theme.text
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(13)

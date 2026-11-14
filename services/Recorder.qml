@@ -71,7 +71,9 @@ Singleton {
         // and automatic CPU fallback encoding if GPU VRAM is constrained by games.
         const qualArgs = "-bm cbr -q " + bitrateKbps + " -cr full -fm cfr -tune quality -k " + codec + " -fallback-cpu-encoding yes";
 
-        const cmd = "mkdir -p '" + outDir + "' && echo $$ > /tmp/qs-gsr.pid && exec gpu-screen-recorder -w \"" + captureTarget + "\" -f "
+        const isRegion = captureTarget.indexOf("x") > 0 && captureTarget.indexOf("+") > 0;
+        const targetArgs = isRegion ? ("-w region -region \"" + captureTarget + "\"") : ("-w \"" + captureTarget + "\"");
+        const cmd = "mkdir -p '" + outDir + "' && echo $$ > /tmp/qs-gsr.pid && exec gpu-screen-recorder " + targetArgs + " -f "
             + fps + " " + qualArgs + " " + cursorArg + " " + audioArgs + " -o '" + out + "' </dev/null >/dev/null 2>&1";
 
         elapsed = 0;
@@ -150,6 +152,8 @@ Singleton {
             root.recording = false;
             if ((code === 0 || code === 130) && wasElapsed >= 1 && root.lastFile) {
                 Quickshell.execDetached(["notify-send", "-a", "Screen Recorder", "Video saved (30 Mbps)", root.lastFile]);
+            } else if (code !== 0 && code !== 130) {
+                Quickshell.execDetached(["notify-send", "-a", "Screen Recorder", "Recording failed", "gpu-screen-recorder exited with code " + code]);
             }
             root.refreshRecent();
         }

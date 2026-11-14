@@ -889,8 +889,7 @@ Item {
                                 { key: "liveThermalAlert",   name: "Thermal / Load",   icon: "local_fire_department" },
                                 { key: "liveSystemModes",    name: "System Modes",     icon: "coffee" },
                                 { key: "liveAudioMuted",     name: "Muted Output",     icon: "volume_off" },
-                                { key: "liveCapsLock",       name: "Caps Lock",        icon: "keyboard_capslock" },
-                                { key: "liveDndEnabled",     name: "Do Not Disturb",   icon: "do_not_disturb_on" }
+                                { key: "liveCapsLock",       name: "Caps Lock OSD",    icon: "keyboard_capslock" }
                             ]
 
                             Rectangle {
