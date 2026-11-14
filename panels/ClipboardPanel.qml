@@ -11,6 +11,13 @@ Item {
     property bool wantsTextInput: true
     property string query: ""
     property int selectedIndex: 0
+    // Last pointer position observed over the list, in panel coordinates. Rows
+    // scrolling under a stationary cursor report the same position, so they
+    // cannot steal the keyboard selection; any real pointer motion re-enables
+    // hover selection.
+    property real pointerX: -1
+    property real pointerY: -1
+    property bool pointerActive: true
 
     implicitWidth: Theme.px(440)
     implicitHeight: col.implicitHeight
@@ -52,6 +59,7 @@ Item {
             return;
         var idx = Math.max(0, Math.min(results.length - 1, selectedIndex + delta));
         selectedIndex = idx;
+        pointerActive = false;
         list.positionViewAtIndex(idx, ListView.Contain);
     }
 
@@ -61,6 +69,7 @@ Item {
             query = "";
             searchInput.text = "";
             selectedIndex = 0;
+            pointerActive = true;
             list.positionViewAtBeginning();
             if (Clipboard.dirty)
                 Clipboard.refresh();
@@ -210,7 +219,7 @@ Item {
                 width: ListView.view.width
                 height: cRow.modelData.isImage ? Theme.px(48) : Theme.px(42)
                 radius: Theme.px(12)
-                color: index === root.selectedIndex || rMa.containsMouse ? Theme.cardHover : Theme.card
+                color: index === root.selectedIndex || (rMa.containsMouse && root.pointerActive) ? Theme.cardHover : Theme.card
 
                 Row {
                     anchors.fill: parent
@@ -290,7 +299,22 @@ Item {
                     anchors.rightMargin: Theme.px(36)
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onEntered: root.selectedIndex = cRow.index
+
+                    // Distinguishes a real pointer move from a delegate sliding
+                    // under a stationary cursor: only the former changes the
+                    // pointer position in panel coordinates.
+                    function pointerMoved() {
+                        var p = rMa.mapToItem(root, Qt.point(rMa.mouseX, rMa.mouseY));
+                        var moved = p.x !== root.pointerX || p.y !== root.pointerY;
+                        root.pointerX = p.x;
+                        root.pointerY = p.y;
+                        if (moved)
+                            root.pointerActive = true;
+                        return moved;
+                    }
+
+                    onEntered: if (pointerMoved()) root.selectedIndex = cRow.index
+                    onPositionChanged: if (pointerMoved()) root.selectedIndex = cRow.index
                     onClicked: root.copyItem(cRow.modelData)
                 }
             }
