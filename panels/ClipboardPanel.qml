@@ -47,12 +47,21 @@ Item {
         Clipboard.wipe();
     }
 
+    function moveSelection(delta) {
+        if (results.length === 0)
+            return;
+        var idx = Math.max(0, Math.min(results.length - 1, selectedIndex + delta));
+        selectedIndex = idx;
+        list.positionViewAtIndex(idx, ListView.Contain);
+    }
+
     onVisibleChanged: {
         Clipboard.surfaceOpen = visible;
         if (visible) {
             query = "";
             searchInput.text = "";
             selectedIndex = 0;
+            list.positionViewAtBeginning();
             if (Clipboard.dirty)
                 Clipboard.refresh();
             focusTimer.restart();
@@ -75,6 +84,8 @@ Item {
     onResultsChanged: {
         if (selectedIndex >= results.length)
             selectedIndex = Math.max(0, results.length - 1);
+        if (results.length > 0 && list)
+            list.positionViewAtIndex(selectedIndex, ListView.Contain);
     }
 
     Column {
@@ -117,11 +128,15 @@ Item {
                     cursorDelegate: Caret {}
                     clip: true
                     focus: true
-                    onTextChanged: { root.query = text; root.selectedIndex = 0; }
+                    onTextChanged: {
+                        root.query = text;
+                        root.selectedIndex = 0;
+                        list.positionViewAtBeginning();
+                    }
                     Keys.onReturnPressed: if (root.results.length > 0) root.copyItem(root.results[root.selectedIndex])
                     Keys.onEnterPressed: if (root.results.length > 0) root.copyItem(root.results[root.selectedIndex])
-                    Keys.onDownPressed: root.selectedIndex = Math.min(root.results.length - 1, root.selectedIndex + 1)
-                    Keys.onUpPressed: root.selectedIndex = Math.max(0, root.selectedIndex - 1)
+                    Keys.onDownPressed: root.moveSelection(1)
+                    Keys.onUpPressed: root.moveSelection(-1)
 
                     Text {
                         visible: searchInput.text.length === 0
