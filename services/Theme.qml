@@ -44,7 +44,7 @@ Singleton {
     readonly property int fadeOut: 90
     readonly property int fadeDelay: 40
     readonly property int osdMs: 1300
-    readonly property int layoutOsdMs: 750      // layout switch — fast badge
+    readonly property int layoutOsdMs: 900      // layout switch — fast badge
     readonly property int notifMs: 4000
 
     // ── Colors ──

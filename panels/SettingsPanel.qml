@@ -826,6 +826,52 @@ Item {
                         }
                     }
 
+                    Row {
+                        width: parent.width
+                        spacing: Theme.px(6)
+                        opacity: IslandPrefs.liveWingsEnabled ? 1.0 : 0.45
+                        enabled: IslandPrefs.liveWingsEnabled
+
+                        Repeater {
+                            model: [
+                                { id: "inline", name: "Inside Notch", icon: "splitscreen_left" },
+                                { id: "duo",    name: "Duo Circles",  icon: "hdr_strong" }
+                            ]
+                            delegate: Rectangle {
+                                required property var modelData
+                                readonly property bool active: IslandPrefs.liveActivityStyle === modelData.id
+                                width: (parent.width - Theme.px(6)) / 2
+                                height: Theme.px(30)
+                                radius: Theme.px(9)
+                                color: active ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.05)
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: Theme.px(6)
+                                    Icon {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: modelData.icon
+                                        size: Theme.px(13)
+                                        color: active ? "#000000" : Theme.textDim
+                                    }
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: modelData.name
+                                        color: active ? "#000000" : Theme.text
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.px(10.5)
+                                        font.weight: active ? Font.DemiBold : Font.Medium
+                                    }
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: IslandPrefs.setLiveActivityStyle(modelData.id)
+                                }
+                            }
+                        }
+                    }
+
                     Grid {
                         width: parent.width
                         columns: 2
@@ -838,12 +884,13 @@ Item {
                             model: [
                                 { key: "liveMediaEnabled",   name: "Media Art & Wave", icon: "music_note" },
                                 { key: "liveMediaShowTitle", name: "Track Title",      icon: "title" },
-                                { key: "liveClipboardPulse", name: "Clipboard Pulse",  icon: "content_paste" },
+                                { key: "liveClipboardPulse", name: "Clipboard OSD",    icon: "content_paste" },
                                 { key: "liveMicPrivacy",     name: "Mic Privacy",      icon: "mic" },
                                 { key: "liveThermalAlert",   name: "Thermal / Load",   icon: "local_fire_department" },
                                 { key: "liveSystemModes",    name: "System Modes",     icon: "coffee" },
                                 { key: "liveAudioMuted",     name: "Muted Output",     icon: "volume_off" },
-                                { key: "liveCapsLock",       name: "Caps Lock",        icon: "keyboard_capslock" }
+                                { key: "liveCapsLock",       name: "Caps Lock",        icon: "keyboard_capslock" },
+                                { key: "liveDndEnabled",     name: "Do Not Disturb",   icon: "do_not_disturb_on" }
                             ]
 
                             Rectangle {

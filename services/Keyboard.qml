@@ -10,7 +10,7 @@ Singleton {
 
     property string layout: ""            // e.g. "Russian", "English (US)"
     property bool capsLock: false
-    property string _capsPath: ""
+    property var _capsPaths: []
 
     readonly property string shortCode: {
         const l = layout.toLowerCase();
@@ -27,21 +27,35 @@ Singleton {
         Quickshell.execDetached(["hyprctl", "switchxkblayout", "all", "next"]);
     }
 
-    FileView {
-        id: capsFile
-        path: root._capsPath
-        blockLoading: true
+    Instantiator {
+        id: capsInst
+        model: root._capsPaths
+        delegate: FileView {
+            required property string modelData
+            path: modelData
+            blockLoading: true
+        }
     }
 
     function pollCaps() {
-        if (_capsPath === "") return;
-        capsFile.reload();
-        root.capsLock = parseInt(capsFile.text().trim(), 10) > 0;
+        const cnt = capsInst.count;
+        if (cnt <= 0) return;
+        let lit = false;
+        for (let i = 0; i < cnt; i++) {
+            const fv = capsInst.objectAt(i);
+            if (!fv) continue;
+            fv.reload();
+            if (parseInt(fv.text().trim(), 10) > 0) {
+                lit = true;
+                break;
+            }
+        }
+        if (root.capsLock !== lit) root.capsLock = lit;
     }
 
     Timer {
-        interval: 300
-        running: root._capsPath !== ""
+        interval: 50
+        running: root._capsPaths.length > 0
         repeat: true
         triggeredOnStart: true
         onTriggered: root.pollCaps()
@@ -49,9 +63,12 @@ Singleton {
 
     Process {
         running: true
-        command: ["sh", "-c", "ls /sys/class/leds/*::capslock/brightness 2>/dev/null | head -n 1"]
+        command: ["sh", "-c", "ls /sys/class/leds/*::capslock/brightness 2>/dev/null"]
         stdout: StdioCollector {
-            onStreamFinished: root._capsPath = text.trim()
+            onStreamFinished: {
+                const lines = text.trim().split("\n").map(s => s.trim()).filter(s => s.length > 0);
+                root._capsPaths = lines;
+            }
         }
     }
 

@@ -25,6 +25,7 @@ Singleton {
 
     // ── Live Activity Wings Preferences ──
     property bool liveWingsEnabled: true
+    property string liveActivityStyle: "inline" // "inline" | "duo"
     property bool liveMediaEnabled: true
     property bool liveMediaShowTitle: false
     property bool liveClipboardPulse: true
@@ -33,6 +34,7 @@ Singleton {
     property bool liveSystemModes: true
     property bool liveAudioMuted: true
     property bool liveCapsLock: true
+    property bool liveDndEnabled: true
 
     Process {
         id: initDirProc
@@ -63,6 +65,7 @@ Singleton {
                 if (data.fontSize !== undefined && typeof data.fontSize === "number") root.fontSize = Math.max(9, Math.min(20, data.fontSize));
                 if (data.fontFamily !== undefined && typeof data.fontFamily === "string" && data.fontFamily.length > 0) root.fontFamily = data.fontFamily;
                 if (data.liveWingsEnabled !== undefined) root.liveWingsEnabled = !!data.liveWingsEnabled;
+                if (data.liveActivityStyle === "duo" || data.liveActivityStyle === "inline") root.liveActivityStyle = data.liveActivityStyle;
                 if (data.liveMediaEnabled !== undefined) root.liveMediaEnabled = !!data.liveMediaEnabled;
                 if (data.liveMediaShowTitle !== undefined) root.liveMediaShowTitle = !!data.liveMediaShowTitle;
                 if (data.liveClipboardPulse !== undefined) root.liveClipboardPulse = !!data.liveClipboardPulse;
@@ -71,6 +74,7 @@ Singleton {
                 if (data.liveSystemModes !== undefined) root.liveSystemModes = !!data.liveSystemModes;
                 if (data.liveAudioMuted !== undefined) root.liveAudioMuted = !!data.liveAudioMuted;
                 if (data.liveCapsLock !== undefined) root.liveCapsLock = !!data.liveCapsLock;
+                if (data.liveDndEnabled !== undefined) root.liveDndEnabled = !!data.liveDndEnabled;
             } catch (e) {
                 console.log("[IslandPrefs] Config load exception:", e);
             }
@@ -90,6 +94,7 @@ Singleton {
             fontSize: root.fontSize,
             fontFamily: root.fontFamily,
             liveWingsEnabled: root.liveWingsEnabled,
+            liveActivityStyle: root.liveActivityStyle,
             liveMediaEnabled: root.liveMediaEnabled,
             liveMediaShowTitle: root.liveMediaShowTitle,
             liveClipboardPulse: root.liveClipboardPulse,
@@ -97,10 +102,17 @@ Singleton {
             liveThermalAlert: root.liveThermalAlert,
             liveSystemModes: root.liveSystemModes,
             liveAudioMuted: root.liveAudioMuted,
-            liveCapsLock: root.liveCapsLock
+            liveCapsLock: root.liveCapsLock,
+            liveDndEnabled: root.liveDndEnabled
         };
         const json = JSON.stringify(data, null, 2);
         Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "sh", root.configDir, json, root.configPath]);
+    }
+
+    function setLiveActivityStyle(style) {
+        if (style !== "inline" && style !== "duo") return;
+        root.liveActivityStyle = style;
+        save();
     }
 
     function setScale(s) {

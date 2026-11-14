@@ -32,7 +32,11 @@ PanelWindow {
     WlrLayershell.keyboardFocus: (mode === "dashboard" || mode === "panel")
                                  ? (win.trayMenuOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
                                  : WlrKeyboardFocus.None
-    mask: Region { item: win.notchHidden ? null : ((win.mode === "dashboard" || win.mode === "panel") ? outsideCatcher : notch) }
+    mask: Region {
+        item: win.notchHidden ? null : ((win.mode === "dashboard" || win.mode === "panel") ? outsideCatcher : notch)
+        regions: (win.mode === "compact" && !win.notchHidden && duoBubble.shown) ? [ duoBubbleMask ] : []
+    }
+    Region { id: duoBubbleMask; item: duoBubble.shown ? duoBubble : null }
 
     // Initialize HyprlandFocusGrab beforehand so initial grab is never lost
     Timer {
@@ -247,10 +251,12 @@ PanelWindow {
         if (isGameActive && kind !== "notif" && !IslandPrefs.showOsdInGames) return;
         if (kind === "volume" && !IslandPrefs.showVolumeOsd) return;
         if (kind === "layout" && !IslandPrefs.showLayoutOsd) return;
+        if (kind === "clipboard" && !IslandPrefs.liveClipboardPulse) return;
         lastOsd = kind;
         osd = kind;
         osdTimer.interval = kind === "notif" ? Theme.notifMs
                           : kind === "layout" ? Theme.layoutOsdMs
+                          : (kind === "clipboard" || kind === "dnd") ? 1100
                           : Theme.osdMs;
         osdTimer.restart();
     }
@@ -287,8 +293,13 @@ PanelWindow {
         function onSwitched() { win.showOsd("layout"); }
     }
     Connections {
+        target: Clipboard
+        function onCopied() { win.showOsd("clipboard"); }
+    }
+    Connections {
         target: Notifs
         function onPopup(n) { win.notif = n; win.showOsd("notif"); }
+        function onDndChanged() { if (win.armed) win.showOsd("dnd"); }
     }
     Connections {
         target: Auth
@@ -340,9 +351,13 @@ PanelWindow {
     }
 
     // ───────── Dimensions ─────────
-    // Balanced compact Notch width with harmonious padding
-    readonly property real compactW: leftWingItem.compactW + wsItem.compactW + clkItem.compactW + liveItem.compactW + weatherItem.compactW + compactStatItem.compactW + layoutItem.compactW + rightWingItem.compactW + Theme.px(16) * 2
-    readonly property real layoutOsdW: Math.max(compactW, layoutOsdRow.implicitWidth + Theme.px(32))
+    // Symmetrical compact Notch width with RollingClock locked to center
+    readonly property real leftZoneCompactW: (leftWingItem.active ? leftWingItem.compactW + Theme.px(6) : 0) + wsItem.compactW
+    readonly property real rightCoreCompactW: liveItem.compactW + weatherItem.compactW + compactStatItem.compactW + layoutItem.compactW
+    readonly property real rightZoneCompactW: (rightCoreCompactW > 0 ? Theme.px(7) + rightCoreCompactW : 0) + (rightWingItem.active ? rightWingItem.compactW + Theme.px(6) : 0)
+    readonly property real symSideCompactW: Math.max(leftZoneCompactW, rightZoneCompactW)
+    readonly property real compactW: 2 * symSideCompactW + clockPill.compactW + Theme.px(16) * 2
+    readonly property real instantOsdW: Math.max(compactW, layoutOsdRow.implicitWidth + Theme.px(36), Theme.px(290))
     readonly property real topRowTargetW: wsItem.dashW + divItem.dashW + clkItem.dashW + liveItem.dashW + weatherItem.dashW + mediaItem.dashW + layoutItem.dashW + trayItem.dashW
     readonly property real dashW: Math.max(Theme.px(520),
                                   Math.max(topRowTargetW, dockBar.implicitWidth) + Theme.px(36))
@@ -385,13 +400,13 @@ PanelWindow {
         property real bw: win.mode === "panel" ? win.activePanelW
                         : win.mode === "dashboard" ? win.dashW
                         : win.mode === "osd" ? (win.lastOsd === "notif" ? Theme.notifW
-                                              : win.lastOsd === "layout" ? win.layoutOsdW
+                                              : (win.lastOsd === "layout" || win.lastOsd === "clipboard" || win.lastOsd === "dnd") ? win.instantOsdW
                                               : Theme.osdW)
                         : win.compactW + (compactHovered ? Theme.hoverGrowW : 0)
         property real bh: win.mode === "panel" ? win.activePanelH
                         : win.mode === "dashboard" ? Theme.stripH
                         : win.mode === "osd" ? (win.lastOsd === "notif" ? Theme.notifH
-                                              : win.lastOsd === "layout" ? Theme.compactH
+                                              : (win.lastOsd === "layout" || win.lastOsd === "clipboard" || win.lastOsd === "dnd") ? Theme.compactH
                                               : Theme.osdH)
                         : Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)
         property real rad: (win.mode === "dashboard" || win.mode === "panel") ? Theme.expandedRadius
@@ -548,7 +563,8 @@ PanelWindow {
                         }
                         return;
                     }
-                    if (win.mode === "osd" && win.lastOsd === "notif") win.openPanel("notifications");
+                    if (win.mode === "osd" && (win.lastOsd === "notif" || win.lastOsd === "dnd")) win.openPanel("notifications");
+                    else if (win.mode === "osd" && win.lastOsd === "clipboard") win.openPanel("clipboard");
                     else if (win.mode === "dashboard") win.collapse();
                     else if (win.mode === "compact") win.toggle();
                 }
@@ -607,60 +623,71 @@ PanelWindow {
 
                     Behavior on scale { Spring { epsilon: 0.01 } }
 
-                    // 0. Left Live Activity wing (media stream, IPC task, clipboard pulse)
-                    LiveWing {
-                        id: leftWingItem
-                        anchors.verticalCenter: parent.verticalCenter
-                        side: "left"
-                        host: win
-                        homeProgress: homeView.p
-                        compactAlpha: homeView.compactAlpha
-                        notchHovered: notch.compactHovered
-                    }
-
-                    // 1. Workspaces
+                    // ── Symmetrical Left Zone (Left Live Wing + Workspaces) ──
                     Item {
-                        id: wsItem
+                        id: leftZone
                         anchors.verticalCenter: parent.verticalCenter
-                        readonly property real compactW: wsCompact.implicitWidth + Theme.px(6)
-                        readonly property real dashW: wsCompact.implicitWidth + Theme.px(12)
-                        width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
+                        readonly property real dashW: wsItem.dashW + divItem.dashW
+                        width: Math.max(0, win.symSideCompactW + (dashW - win.symSideCompactW) * homeView.p)
                         height: Theme.px(38)
 
-                        Workspaces {
-                            id: wsCompact
+                        // 0. Left Live Activity wing
+                        LiveWing {
+                            id: leftWingItem
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
-                            monitor: win.monitor
+                            side: "left"
+                            host: win
+                            homeProgress: homeView.p
+                            compactAlpha: homeView.compactAlpha
+                            notchHovered: notch.compactHovered
+                        }
+
+                        // 1. Workspaces
+                        Item {
+                            id: wsItem
+                            anchors.verticalCenter: parent.verticalCenter
+                            x: leftWingItem.active ? (leftWingItem.width + Theme.px(6) * (1 - homeView.p)) : 0
+                            readonly property real compactW: wsCompact.implicitWidth + Theme.px(6)
+                            readonly property real dashW: wsCompact.implicitWidth + Theme.px(12)
+                            width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
+                            height: Theme.px(38)
+
+                            Workspaces {
+                                id: wsCompact
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                monitor: win.monitor
+                            }
+                        }
+
+                        // 2. Divider (between Workspaces and Clock in dashboard)
+                        Item {
+                            id: divItem
+                            anchors.verticalCenter: parent.verticalCenter
+                            x: wsItem.x + wsItem.width
+                            readonly property real compactW: 0
+                            readonly property real dashW: Theme.px(1) + Theme.px(12)
+                            width: Math.max(0, dashW * homeView.p)
+                            height: Theme.px(38)
+                            opacity: homeView.dashAlpha
+                            clip: true
+
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 1
+                                height: Theme.px(18)
+                                color: Theme.divider
+                            }
                         }
                     }
 
-                    // 2. Divider (between Workspaces and Clock in dashboard)
-                    Item {
-                        id: divItem
-                        anchors.verticalCenter: parent.verticalCenter
-                        readonly property real compactW: 0
-                        readonly property real dashW: Theme.px(1) + Theme.px(12)
-                        width: Math.max(0, dashW * homeView.p)
-                        height: Theme.px(38)
-                        opacity: homeView.dashAlpha
-                        clip: true
-
-                        Rectangle {
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 1
-                            height: Theme.px(18)
-                            color: Theme.divider
-                        }
-                    }
-
-                    // 3. Clock & Calendar pill
+                    // 3. Clock & Calendar pill (strictly centered in compact mode)
                     Item {
                         id: clkItem
                         anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool hasRightItems: liveItem.activeCompact || weatherItem.showInCompact || compactStatItem.showInCompact || layoutItem.shouldShow || rightWingItem.active
-                        readonly property real compactW: clockPill.compactW + (hasRightItems ? Theme.px(7) : 0)
+                        readonly property real compactW: clockPill.compactW
                         readonly property real dashW: clockPill.dashW + Theme.px(12)
                         width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
                         height: Theme.px(38)
@@ -718,125 +745,34 @@ PanelWindow {
                         }
                     }
 
-                    // 4. Live activities (recording halo/timer, stopwatch/timer, unread notification dot)
+                    // ── Symmetrical Right Zone (Core Status Items + Right Live Wing) ──
+                    Item {
+                        id: rightZone
+                        anchors.verticalCenter: parent.verticalCenter
+                        readonly property real dashW: liveItem.dashW + weatherItem.dashW + mediaItem.dashW + layoutItem.dashW + trayItem.dashW
+                        width: Math.max(0, win.symSideCompactW + (dashW - win.symSideCompactW) * homeView.p)
+                        height: Theme.px(38)
+
+                        Row {
+                            id: rightCoreRow
+                            x: (win.rightCoreCompactW > 0
+                                ? Math.max(Theme.px(7), parent.width - (rightWingItem.active ? rightWingItem.width + Theme.px(6) : 0) - width)
+                                : 0) * (1 - homeView.p)
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 0
+
+                    // 4. Compact status slot kept empty (DND migrated to LiveActivity; unread badge lives in dashboard dockBar)
                     Item {
                         id: liveItem
                         anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool activeCompact: Recorder.recording || Timers.running || Notifs.dnd || (!Notifs.dnd && Notifs.unread > 0)
-                        readonly property bool activeDash: Recorder.recording || Timers.running
-                        readonly property bool active: homeView.p > 0.5 ? activeDash : activeCompact
-                        readonly property bool hasNextCompact: weatherItem.showInCompact || compactStatItem.showInCompact || layoutItem.shouldShow
-                        readonly property real compactW: activeCompact ? (liveRow.implicitWidth + (hasNextCompact ? Theme.px(7) : 0)) : 0
-                        readonly property real dashW: activeDash ? (liveRow.implicitWidth + Theme.px(12)) : 0
-                        width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
+                        readonly property bool activeCompact: false
+                        readonly property bool activeDash: false
+                        readonly property bool active: false
+                        readonly property real compactW: 0
+                        readonly property real dashW: 0
+                        width: 0
                         height: Theme.px(38)
-                        opacity: active ? (homeView.p > 0.5 ? homeView.dashAlpha : 1.0) : 0
-                        clip: true
-
-                        Row {
-                            id: liveRow
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: Theme.px(7)
-
-                            // screen recording (pulsing halo + breathing scale + flip timer digits)
-                            Row {
-                                visible: Recorder.recording
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: Theme.px(5)
-
-                                Item {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: Theme.px(10); height: width
-
-                                    Rectangle {
-                                        id: recHalo
-                                        anchors.centerIn: parent
-                                        width: Theme.px(7); height: width; radius: width / 2
-                                        color: Theme.red
-                                        opacity: 0
-                                        scale: 1
-                                        ParallelAnimation {
-                                            running: Recorder.recording
-                                            loops: Animation.Infinite
-                                            NumberAnimation { target: recHalo; property: "scale"; from: 0.9; to: 2.3; duration: 1400; easing.type: Easing.OutCubic }
-                                            NumberAnimation { target: recHalo; property: "opacity"; from: 0.55; to: 0.0; duration: 1400; easing.type: Easing.OutCubic }
-                                        }
-                                    }
-
-                                    Rectangle {
-                                        anchors.centerIn: parent
-                                        width: Theme.px(7); height: width; radius: width / 2
-                                        color: Theme.red
-                                        SequentialAnimation on scale {
-                                            running: Recorder.recording
-                                            loops: Animation.Infinite
-                                            NumberAnimation { to: 1.16; duration: 700; easing.type: Easing.InOutSine }
-                                            NumberAnimation { to: 0.88; duration: 700; easing.type: Easing.InOutSine }
-                                        }
-                                    }
-                                }
-
-                                RollingClock {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    timeString: Recorder.elapsedText
-                                    fontSize: Theme.px(12)
-                                    fontWeight: Font.DemiBold
-                                    textColor: Theme.red
-                                }
-                                TapHandler { onTapped: win.openPanel("recorder") }
-                            }
-
-                            // timer / stopwatch
-                            Row {
-                                visible: Timers.running
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: Theme.px(3)
-                                Icon {
-                                    id: timerCompactIcon
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: Timers.mode === "stopwatch" ? "timer_play" : "timer"
-                                    size: Theme.px(13)
-                                    color: Theme.orange
-                                    SpringAnimation {
-                                        id: timerTickPulse
-                                        target: timerCompactIcon
-                                        property: "scale"
-                                        from: 1.18
-                                        to: 1.0
-                                        spring: Theme.springK
-                                        damping: Theme.springDamp
-                                        epsilon: 0.01
-                                    }
-                                }
-                                RollingClock {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    timeString: Timers.display
-                                    fontSize: Theme.px(12)
-                                    fontWeight: Font.DemiBold
-                                    textColor: Theme.orange
-                                    onTimeStringChanged: {
-                                        if (Timers.running) timerTickPulse.restart();
-                                    }
-                                }
-                                TapHandler { onTapped: win.openPanel("timer") }
-                            }
-
-                            // unread notifications / do not disturb (compact notch only)
-                            Icon {
-                                visible: Notifs.dnd && homeView.p < 0.5
-                                anchors.verticalCenter: parent.verticalCenter
-                                name: "do_not_disturb_on"
-                                size: Theme.px(13)
-                                color: Theme.purple
-                            }
-                            Rectangle {
-                                visible: !Notifs.dnd && Notifs.unread > 0 && homeView.p < 0.5
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: Theme.px(6); height: width; radius: width / 2
-                                color: Theme.accent
-                            }
-                        }
+                        visible: false
                     }
 
                     // 5. Weather pill (glides between compact and dashboard)
@@ -1093,17 +1029,6 @@ PanelWindow {
                         }
                     }
 
-                    // 8.5 Right Live Activity wing (mic privacy, thermal/load alert, active modes, muted, caps)
-                    LiveWing {
-                        id: rightWingItem
-                        anchors.verticalCenter: parent.verticalCenter
-                        side: "right"
-                        host: win
-                        homeProgress: homeView.p
-                        compactAlpha: homeView.compactAlpha
-                        notchHovered: notch.compactHovered
-                    }
-
                     // 9. System Tray (with separator)
                     Item {
                         id: trayItem
@@ -1220,6 +1145,20 @@ PanelWindow {
                             }
                         }
                     }
+                        }
+
+                        // 10. Right Live Activity wing (pinned to right edge of notch)
+                        LiveWing {
+                            id: rightWingItem
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            side: "right"
+                            host: win
+                            homeProgress: homeView.p
+                            compactAlpha: homeView.compactAlpha
+                            notchHovered: notch.compactHovered
+                        }
+                    }
                 }
 
                 // ── ROW 2: Clean dock icons capsule ──
@@ -1285,10 +1224,10 @@ PanelWindow {
                 hiddenY: -Theme.px(8)
                 transformOrigin: Item.Top
                 width: win.lastOsd === "notif" ? Theme.notifW
-                     : win.lastOsd === "layout" ? win.layoutOsdW
+                     : (win.lastOsd === "layout" || win.lastOsd === "clipboard" || win.lastOsd === "dnd") ? win.instantOsdW
                      : Theme.osdW
                 height: win.lastOsd === "notif" ? Theme.notifH
-                      : win.lastOsd === "layout" ? Theme.compactH
+                      : (win.lastOsd === "layout" || win.lastOsd === "clipboard" || win.lastOsd === "dnd") ? Theme.compactH
                       : Theme.osdH
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
@@ -1364,6 +1303,60 @@ PanelWindow {
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(12)
                             font.weight: Font.Medium
+                        }
+                    }
+                }
+
+                // clipboard — compact popup sized to the notch
+                Item {
+                    anchors.fill: parent
+                    visible: win.lastOsd === "clipboard"
+
+                    Row {
+                        id: clipboardOsdRow
+                        anchors.centerIn: parent
+                        spacing: Theme.px(8)
+
+                        Icon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: "content_paste"
+                            size: Theme.px(15)
+                            color: Theme.mint
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Copied"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(13)
+                            font.weight: Font.DemiBold
+                        }
+                    }
+                }
+
+                // dnd — compact popup sized to the notch
+                Item {
+                    anchors.fill: parent
+                    visible: win.lastOsd === "dnd"
+
+                    Row {
+                        id: dndOsdRow
+                        anchors.centerIn: parent
+                        spacing: Theme.px(8)
+
+                        Icon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: Notifs.dnd ? "notifications_off" : "notifications_active"
+                            size: Theme.px(15)
+                            color: Notifs.dnd ? Theme.purple : Theme.mint
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Notifs.dnd ? "Do Not Disturb" : "Notifications On"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(13)
+                            font.weight: Font.DemiBold
                         }
                     }
                 }
@@ -1526,6 +1519,16 @@ PanelWindow {
                 }
             }
         }
+    }
+
+    // Floating iPhone Duo secondary Live Activity ring/pill (active when liveActivityStyle === "duo")
+    DuoBubble {
+        id: duoBubble
+        host: win
+        compactMode: win.mode === "compact"
+        notchHidden: win.notchHidden
+        x: notch.x + notch.width + Theme.px(8)
+        y: (Theme.compactH - height) / 2
     }
 
     component StripDivider: Rectangle {

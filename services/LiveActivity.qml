@@ -2,9 +2,10 @@ pragma Singleton
 import Quickshell
 import QtQuick
 
-// Central priority aggregator for Left and Right Live Activity wings on the compact notch.
-// Left wing  — media stream, background IPC tasks, recent clipboard pulse.
-// Right wing — mic privacy/mute, thermal/load alerts, active system modes, muted output, Caps Lock.
+// Central priority aggregator for Live Activity.
+// Supports unified activeItems queue:
+//   - 1 active widget -> split symmetrically across left & right sides of the notch
+//   - 2+ active widgets -> primary on left, secondary on right (inline) or detached ring (duo)
 Singleton {
     id: root
 
@@ -105,32 +106,28 @@ Singleton {
         ipcTask = null;
     }
 
-    // ── Priority queues ──
-    readonly property var leftItems: {
+    // ── Unified priority queue of persistent Live Activities ──
+    readonly property var activeItems: {
         if (!IslandPrefs.liveWingsEnabled) return [];
         const list = [];
 
+        if (Recorder.recording) {
+            list.push("recorder");
+        }
+        if (Timers.running) {
+            list.push("timer");
+        }
         if (IslandPrefs.liveMediaEnabled && Media.player !== null && (Media.playing || root._mediaGrace)) {
             list.push("media");
         }
-        if (root.ipcTask !== null) {
-            list.push("ipc");
-        }
-        if (IslandPrefs.liveClipboardPulse && Clipboard.recentCopy) {
-            list.push("clipboard");
-        }
-        return list;
-    }
-
-    readonly property var rightItems: {
-        if (!IslandPrefs.liveWingsEnabled) return [];
-        const list = [];
-
         if (IslandPrefs.liveMicPrivacy && (Audio.micInUse || Audio.micMuted)) {
             list.push("mic");
         }
         if (IslandPrefs.liveThermalAlert && (SysInfo.cpuTemp >= 80 || SysInfo.highLoadAlert || SysInfo.mem >= 0.90)) {
             list.push("thermal");
+        }
+        if (root.ipcTask !== null) {
+            list.push("ipc");
         }
         if (IslandPrefs.liveSystemModes && (SysToggles.keepAwake || SysToggles.nightLight || SysToggles.gameMode)) {
             list.push("modes");
@@ -138,9 +135,28 @@ Singleton {
         if (IslandPrefs.liveAudioMuted && Audio.muted) {
             list.push("muted");
         }
+        if (IslandPrefs.liveDndEnabled && Notifs.dnd) {
+            list.push("dnd");
+        }
         if (IslandPrefs.liveCapsLock && Keyboard.capsLock) {
             list.push("caps");
         }
         return list;
+    }
+
+    readonly property string primaryKind: activeItems.length > 0 ? activeItems[0] : ""
+    readonly property var secondaryItems: activeItems.length > 1 ? activeItems.slice(1) : []
+    readonly property bool isSplitMode: activeItems.length === 1
+
+    // Left-click always opens the corresponding menu/panel
+    function openMenu(kind, host) {
+        if (!host || !kind) return;
+        if (kind === "recorder") host.openPanel("recorder");
+        else if (kind === "timer") host.openPanel("timer");
+        else if (kind === "media") host.openPanel("media");
+        else if (kind === "mic" || kind === "muted") host.openPanel("mixer");
+        else if (kind === "thermal" || kind === "ipc") host.openPanel("sysmon");
+        else if (kind === "dnd") host.openPanel("notifications");
+        else if (kind === "modes" || kind === "caps") host.openPanel("settings");
     }
 }
