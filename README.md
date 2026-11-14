@@ -43,9 +43,9 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
 | :---: | :---: |
 | <img src="assets/screenshots/20-live-activity-recorder.png" width="400" alt="Screen Recorder Live Activity" /><br><sub>**Screen Recorder**: Pulsing indicator on the left and recording duration on the right</sub> | <img src="assets/screenshots/24-live-activity-duo-rec-media.png" width="400" alt="Dual Live Activity Recorder and Media" /><br><sub>**Dual Widgets**: Screen recording (`0:01`) + media artwork & equalizer side-by-side</sub> |
 
-| Dual LA: Timer + Media | Clipboard Instant OSD |
+| Dual LA: Media + Timer | Clipboard Instant OSD |
 | :---: | :---: |
-| <img src="assets/screenshots/25-live-activity-duo-timer-media.png" width="400" alt="Dual Live Activity Timer and Media" /><br><sub>**Dual Widgets**: Compact timer icon on the left + media artwork & equalizer on the right</sub> | <img src="assets/screenshots/21-instant-osd-clipboard.png" width="400" alt="Clipboard Instant OSD" /><br><sub>**Clipboard OSD**: Full-notch instant confirmation upon copying</sub> |
+| <img src="assets/screenshots/25-live-activity-duo-timer-media.png" width="400" alt="Dual Live Activity Media and Timer" /><br><sub>**Dual Widgets**: Media album art on the left + compact timer icon on the right</sub> | <img src="assets/screenshots/21-instant-osd-clipboard.png" width="400" alt="Clipboard Instant OSD" /><br><sub>**Clipboard OSD**: Full-notch instant confirmation upon copying</sub> |
 
 | Do Not Disturb On OSD | Notifications On OSD |
 | :---: | :---: |
