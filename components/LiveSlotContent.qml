@@ -68,7 +68,7 @@ Row {
         }
 
         AudioWave {
-            visible: root.part === "right" || root.part === "compact"
+            visible: root.part === "right"
             anchors.verticalCenter: parent.verticalCenter
             active: Media.playing
             color: Media.playing ? Theme.text : Theme.text3

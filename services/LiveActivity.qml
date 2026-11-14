@@ -114,11 +114,11 @@ Singleton {
         if (Recorder.recording) {
             list.push("recorder");
         }
-        if (Timers.running) {
-            list.push("timer");
-        }
         if (IslandPrefs.liveMediaEnabled && Media.player !== null && (Media.playing || root._mediaGrace)) {
             list.push("media");
+        }
+        if (Timers.running) {
+            list.push("timer");
         }
         if (IslandPrefs.liveMicPrivacy && (Audio.micInUse || Audio.micMuted)) {
             list.push("mic");
