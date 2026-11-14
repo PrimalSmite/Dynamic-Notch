@@ -341,7 +341,7 @@ PanelWindow {
 
     // ───────── Dimensions ─────────
     // Balanced compact Notch width with harmonious padding
-    readonly property real compactW: wsItem.compactW + clkItem.compactW + liveItem.compactW + weatherItem.compactW + compactStatItem.compactW + layoutItem.compactW + Theme.px(16) * 2
+    readonly property real compactW: leftWingItem.compactW + wsItem.compactW + clkItem.compactW + liveItem.compactW + weatherItem.compactW + compactStatItem.compactW + layoutItem.compactW + rightWingItem.compactW + Theme.px(16) * 2
     readonly property real layoutOsdW: Math.max(compactW, layoutOsdRow.implicitWidth + Theme.px(32))
     readonly property real topRowTargetW: wsItem.dashW + divItem.dashW + clkItem.dashW + liveItem.dashW + weatherItem.dashW + mediaItem.dashW + layoutItem.dashW + trayItem.dashW
     readonly property real dashW: Math.max(Theme.px(520),
@@ -607,6 +607,17 @@ PanelWindow {
 
                     Behavior on scale { Spring { epsilon: 0.01 } }
 
+                    // 0. Left Live Activity wing (media stream, IPC task, clipboard pulse)
+                    LiveWing {
+                        id: leftWingItem
+                        anchors.verticalCenter: parent.verticalCenter
+                        side: "left"
+                        host: win
+                        homeProgress: homeView.p
+                        compactAlpha: homeView.compactAlpha
+                        notchHovered: notch.compactHovered
+                    }
+
                     // 1. Workspaces
                     Item {
                         id: wsItem
@@ -648,7 +659,7 @@ PanelWindow {
                     Item {
                         id: clkItem
                         anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool hasRightItems: liveItem.activeCompact || weatherItem.showInCompact || compactStatItem.showInCompact || layoutItem.shouldShow
+                        readonly property bool hasRightItems: liveItem.activeCompact || weatherItem.showInCompact || compactStatItem.showInCompact || layoutItem.shouldShow || rightWingItem.active
                         readonly property real compactW: clockPill.compactW + (hasRightItems ? Theme.px(7) : 0)
                         readonly property real dashW: clockPill.dashW + Theme.px(12)
                         width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
@@ -1080,6 +1091,17 @@ PanelWindow {
                                 onClicked: Keyboard.next()
                             }
                         }
+                    }
+
+                    // 8.5 Right Live Activity wing (mic privacy, thermal/load alert, active modes, muted, caps)
+                    LiveWing {
+                        id: rightWingItem
+                        anchors.verticalCenter: parent.verticalCenter
+                        side: "right"
+                        host: win
+                        homeProgress: homeView.p
+                        compactAlpha: homeView.compactAlpha
+                        notchHovered: notch.compactHovered
                     }
 
                     // 9. System Tray (with separator)

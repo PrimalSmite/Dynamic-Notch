@@ -23,6 +23,17 @@ Singleton {
     property int fontSize: 13
     property string fontFamily: "SF Pro Rounded"
 
+    // ── Live Activity Wings Preferences ──
+    property bool liveWingsEnabled: true
+    property bool liveMediaEnabled: true
+    property bool liveMediaShowTitle: false
+    property bool liveClipboardPulse: true
+    property bool liveMicPrivacy: true
+    property bool liveThermalAlert: true
+    property bool liveSystemModes: true
+    property bool liveAudioMuted: true
+    property bool liveCapsLock: true
+
     Process {
         id: initDirProc
         running: true
@@ -51,6 +62,15 @@ Singleton {
                 if (data.uiScale !== undefined && typeof data.uiScale === "number") root.uiScale = Math.max(0.75, Math.min(2.0, data.uiScale));
                 if (data.fontSize !== undefined && typeof data.fontSize === "number") root.fontSize = Math.max(9, Math.min(20, data.fontSize));
                 if (data.fontFamily !== undefined && typeof data.fontFamily === "string" && data.fontFamily.length > 0) root.fontFamily = data.fontFamily;
+                if (data.liveWingsEnabled !== undefined) root.liveWingsEnabled = !!data.liveWingsEnabled;
+                if (data.liveMediaEnabled !== undefined) root.liveMediaEnabled = !!data.liveMediaEnabled;
+                if (data.liveMediaShowTitle !== undefined) root.liveMediaShowTitle = !!data.liveMediaShowTitle;
+                if (data.liveClipboardPulse !== undefined) root.liveClipboardPulse = !!data.liveClipboardPulse;
+                if (data.liveMicPrivacy !== undefined) root.liveMicPrivacy = !!data.liveMicPrivacy;
+                if (data.liveThermalAlert !== undefined) root.liveThermalAlert = !!data.liveThermalAlert;
+                if (data.liveSystemModes !== undefined) root.liveSystemModes = !!data.liveSystemModes;
+                if (data.liveAudioMuted !== undefined) root.liveAudioMuted = !!data.liveAudioMuted;
+                if (data.liveCapsLock !== undefined) root.liveCapsLock = !!data.liveCapsLock;
             } catch (e) {
                 console.log("[IslandPrefs] Config load exception:", e);
             }
@@ -68,7 +88,16 @@ Singleton {
             showOsdInGames: root.showOsdInGames,
             uiScale: root.uiScale,
             fontSize: root.fontSize,
-            fontFamily: root.fontFamily
+            fontFamily: root.fontFamily,
+            liveWingsEnabled: root.liveWingsEnabled,
+            liveMediaEnabled: root.liveMediaEnabled,
+            liveMediaShowTitle: root.liveMediaShowTitle,
+            liveClipboardPulse: root.liveClipboardPulse,
+            liveMicPrivacy: root.liveMicPrivacy,
+            liveThermalAlert: root.liveThermalAlert,
+            liveSystemModes: root.liveSystemModes,
+            liveAudioMuted: root.liveAudioMuted,
+            liveCapsLock: root.liveCapsLock
         };
         const json = JSON.stringify(data, null, 2);
         Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "sh", root.configDir, json, root.configPath]);
@@ -121,6 +150,12 @@ Singleton {
 
     function toggleShowOsdInGames() {
         root.showOsdInGames = !root.showOsdInGames;
+        save();
+    }
+
+    function togglePref(key) {
+        if (root[key] === undefined) return;
+        root[key] = !root[key];
         save();
     }
 }

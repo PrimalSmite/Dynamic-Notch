@@ -13,3 +13,6 @@ out.png
 .vscode/
 .idea/
 *.kate-swp
+
+# Custom project, rebuilding the whole repo into c++
+native/

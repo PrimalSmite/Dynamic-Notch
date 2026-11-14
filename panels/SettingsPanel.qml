@@ -36,11 +36,11 @@ Item {
         return allFonts.filter(f => f.toLowerCase().indexOf(q) !== -1);
     }
 
-    // ── Toggle states ──
-    property bool nightLight: false
-    property int nightTemp: 4200
-    property bool keepAwake: false
-    property bool gameMode: false
+    // ── Toggle states (backed by global SysToggles & Audio singletons) ──
+    readonly property bool nightLight: SysToggles.nightLight
+    readonly property int nightTemp: SysToggles.nightTemp
+    readonly property bool keepAwake: SysToggles.keepAwake
+    readonly property bool gameMode: SysToggles.gameMode
     property real brightness: 0.8
 
     // Wired network (LAN)
@@ -57,8 +57,8 @@ Item {
     readonly property string hostName: Quickshell.env("HOSTNAME") || "archlinux"
     property string uptimeStr: "Uptime: ..."
 
-    readonly property PwNode defaultSource: Pipewire.defaultAudioSource
-    readonly property bool micMuted: defaultSource && defaultSource.audio ? defaultSource.audio.muted : false
+    readonly property PwNode defaultSource: Audio.source
+    readonly property bool micMuted: Audio.micMuted
 
     PwObjectTracker { objects: (root.defaultSource ? [root.defaultSource] : []).concat(root.sinks) }
 
@@ -220,40 +220,10 @@ Item {
         Quickshell.execDetached(["sh", "-c", "TERM_CMD=$(grep -oP 'terminal\\s*=\\s*\"\\K[^\"]+' ~/.config/hypr/variables.lua 2>/dev/null || true); [ -z \"$TERM_CMD\" ] && TERM_CMD=\"$TERMINAL\"; [ -z \"$TERM_CMD\" ] && command -v foot >/dev/null 2>&1 && TERM_CMD=\"foot\"; [ -z \"$TERM_CMD\" ] && command -v kitty >/dev/null 2>&1 && TERM_CMD=\"kitty\"; [ -z \"$TERM_CMD\" ] && command -v alacritty >/dev/null 2>&1 && TERM_CMD=\"alacritty\"; [ -z \"$TERM_CMD\" ] && TERM_CMD=\"xdg-terminal-exec\"; exec $TERM_CMD -e btop"]);
     }
 
-    function toggleNightLight() {
-        nightLight = !nightLight;
-        if (nightLight) {
-            Quickshell.execDetached(["sh", "-c", "pkill -x hyprsunset 2>/dev/null; hyprsunset -t " + nightTemp + " >/dev/null 2>&1 &"]);
-        } else {
-            Quickshell.execDetached(["pkill", "-x", "hyprsunset"]);
-        }
-    }
-
-    function toggleKeepAwake() {
-        keepAwake = !keepAwake;
-        if (keepAwake) {
-            Quickshell.execDetached(["sh", "-c", "systemd-inhibit --what=idle --who='DynamicNotch' --why='KeepAwake' sleep infinity >/dev/null 2>&1 & echo $! > /tmp/di-keepawake.pid"]);
-        } else {
-            Quickshell.execDetached(["sh", "-c", "[ -f /tmp/di-keepawake.pid ] && { PID=$(cat /tmp/di-keepawake.pid); pkill -P \"$PID\" 2>/dev/null; kill \"$PID\" 2>/dev/null; rm -f /tmp/di-keepawake.pid; }"]);
-        }
-    }
-
-    function toggleGameMode() {
-        gameMode = !gameMode;
-        if (gameMode) {
-            Quickshell.execDetached(["hyprctl", "--batch", "keyword animations:enabled 0 ; keyword decoration:blur:enabled 0 ; keyword general:gaps_in 0 ; keyword general:gaps_out 0"]);
-        } else {
-            Quickshell.execDetached(["hyprctl", "reload"]);
-        }
-    }
-
-    function toggleMic() {
-        if (defaultSource && defaultSource.audio) {
-            defaultSource.audio.muted = !defaultSource.audio.muted;
-        } else {
-            Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]);
-        }
-    }
+    function toggleNightLight() { SysToggles.toggleNightLight(); }
+    function toggleKeepAwake() { SysToggles.toggleKeepAwake(); }
+    function toggleGameMode() { SysToggles.toggleGameMode(); }
+    function toggleMic() { Audio.toggleMic(); }
 
     function takeScreenshotRegion() {
         if (host) host.collapse();
@@ -352,15 +322,24 @@ Item {
         }
 
         // ── Tab 0: Notch & UI ──
-        Column {
+        Flickable {
             id: tabNotch
             visible: root.activeTab === 0
             width: parent.width
-            spacing: Theme.px(8)
+            height: Theme.px(350)
+            contentWidth: width
+            contentHeight: tabNotchCol.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
 
-            // Card 1: Notch Indicators & Behavior
-            Rectangle {
+            Column {
+                id: tabNotchCol
                 width: parent.width
+                spacing: Theme.px(8)
+
+                // Card 1: Notch Indicators & Behavior
+                Rectangle {
+                    width: parent.width
                 height: Theme.px(164)
                 radius: Theme.px(14)
                 color: Theme.card
@@ -798,6 +777,118 @@ Item {
                         }
                     }
                 }
+            }
+
+            // Card 3: Live Activity Wings
+            Rectangle {
+                width: parent.width
+                height: wingsCol.implicitHeight + Theme.px(20)
+                radius: Theme.px(14)
+                color: Theme.card
+
+                Column {
+                    id: wingsCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: Theme.px(10)
+                    spacing: Theme.px(8)
+
+                    Item {
+                        width: parent.width
+                        height: Theme.px(22)
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Live Activity Wings (Left & Right)"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(11)
+                            font.weight: Font.DemiBold
+                        }
+                        Rectangle {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(34); height: Theme.px(18); radius: height / 2
+                            color: IslandPrefs.liveWingsEnabled ? Theme.controlFill : Qt.rgba(1, 1, 1, 0.15)
+                            Rectangle {
+                                width: Theme.px(14); height: width; radius: width / 2
+                                anchors.verticalCenter: parent.verticalCenter
+                                x: IslandPrefs.liveWingsEnabled ? (parent.width - width - Theme.px(2)) : Theme.px(2)
+                                color: IslandPrefs.liveWingsEnabled ? "#000000" : Theme.text
+                                Behavior on x { Spring { epsilon: 0.1 } }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: IslandPrefs.togglePref("liveWingsEnabled")
+                            }
+                        }
+                    }
+
+                    Grid {
+                        width: parent.width
+                        columns: 2
+                        columnSpacing: Theme.px(6)
+                        rowSpacing: Theme.px(6)
+                        opacity: IslandPrefs.liveWingsEnabled ? 1.0 : 0.45
+                        enabled: IslandPrefs.liveWingsEnabled
+
+                        Repeater {
+                            model: [
+                                { key: "liveMediaEnabled",   name: "Media Art & Wave", icon: "music_note" },
+                                { key: "liveMediaShowTitle", name: "Track Title",      icon: "title" },
+                                { key: "liveClipboardPulse", name: "Clipboard Pulse",  icon: "content_paste" },
+                                { key: "liveMicPrivacy",     name: "Mic Privacy",      icon: "mic" },
+                                { key: "liveThermalAlert",   name: "Thermal / Load",   icon: "local_fire_department" },
+                                { key: "liveSystemModes",    name: "System Modes",     icon: "coffee" },
+                                { key: "liveAudioMuted",     name: "Muted Output",     icon: "volume_off" },
+                                { key: "liveCapsLock",       name: "Caps Lock",        icon: "keyboard_capslock" }
+                            ]
+
+                            Rectangle {
+                                id: wingOpt
+                                required property var modelData
+                                width: (parent.width - Theme.px(6)) / 2
+                                height: Theme.px(26)
+                                radius: Theme.px(7)
+                                readonly property bool active: !!IslandPrefs[modelData.key]
+                                color: active ? Theme.controlFill : (wingOptMa.containsMouse ? Theme.cardHover : Qt.rgba(1, 1, 1, 0.05))
+
+                                Row {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: Theme.px(8)
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: Theme.px(6)
+
+                                    Icon {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: wingOpt.modelData.icon
+                                        size: Theme.px(12)
+                                        color: wingOpt.active ? "#000000" : Theme.text2
+                                    }
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: wingOpt.modelData.name
+                                        color: wingOpt.active ? "#000000" : Theme.text2
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.px(10)
+                                        font.weight: wingOpt.active ? Font.Bold : Font.Normal
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: wingOptMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: IslandPrefs.togglePref(wingOpt.modelData.key)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             }
         }
 

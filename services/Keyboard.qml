@@ -4,11 +4,14 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import QtQuick
 
-// Current keyboard layout in Hyprland.
+// Current keyboard layout and Caps Lock state in Hyprland.
 Singleton {
     id: root
 
     property string layout: ""            // e.g. "Russian", "English (US)"
+    property bool capsLock: false
+    property string _capsPath: ""
+
     readonly property string shortCode: {
         const l = layout.toLowerCase();
         if (l.startsWith("english")) return "EN";
@@ -22,6 +25,34 @@ Singleton {
 
     function next() {
         Quickshell.execDetached(["hyprctl", "switchxkblayout", "all", "next"]);
+    }
+
+    FileView {
+        id: capsFile
+        path: root._capsPath
+        blockLoading: true
+    }
+
+    function pollCaps() {
+        if (_capsPath === "") return;
+        capsFile.reload();
+        root.capsLock = parseInt(capsFile.text().trim(), 10) > 0;
+    }
+
+    Timer {
+        interval: 300
+        running: root._capsPath !== ""
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: root.pollCaps()
+    }
+
+    Process {
+        running: true
+        command: ["sh", "-c", "ls /sys/class/leds/*::capslock/brightness 2>/dev/null | head -n 1"]
+        stdout: StdioCollector {
+            onStreamFinished: root._capsPath = text.trim()
+        }
     }
 
     Process {
