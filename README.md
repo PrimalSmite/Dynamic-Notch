@@ -41,7 +41,7 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
 
 | Screen Recorder (Split LA) | Dual LA: Recorder + Media |
 | :---: | :---: |
-| <img src="assets/screenshots/20-live-activity-recorder.png" width="400" alt="Screen Recorder Live Activity" /><br><sub>**Screen Recorder**: Pulsing indicator on the left and recording duration on the right</sub> | <img src="assets/screenshots/24-live-activity-duo-rec-media.png" width="400" alt="Dual Live Activity Recorder and Media" /><br><sub>**Dual Widgets**: Screen recording (`0:01`) + media artwork & equalizer side-by-side</sub> |
+| <img src="assets/screenshots/20-live-activity-recorder.png" width="400" alt="Screen Recorder Live Activity" /><br><sub>**Screen Recorder**: Pulsing indicator on the left and recording duration on the right</sub> | <img src="assets/screenshots/24-live-activity-duo-rec-media.png" width="400" alt="Dual Live Activity Recorder and Media" /><br><sub>**Dual Widgets**: Screen recording (`0:07`) on the left + media album art on the right</sub> |
 
 | Dual LA: Media + Timer | Clipboard Instant OSD |
 | :---: | :---: |
