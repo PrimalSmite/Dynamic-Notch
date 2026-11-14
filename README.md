@@ -33,6 +33,10 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
 | :---: | :---: |
 | <img src="assets/screenshots/03-osd-keyboard-layout.png" width="340" alt="Keyboard Layout OSD" /><br><sub>**Keyboard Layout OSD**: Instant badge upon layout switch</sub> | <img src="assets/screenshots/04-osd-notification-toast.png" width="440" alt="Notification Toast OSD" /><br><sub>**Notification Toast OSD**: Popup banner in notch on incoming notifications</sub> |
 
+| Compact Notch with Recorder |
+| :---: |
+| <img src="assets/screenshots/26-notch-compact-recording.png" width="400" alt="Compact Notch with Recorder" /><br><sub>**Compact Notch while recording**: Recording indicator, workspace capsules, clock, weather, layout indicator and system load</sub> |
+
 ### Live Activity & Instant OSD
 
 | Media Player (Split LA) | Timer (Split LA) |
