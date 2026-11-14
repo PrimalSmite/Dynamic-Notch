@@ -8,12 +8,12 @@ import qs.services
 // Run: qs -p /path/to/this/folder (or copy to ~/.config/quickshell)
 ShellRoot {
     Variants {
-        model: Quickshell.screens
+        model: (Wallpapers.active && Wallpapers.currentWall !== "") ? Quickshell.screens : []
         PanelWindow {
             id: bgWin
             required property ShellScreen modelData
             screen: modelData
-            visible: Wallpapers.active && Wallpapers.currentWall !== ""
+            visible: true
             color: "#000000"
 
             anchors {

@@ -29,7 +29,9 @@ PanelWindow {
     anchors.top: true
     anchors.left: true
     anchors.right: true
-    implicitHeight: modelData ? modelData.height : Theme.px(1080)
+    implicitHeight: (win.mode === "dashboard" || win.mode === "panel" || notch.bh > Theme.px(120))
+                    ? (modelData ? modelData.height : Theme.px(1080))
+                    : Theme.px(140)
     color: "transparent"
 
     exclusiveZone: win.isGameActive ? 0 : Theme.compactH

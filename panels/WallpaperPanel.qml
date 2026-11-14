@@ -198,7 +198,7 @@ Item {
                                 fillMode: Image.PreserveAspectCrop
                                 asynchronous: true
                                 sourceSize: Qt.size(Theme.px(200), Theme.px(130))
-                                cache: true
+                                cache: false
                             }
 
                             // Dark gradient overlay at bottom for title readability
