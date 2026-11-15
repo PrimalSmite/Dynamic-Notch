@@ -1324,6 +1324,7 @@ PanelWindow {
                     property int fontWeight: Font.DemiBold
                     property real maxWidth: Theme.px(200)
                     property bool slotActive: false
+                    property bool alignRight: false
                     // +1 = bottom-to-top (old exits up, new enters from bottom)
                     // -1 = top-to-bottom (old exits down, new enters from top)
                     property int rollDir: 1
@@ -1361,7 +1362,8 @@ PanelWindow {
 
                     Text {
                         id: oldTxt
-                        anchors.left: parent.left
+                        anchors.left: rl.alignRight ? undefined : parent.left
+                        anchors.right: rl.alignRight ? parent.right : undefined
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.verticalCenterOffset: rl._oldY
                         width: Math.min(implicitWidth, rl.maxWidth)
@@ -1377,7 +1379,8 @@ PanelWindow {
 
                     Text {
                         id: newTxt
-                        anchors.left: parent.left
+                        anchors.left: rl.alignRight ? undefined : parent.left
+                        anchors.right: rl.alignRight ? parent.right : undefined
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.verticalCenterOffset: rl._newY
                         width: Math.min(implicitWidth, rl.maxWidth)
@@ -1398,6 +1401,12 @@ PanelWindow {
                         NumberAnimation { target: rl; property: "_newY"; to: 0; duration: 180; easing.type: Easing.OutCubic }
                         NumberAnimation { target: newTxt; property: "opacity"; to: 1; duration: 170; easing.type: Easing.OutCubic }
                     }
+                }
+
+                component InstantOsdFrame: Item {
+                    anchors.centerIn: parent
+                    width: parent ? Math.min(parent.width - Theme.px(32), Theme.px(216)) : Theme.px(216)
+                    height: parent ? parent.height : Theme.compactH
                 }
 
                 // volume
@@ -1444,36 +1453,42 @@ PanelWindow {
                     id: layoutSlot
                     kind: "layout"
 
-                    Row {
-                        id: layoutOsdRow
-                        anchors.centerIn: parent
-                        spacing: Theme.px(9)
-
+                    InstantOsdFrame {
                         Icon {
+                            anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
                             name: "language"
                             size: Theme.px(15)
                             color: Theme.blue
                         }
-                        RollingLabel {
+                        Row {
+                            id: layoutOsdRow
+                            anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            text: Keyboard.shortCode
-                            color: Theme.text
-                            pixelSize: Theme.px(13)
-                            fontWeight: Font.Bold
-                            maxWidth: Theme.px(40)
-                            slotActive: layoutSlot.active
-                            rollDir: Keyboard.shortCode > _cur ? 1 : -1
-                        }
-                        RollingLabel {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: Keyboard.layout
-                            color: Theme.text2
-                            pixelSize: Theme.px(12)
-                            fontWeight: Font.Medium
-                            maxWidth: Theme.px(130)
-                            slotActive: layoutSlot.active
-                            rollDir: Keyboard.layout > _cur ? 1 : -1
+                            spacing: Theme.px(8)
+
+                            RollingLabel {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: Keyboard.layout
+                                color: Theme.text2
+                                pixelSize: Theme.px(12)
+                                fontWeight: Font.Medium
+                                maxWidth: Theme.px(130)
+                                slotActive: layoutSlot.active
+                                alignRight: true
+                                rollDir: Keyboard.layout > _cur ? 1 : -1
+                            }
+                            RollingLabel {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: Keyboard.shortCode
+                                color: Theme.text
+                                pixelSize: Theme.px(13)
+                                fontWeight: Font.Bold
+                                maxWidth: Theme.px(40)
+                                slotActive: layoutSlot.active
+                                alignRight: true
+                                rollDir: Keyboard.shortCode > _cur ? 1 : -1
+                            }
                         }
                     }
                 }
@@ -1482,18 +1497,16 @@ PanelWindow {
                 OsdSlot {
                     kind: "clipboard"
 
-                    Row {
-                        id: clipboardOsdRow
-                        anchors.centerIn: parent
-                        spacing: Theme.px(8)
-
+                    InstantOsdFrame {
                         Icon {
+                            anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
                             name: "content_paste"
                             size: Theme.px(15)
                             color: Theme.mint
                         }
                         Text {
+                            anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
                             text: "Copied"
                             color: Theme.text
@@ -1509,13 +1522,10 @@ PanelWindow {
                     id: dndSlot
                     kind: "dnd"
 
-                    Row {
-                        id: dndOsdRow
-                        anchors.centerIn: parent
-                        spacing: Theme.px(8)
-
+                    InstantOsdFrame {
                         Icon {
                             id: dndIcon
+                            anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
                             name: Notifs.dnd ? "notifications_off" : "notifications_active"
                             size: Theme.px(15)
@@ -1539,12 +1549,14 @@ PanelWindow {
                             }
                         }
                         RollingLabel {
+                            anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
                             text: Notifs.dnd ? "Do Not Disturb" : "Notifications On"
                             color: Theme.text
                             pixelSize: Theme.px(13)
                             fontWeight: Font.DemiBold
                             slotActive: dndSlot.active
+                            alignRight: true
                             rollDir: Notifs.dnd ? -1 : 1
                         }
                     }
@@ -1555,12 +1567,10 @@ PanelWindow {
                     id: capsSlot
                     kind: "caps"
 
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: Theme.px(8)
-
+                    InstantOsdFrame {
                         Icon {
                             id: capsIcon
+                            anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
                             name: "keyboard_capslock"
                             size: Theme.px(15)
@@ -1584,12 +1594,14 @@ PanelWindow {
                             }
                         }
                         RollingLabel {
+                            anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
                             text: Keyboard.capsLock ? "Caps Lock ON" : "Caps Lock OFF"
                             color: Theme.text
                             pixelSize: Theme.px(13)
                             fontWeight: Font.DemiBold
                             slotActive: capsSlot.active
+                            alignRight: true
                             rollDir: Keyboard.capsLock ? -1 : 1
                         }
                     }
