@@ -10,6 +10,9 @@ Item {
     property real hiddenScale: 0.86
     property real hiddenY: -Theme.px(10)
     property real offsetY: shown ? 0 : hiddenY
+    property int fadeInDuration: Theme.fadeIn
+    property int fadeOutDuration: Theme.fadeOut
+    property int delayDuration: Theme.fadeDelay
 
     enabled: shown
     visible: shown || opacity > 0.001
@@ -19,9 +22,9 @@ Item {
 
     Behavior on opacity {
         SequentialAnimation {
-            PauseAnimation { duration: v.shown ? Theme.fadeDelay : 0 }
+            PauseAnimation { duration: v.shown ? v.delayDuration : 0 }
             NumberAnimation {
-                duration: v.shown ? Theme.fadeIn : Theme.fadeOut
+                duration: v.shown ? v.fadeInDuration : v.fadeOutDuration
                 easing.type: v.shown ? Easing.OutCubic : Easing.InQuad
             }
         }

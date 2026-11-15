@@ -1221,15 +1221,15 @@ PanelWindow {
                 Rectangle {
                     id: dockBar
                     anchors.horizontalCenter: parent.horizontalCenter
-                    y: Theme.px(52) - Theme.px(12) * (1 - homeView.p)
+                    y: Theme.px(52) - Theme.px(4) * (1 - homeView.p)
                     implicitWidth: dockInner.implicitWidth + Theme.px(14)
                     width: implicitWidth
                     height: Theme.px(36)
                     radius: Theme.px(13)
                     color: Qt.rgba(1, 1, 1, 0.06)
                     transformOrigin: Item.Top
-                    opacity: homeView.dashAlpha
-                    scale: 0.85 + 0.15 * homeView.p
+                    opacity: Math.min(1, Math.max(0, homeView.p * 4.0))
+                    scale: 0.96 + 0.04 * homeView.p
                     visible: opacity > 0.001
 
                     MouseArea {
@@ -1729,8 +1729,10 @@ PanelWindow {
                 MorphView {
                     id: panelView
                     shown: win.mode === "panel"
-                    hiddenScale: 0.85
-                    hiddenY: -Theme.px(12)
+                    hiddenScale: 0.96
+                    hiddenY: -Theme.px(6)
+                    delayDuration: 0
+                    fadeInDuration: 110
                     transformOrigin: Item.Top
                     width: win.activePanelW
                     height: win.activePanelH
@@ -1753,13 +1755,7 @@ PanelWindow {
                             onLoaded: {
                                 if (item.host !== undefined) item.host = win;
                                 if (item.width !== undefined) item.width = Qt.binding(() => panelLoader.width);
-                                appear.restart();
                                 win.focusActivePanel();
-                            }
-                            ParallelAnimation {
-                                id: appear
-                                NumberAnimation { target: panelLoader; property: "opacity"; from: 0; to: 1; duration: Theme.fadeIn; easing.type: Easing.OutCubic }
-                                SpringAnimation { target: panelLoader; property: "scale"; from: 0.96; to: 1; spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.01 }
                             }
                         }
                     }
