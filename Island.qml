@@ -614,10 +614,10 @@ PanelWindow {
                 property real dashAlpha: isDash ? 1.0 : 0.0
                 property real compactAlpha: isDash ? 0.0 : 1.0
 
-                Behavior on p { Spring { epsilon: 0.002 } }
+                Behavior on p { Spring { epsilon: 0.01 } }
                 Behavior on dashAlpha {
                     NumberAnimation {
-                        duration: homeView.isDash ? Theme.fadeIn : Theme.fadeOut
+                        duration: homeView.isDash ? 110 : Theme.fadeOut
                         easing.type: homeView.isDash ? Easing.OutCubic : Easing.InQuad
                     }
                 }
@@ -788,7 +788,25 @@ PanelWindow {
                     Item {
                         id: liveItem
                         anchors.verticalCenter: parent.verticalCenter
-                        readonly property bool activeCompact: Notifs.dnd && homeView.p < 0.5
+                        property bool _dndShown: Notifs.dnd
+                        Timer {
+                            id: dndDelayTimer
+                            interval: 180
+                            repeat: false
+                            onTriggered: liveItem._dndShown = Notifs.dnd
+                        }
+                        Connections {
+                            target: Notifs
+                            function onDndChanged() {
+                                if (Notifs.dnd) {
+                                    dndDelayTimer.restart();
+                                } else {
+                                    dndDelayTimer.stop();
+                                    liveItem._dndShown = false;
+                                }
+                            }
+                        }
+                        readonly property bool activeCompact: _dndShown && homeView.p < 0.5
                         readonly property bool activeDash: false
                         readonly property bool active: activeCompact
                         readonly property bool hasNextCompact: weatherItem.showInCompact || compactStatItem.showInCompact || layoutItem.shouldShow
@@ -798,10 +816,7 @@ PanelWindow {
                         height: Theme.px(38)
                         opacity: active ? homeView.compactAlpha : 0
                         Behavior on opacity {
-                            SequentialAnimation {
-                                PauseAnimation { duration: liveItem.active ? 120 : 0 }
-                                NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
-                            }
+                            NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
                         }
                         visible: width > 0.5 && opacity > 0.001
 
