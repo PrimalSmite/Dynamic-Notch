@@ -97,7 +97,7 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
 - **Live Activity & Instant OSD**:
   - Unified priority queue for persistent wings: Screen Recorder, Timer/Stopwatch, Media Player (album art + 4-band `cava` audio-reactive wave), Microphone Privacy, Thermal/Load alerts, System Modes, Muted Output, and IPC background tasks.
   - Supports both **Inside Notch** (side-by-side dual widgets with scroll-wheel cycling and transition animations) and **Duo Circles** modes, configurable in Settings.
-  - Full-notch **Instant OSD** popups for Keyboard Layout, Clipboard Copy, Do Not Disturb, and Caps Lock.
+  - Compact, uniform-width **Instant OSD** popups for Keyboard Layout (`EN English` / `RU Russian`), Clipboard Copy, Do Not Disturb, and Caps Lock with bidirectional rolling transitions and icon spring feedback.
 - **Rich Interactive Panels**:
   - **Settings & Control Center (`settings`)**:
     - **Notch & UI**: Compact widget switcher, clock seconds toggle, auto-collapse, interface scale slider, base font size slider, and a searchable modal font family selector with live filtering.
