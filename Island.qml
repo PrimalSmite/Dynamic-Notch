@@ -797,6 +797,12 @@ PanelWindow {
                         width: Math.max(0, compactW * (1 - homeView.p))
                         height: Theme.px(38)
                         opacity: active ? homeView.compactAlpha : 0
+                        Behavior on opacity {
+                            SequentialAnimation {
+                                PauseAnimation { duration: liveItem.active ? 120 : 0 }
+                                NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+                            }
+                        }
                         visible: width > 0.5 && opacity > 0.001
 
                         Icon {
@@ -1547,7 +1553,7 @@ PanelWindow {
                             pixelSize: Theme.px(13)
                             fontWeight: Font.DemiBold
                             slotActive: dndSlot.active
-                            rollDir: Notifs.dnd ? -1 : 1
+                            rollDir: text === "Do Not Disturb" ? -1 : 1
                         }
                     }
                 }
