@@ -1332,9 +1332,9 @@ PanelWindow {
                     property int fontWeight: Font.DemiBold
                     property real maxWidth: Theme.px(200)
                     property bool slotActive: false
-                    // +1 = bottom-to-top (old exits up, new enters from bottom)
-                    // -1 = top-to-bottom (old exits down, new enters from top)
-                    property int rollDir: 1
+                    // Static text/prefix that should enter top-to-bottom (-1); everything else enters bottom-to-top (+1)
+                    property string topEnterText: ""
+                    property string topEnterPrefix: ""
 
                     property string _cur: text
                     property string _prev: text
@@ -1358,12 +1358,15 @@ PanelWindow {
                             newTxt.opacity = 1;
                             return;
                         }
+                        const isTop = (topEnterText !== "" && text === topEnterText)
+                                   || (topEnterPrefix !== "" && text.indexOf(topEnterPrefix) === 0);
+                        const dir = isTop ? -1 : 1;
                         const dist = Theme.px(18);
                         _oldY = 0;
                         oldTxt.opacity = 1;
-                        _newY = rollDir * dist;
+                        _newY = dir * dist;
                         newTxt.opacity = 0;
-                        rollAnim.outY = -rollDir * dist;
+                        rollAnim.outY = -dir * dist;
                         rollAnim.restart();
                     }
 
@@ -1471,7 +1474,7 @@ PanelWindow {
                             fontWeight: Font.Bold
                             maxWidth: Theme.px(36)
                             slotActive: layoutSlot.active
-                            rollDir: text === "RU" ? -1 : 1
+                            topEnterText: "RU"
                         }
                         RollingLabel {
                             anchors.verticalCenter: parent.verticalCenter
@@ -1481,7 +1484,7 @@ PanelWindow {
                             fontWeight: Font.Medium
                             maxWidth: Theme.px(110)
                             slotActive: layoutSlot.active
-                            rollDir: text.indexOf("Russian") === 0 ? -1 : 1
+                            topEnterPrefix: "Russian"
                         }
                     }
                 }
@@ -1553,7 +1556,7 @@ PanelWindow {
                             pixelSize: Theme.px(13)
                             fontWeight: Font.DemiBold
                             slotActive: dndSlot.active
-                            rollDir: text === "Do Not Disturb" ? -1 : 1
+                            topEnterText: "Do Not Disturb"
                         }
                     }
                 }
@@ -1598,7 +1601,7 @@ PanelWindow {
                             pixelSize: Theme.px(13)
                             fontWeight: Font.DemiBold
                             slotActive: capsSlot.active
-                            rollDir: Keyboard.capsLock ? -1 : 1
+                            topEnterText: "Caps Lock ON"
                         }
                     }
                 }
