@@ -130,6 +130,8 @@ PanelWindow {
     property string loadedPanel: ""     // preserve content during close animation
     property string osd: ""             // "", "volume", "layout", "notif"
     property string lastOsd: "volume"
+    property int osdSwitchDir: 1        // 1 = roll upward, -1 = roll downward
+    property bool osdAnimateSwitch: false
     property var notif: null
     readonly property string mode: panel !== "" ? "panel"
                                  : expanded ? "dashboard"
@@ -261,6 +263,16 @@ PanelWindow {
         if (kind === "layout" && !IslandPrefs.showLayoutOsd) return;
         if (kind === "clipboard" && !IslandPrefs.liveClipboardPulse) return;
         if (kind === "caps" && !IslandPrefs.liveCapsLock) return;
+        const wasOsd = (mode === "osd");
+        if (wasOsd && lastOsd !== kind) {
+            const order = ["volume", "layout", "clipboard", "caps", "dnd", "notif"];
+            const oldIdx = order.indexOf(lastOsd);
+            const newIdx = order.indexOf(kind);
+            osdSwitchDir = (newIdx >= oldIdx) ? 1 : -1;
+            osdAnimateSwitch = true;
+        } else if (!wasOsd) {
+            osdAnimateSwitch = false;
+        }
         lastOsd = kind;
         osd = kind;
         osdTimer.interval = kind === "notif" ? Theme.notifMs
@@ -1255,10 +1267,144 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
 
-                // volume
-                Item {
+                component OsdSlot: Item {
+                    id: slotRoot
+                    property string kind: ""
+                    readonly property bool active: win.lastOsd === kind
+                    property real slideY: 0
+
                     anchors.fill: parent
-                    visible: win.lastOsd === "volume"
+                    visible: active || opacity > 0.001
+                    opacity: active ? 1 : 0
+                    scale: active ? 1.0 : 0.92
+                    transform: Translate { y: slotRoot.slideY }
+
+                    onActiveChanged: {
+                        slotAnim.stop();
+                        if (!win.osdAnimateSwitch) {
+                            slideY = 0;
+                            opacity = active ? 1 : 0;
+                            scale = active ? 1.0 : 0.92;
+                            return;
+                        }
+                        const d = win.osdSwitchDir;
+                        const dist = Theme.px(14);
+                        if (active) {
+                            slideY = d * dist;
+                            opacity = 0;
+                            scale = 0.92;
+                            slotAnim.toY = 0;
+                            slotAnim.toOpacity = 1;
+                            slotAnim.toScale = 1.0;
+                        } else {
+                            slideY = 0;
+                            opacity = 1;
+                            scale = 1.0;
+                            slotAnim.toY = -d * dist;
+                            slotAnim.toOpacity = 0;
+                            slotAnim.toScale = 0.92;
+                        }
+                        slotAnim.restart();
+                    }
+
+                    ParallelAnimation {
+                        id: slotAnim
+                        property real toY: 0
+                        property real toOpacity: 1
+                        property real toScale: 1
+                        NumberAnimation { target: slotRoot; property: "slideY"; to: slotAnim.toY; duration: 170; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: slotRoot; property: "opacity"; to: slotAnim.toOpacity; duration: 160; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: slotRoot; property: "scale"; to: slotAnim.toScale; duration: 170; easing.type: Easing.OutCubic }
+                    }
+                }
+
+                component RollingLabel: Item {
+                    id: rl
+                    property string text: ""
+                    property color color: Theme.text
+                    property int pixelSize: Theme.px(13)
+                    property int fontWeight: Font.DemiBold
+                    property real maxWidth: Theme.px(200)
+                    property bool slotActive: false
+                    // +1 = bottom-to-top (old exits up, new enters from bottom)
+                    // -1 = top-to-bottom (old exits down, new enters from top)
+                    property int rollDir: 1
+
+                    property string _cur: text
+                    property string _prev: text
+                    property real _oldY: 0
+                    property real _newY: 0
+
+                    clip: true
+                    height: Theme.compactH
+                    width: Math.min(newTxt.implicitWidth, maxWidth)
+                    Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+
+                    onTextChanged: {
+                        if (text === _cur) return;
+                        _prev = _cur;
+                        _cur = text;
+                        rollAnim.stop();
+                        if (!slotActive || win.mode !== "osd") {
+                            _oldY = 0;
+                            _newY = 0;
+                            oldTxt.opacity = 0;
+                            newTxt.opacity = 1;
+                            return;
+                        }
+                        const dist = Theme.px(18);
+                        _oldY = 0;
+                        oldTxt.opacity = 1;
+                        _newY = rollDir * dist;
+                        newTxt.opacity = 0;
+                        rollAnim.outY = -rollDir * dist;
+                        rollAnim.restart();
+                    }
+
+                    Text {
+                        id: oldTxt
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: rl._oldY
+                        width: Math.min(implicitWidth, rl.maxWidth)
+                        elide: Text.ElideRight
+                        text: rl._prev
+                        color: rl.color
+                        font.family: Theme.fontFamily
+                        font.pixelSize: rl.pixelSize
+                        font.weight: rl.fontWeight
+                        opacity: 0
+                        visible: opacity > 0.01
+                    }
+
+                    Text {
+                        id: newTxt
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: rl._newY
+                        width: Math.min(implicitWidth, rl.maxWidth)
+                        elide: Text.ElideRight
+                        text: rl._cur
+                        color: rl.color
+                        font.family: Theme.fontFamily
+                        font.pixelSize: rl.pixelSize
+                        font.weight: rl.fontWeight
+                        opacity: 1
+                    }
+
+                    ParallelAnimation {
+                        id: rollAnim
+                        property real outY: -Theme.px(18)
+                        NumberAnimation { target: rl; property: "_oldY"; to: rollAnim.outY; duration: 160; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: oldTxt; property: "opacity"; to: 0; duration: 140; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: rl; property: "_newY"; to: 0; duration: 180; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: newTxt; property: "opacity"; to: 1; duration: 170; easing.type: Easing.OutCubic }
+                    }
+                }
+
+                // volume
+                OsdSlot {
+                    kind: "volume"
 
                     Icon {
                         id: osdVolIcon
@@ -1296,9 +1442,9 @@ PanelWindow {
                 }
 
                 // layout — compact popup sized to the notch
-                Item {
-                    anchors.fill: parent
-                    visible: win.lastOsd === "layout"
+                OsdSlot {
+                    id: layoutSlot
+                    kind: "layout"
 
                     Row {
                         id: layoutOsdRow
@@ -1311,31 +1457,32 @@ PanelWindow {
                             size: Theme.px(15)
                             color: Theme.blue
                         }
-                        Text {
+                        RollingLabel {
                             anchors.verticalCenter: parent.verticalCenter
                             text: Keyboard.shortCode
                             color: Theme.text
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.px(13)
-                            font.weight: Font.Bold
+                            pixelSize: Theme.px(13)
+                            fontWeight: Font.Bold
+                            maxWidth: Theme.px(40)
+                            slotActive: layoutSlot.active
+                            rollDir: Keyboard.shortCode > _cur ? 1 : -1
                         }
-                        Text {
+                        RollingLabel {
                             anchors.verticalCenter: parent.verticalCenter
                             text: Keyboard.layout
-                            width: Math.min(implicitWidth, Theme.px(130))
-                            elide: Text.ElideRight
                             color: Theme.text2
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.px(12)
-                            font.weight: Font.Medium
+                            pixelSize: Theme.px(12)
+                            fontWeight: Font.Medium
+                            maxWidth: Theme.px(130)
+                            slotActive: layoutSlot.active
+                            rollDir: Keyboard.layout > _cur ? 1 : -1
                         }
                     }
                 }
 
                 // clipboard — compact popup sized to the notch
-                Item {
-                    anchors.fill: parent
-                    visible: win.lastOsd === "clipboard"
+                OsdSlot {
+                    kind: "clipboard"
 
                     Row {
                         id: clipboardOsdRow
@@ -1360,9 +1507,9 @@ PanelWindow {
                 }
 
                 // dnd — compact popup sized to the notch
-                Item {
-                    anchors.fill: parent
-                    visible: win.lastOsd === "dnd"
+                OsdSlot {
+                    id: dndSlot
+                    kind: "dnd"
 
                     Row {
                         id: dndOsdRow
@@ -1370,53 +1517,90 @@ PanelWindow {
                         spacing: Theme.px(8)
 
                         Icon {
+                            id: dndIcon
                             anchors.verticalCenter: parent.verticalCenter
                             name: Notifs.dnd ? "notifications_off" : "notifications_active"
                             size: Theme.px(15)
                             color: Notifs.dnd ? Theme.purple : Theme.mint
+
+                            Connections {
+                                target: Notifs
+                                function onDndChanged() {
+                                    if (dndSlot.active && win.mode === "osd") dndIconPop.restart();
+                                }
+                            }
+                            SpringAnimation {
+                                id: dndIconPop
+                                target: dndIcon
+                                property: "scale"
+                                from: 0.72
+                                to: 1.0
+                                spring: Theme.springK
+                                damping: Theme.springDamp
+                                epsilon: 0.01
+                            }
                         }
-                        Text {
+                        RollingLabel {
                             anchors.verticalCenter: parent.verticalCenter
                             text: Notifs.dnd ? "Do Not Disturb" : "Notifications On"
                             color: Theme.text
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.px(13)
-                            font.weight: Font.DemiBold
+                            pixelSize: Theme.px(13)
+                            fontWeight: Font.DemiBold
+                            slotActive: dndSlot.active
+                            rollDir: Notifs.dnd ? -1 : 1
                         }
                     }
                 }
 
                 // caps — compact popup sized to the notch
-                Item {
-                    anchors.fill: parent
-                    visible: win.lastOsd === "caps"
+                OsdSlot {
+                    id: capsSlot
+                    kind: "caps"
 
                     Row {
                         anchors.centerIn: parent
                         spacing: Theme.px(8)
 
                         Icon {
+                            id: capsIcon
                             anchors.verticalCenter: parent.verticalCenter
                             name: "keyboard_capslock"
                             size: Theme.px(15)
                             color: Keyboard.capsLock ? Theme.warn : Theme.text2
+
+                            Connections {
+                                target: Keyboard
+                                function onCapsLockChanged() {
+                                    if (capsSlot.active && win.mode === "osd") capsIconPop.restart();
+                                }
+                            }
+                            SpringAnimation {
+                                id: capsIconPop
+                                target: capsIcon
+                                property: "scale"
+                                from: 0.72
+                                to: 1.0
+                                spring: Theme.springK
+                                damping: Theme.springDamp
+                                epsilon: 0.01
+                            }
                         }
-                        Text {
+                        RollingLabel {
                             anchors.verticalCenter: parent.verticalCenter
                             text: Keyboard.capsLock ? "Caps Lock ON" : "Caps Lock OFF"
                             color: Theme.text
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.px(13)
-                            font.weight: Font.DemiBold
+                            pixelSize: Theme.px(13)
+                            fontWeight: Font.DemiBold
+                            slotActive: capsSlot.active
+                            rollDir: Keyboard.capsLock ? -1 : 1
                         }
                     }
                 }
 
                 // notification matching screenshot #3:
                 // Dark pill with circular letter badge (or app icon), appName/summary in subtitle, large bold summary/body
-                Item {
-                    anchors.fill: parent
-                    visible: win.lastOsd === "notif"
+                OsdSlot {
+                    kind: "notif"
 
                     // Circular Avatar / Badge matching screenshot #3
                     Rectangle {
