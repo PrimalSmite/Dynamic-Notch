@@ -23,9 +23,9 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
 
 ## Demo
 
-<video src="assets/demo.mp4" controls width="100%"></video>
+<img src="assets/demo.gif" width="100%" alt="Dynamic Notch Demo" />
 
-> [Watch / Download Demo Video (MP4)](assets/demo.mp4)
+> [Watch / Download Full Video with Audio (MP4)](assets/demo.mp4)
 
 ---
 
