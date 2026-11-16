@@ -21,6 +21,14 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
 
 ---
 
+## Demo
+
+<video src="assets/demo.mp4" controls width="100%"></video>
+
+> [Watch / Download Demo Video (MP4)](assets/demo.mp4)
+
+---
+
 ## Screenshots & Overview
 
 ### Notch, Dashboard & OSD Popups
