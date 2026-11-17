@@ -253,10 +253,14 @@ PanelWindow {
         else openPanel(key);
     }
 
+    function isInstantKind(kind) {
+        return kind === "layout" || kind === "clipboard" || kind === "caps" || kind === "dnd";
+    }
+
     function showOsd(kind) {
         if ((mode !== "compact" && mode !== "osd") || !armed) return;
         if (!win.isFocusedMonitor) return;
-        if (isGameActive && kind !== "notif" && !IslandPrefs.showOsdInGames) return;
+        if (isGameActive && kind !== "notif" && kind !== "volume" && !isInstantKind(kind) && !IslandPrefs.showOsdInGames) return;
         if (kind === "volume" && !IslandPrefs.showVolumeOsd) return;
         if (kind === "layout" && !IslandPrefs.showLayoutOsd) return;
         if (kind === "clipboard" && !IslandPrefs.liveClipboardPulse) return;
@@ -377,7 +381,7 @@ PanelWindow {
     readonly property real rightZoneCompactW: (rightCoreCompactW > 0 ? (liveItem.activeCompact ? Theme.px(7) : Theme.px(10)) + rightCoreCompactW : 0) + (rightWingItem.active ? rightWingItem.compactW + Theme.px(10) : 0)
     readonly property real compactW: leftZoneCompactW + clockPill.compactW + rightZoneCompactW + Theme.px(12) * 2
     readonly property real instantOsdW: Theme.px(196)
-    readonly property bool isInstantOsd: win.lastOsd === "layout" || win.lastOsd === "clipboard" || win.lastOsd === "caps" || win.lastOsd === "dnd"
+    readonly property bool isInstantOsd: isInstantKind(win.lastOsd)
     readonly property real topRowTargetW: wsItem.dashW + divItem.dashW + clkItem.dashW + liveItem.dashW + weatherItem.dashW + mediaItem.dashW + layoutItem.dashW + trayItem.dashW
     readonly property real dashW: Math.max(Theme.px(520),
                                   Math.max(topRowTargetW, dockBar.implicitWidth) + Theme.px(36))
