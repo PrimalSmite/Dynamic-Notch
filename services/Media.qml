@@ -91,7 +91,7 @@ Singleton {
 
         // If local path is provided without file:// scheme
         if (art && art.startsWith("/") && !art.startsWith("//")) {
-            art = "file://" + art;
+            art = "file://" + art.split("/").map(seg => encodeURIComponent(seg)).join("/");
         }
 
         // If no artwork (common issue with Chromium/Brave for YouTube), extract from YouTube URL
@@ -110,18 +110,37 @@ Singleton {
         const list = root.players;
         let chosen = null;
 
-        if (root.pinned && list.indexOf(root.pinned) >= 0) {
-            chosen = root.pinned;
-        } else {
-            // 1. Look for a player in Playing state
-            for (let i = 0; i < list.length; i++) {
-                const p = list[i];
-                if (p && (p.isPlaying || p.playbackState === MprisPlaybackState.Playing)) {
-                    chosen = p;
-                    break;
-                }
+        if (root.pinned) {
+            if (list.indexOf(root.pinned) >= 0) {
+                chosen = root.pinned;
+            } else {
+                root.pinned = null;
             }
-            // 2. Otherwise look for player with track metadata
+        }
+
+        if (!chosen) {
+            // 1. Keep current player if it is still playing
+            if (root.player && list.indexOf(root.player) >= 0 &&
+                (root.player.isPlaying || root.player.playbackState === MprisPlaybackState.Playing)) {
+                chosen = root.player;
+            }
+            // 2. Otherwise look for a player in Playing state (preferring unmuted players)
+            if (!chosen) {
+                let mutedPlaying = null;
+                for (let i = 0; i < list.length; i++) {
+                    const p = list[i];
+                    if (p && (p.isPlaying || p.playbackState === MprisPlaybackState.Playing)) {
+                        if (p.volume !== undefined && p.volume <= 0) {
+                            if (!mutedPlaying) mutedPlaying = p;
+                        } else {
+                            chosen = p;
+                            break;
+                        }
+                    }
+                }
+                if (!chosen) chosen = mutedPlaying;
+            }
+            // 3. Otherwise look for player with track metadata
             if (!chosen) {
                 for (let i = 0; i < list.length; i++) {
                     const p = list[i];
@@ -131,7 +150,7 @@ Singleton {
                     }
                 }
             }
-            // 3. Otherwise use the first available player
+            // 4. Otherwise use the first available player
             if (!chosen && list.length > 0) {
                 chosen = list[0];
             }
@@ -169,20 +188,17 @@ Singleton {
         }
     }
 
-    // Instant reaction to current player signals (including metadataChanged!)
+    // Track-specific signals for active player (playbackState/isPlaying/metadata are watched for all players below)
     Connections {
         target: root.player
         ignoreUnknownSignals: true
-        function onPlaybackStateChanged() { root.sync(); }
-        function onIsPlayingChanged() { root.sync(); }
-        function onMetadataChanged() { root.sync(); }
         function onTrackTitleChanged() { root.sync(); }
         function onTrackArtistChanged() { root.sync(); }
         function onTrackArtUrlChanged() { root.sync(); }
         function onTrackIdChanged() { root.sync(); }
     }
 
-    // Also watch every MPRIS player so starting playback in a secondary player/tab triggers sync()
+    // Watch every MPRIS player so starting playback in a secondary player/tab triggers sync()
     Instantiator {
         model: root.players
         delegate: Connections {

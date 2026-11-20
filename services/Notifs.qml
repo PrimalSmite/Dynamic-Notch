@@ -51,7 +51,6 @@ Singleton {
             }
             const item = {
                 id: ++root._seq,
-                dbusId: notif.id,
                 appName: notif.appName || "System",
                 appIcon: notif.appIcon || "",
                 desktopEntry: notif.desktopEntry || "",
@@ -75,7 +74,17 @@ Singleton {
             }
 
             const next = [item].concat(root.list);
-            if (next.length > 80) next.length = 80;
+            if (next.length > 80) {
+                for (let i = 80; i < next.length; i++) {
+                    try {
+                        if (next[i].notif) {
+                            next[i].notif.tracked = false;
+                            next[i].notif = null;
+                        }
+                    } catch (e) {}
+                }
+                next.length = 80;
+            }
             root.list = next;
             root.recalcUnread();
 
@@ -89,6 +98,7 @@ Singleton {
 
     function onNotifClosed(item, reason) {
         if (!item) return;
+        item.notif = null;
         root.markItemRead(item.id);
     }
 
@@ -140,14 +150,14 @@ Singleton {
         if (!item || !top) return false;
         const cls = String((top.class || (top.lastIpcObject && top.lastIpcObject.class) || "")).toLowerCase();
         const initCls = String((top.initialClass || (top.lastIpcObject && top.lastIpcObject.initialClass) || "")).toLowerCase();
-        const title = String((top.title || (top.lastIpcObject && top.lastIpcObject.title) || "")).toLowerCase();
+        if (!cls && !initCls) return false;
 
         const appName = String(item.appName || "").toLowerCase();
         const appIcon = String(item.appIcon || "").toLowerCase();
         const de = String(item.desktopEntry || (item.notif && item.notif.desktopEntry ? item.notif.desktopEntry : "")).toLowerCase();
 
         // 1. Telegram
-        const isTopTelegram = cls.indexOf("telegram") !== -1 || initCls.indexOf("telegram") !== -1 || title.indexOf("telegram") !== -1;
+        const isTopTelegram = cls.indexOf("telegram") !== -1 || initCls.indexOf("telegram") !== -1;
         const isNotifTelegram = appName.indexOf("telegram") !== -1 || appIcon.indexOf("telegram") !== -1 || de.indexOf("telegram") !== -1;
         if (isTopTelegram && isNotifTelegram) return true;
 
@@ -158,12 +168,13 @@ Singleton {
                             || appIcon.indexOf("discord") !== -1 || de.indexOf("discord") !== -1;
         if (isTopDiscord && isNotifDiscord) return true;
 
-        // 3. Direct desktopEntry match
-        if (de && (cls === de || initCls === de || cls.indexOf(de) !== -1 || de.indexOf(cls) !== -1))
+        // 3. Direct desktopEntry match (guard non-empty cls/de to avoid empty-string substring match)
+        if (de && (cls === de || initCls === de
+            || (cls.length >= 3 && (cls.indexOf(de) !== -1 || de.indexOf(cls) !== -1))))
             return true;
 
         // 4. Class name match with appName or appIcon
-        if (appName && (cls === appName || initCls === appName || cls.indexOf(appName) !== -1))
+        if (appName && (cls === appName || initCls === appName || (appName.length >= 3 && cls.indexOf(appName) !== -1)))
             return true;
         if (appIcon && (cls === appIcon || initCls === appIcon))
             return true;
@@ -185,32 +196,46 @@ Singleton {
 
     function dismiss(n) {
         if (!n) return;
-        try { if (n.notif) n.notif.dismiss(); } catch (e) {}
+        try {
+            if (n.notif) {
+                n.notif.dismiss();
+                n.notif.tracked = false;
+                n.notif = null;
+            }
+        } catch (e) {}
         root.list = root.list.filter(x => x.id !== n.id);
         root.recalcUnread();
     }
 
     function clear() {
         for (const x of root.list) {
-            try { if (x.notif) x.notif.dismiss(); } catch (e) {}
+            try {
+                if (x.notif) {
+                    x.notif.dismiss();
+                    x.notif.tracked = false;
+                    x.notif = null;
+                }
+            } catch (e) {}
         }
         root.list = [];
         root.unread = 0;
     }
 
     function invoke(n, actionId) {
-        if (!n || !n.notif) return;
-        try {
-            const acts = n.notif.actions;
-            if (acts) {
-                for (let i = 0; i < acts.length; i++) {
-                    if ((!actionId && acts[i].identifier === "default") || acts[i].identifier === actionId) {
-                        acts[i].invoke();
-                        break;
+        if (!n) return;
+        if (n.notif) {
+            try {
+                const acts = n.notif.actions;
+                if (acts) {
+                    for (let i = 0; i < acts.length; i++) {
+                        if ((!actionId && acts[i].identifier === "default") || acts[i].identifier === actionId) {
+                            acts[i].invoke();
+                            break;
+                        }
                     }
                 }
-            }
-        } catch (e) {}
+            } catch (e) {}
+        }
         dismiss(n);
     }
 

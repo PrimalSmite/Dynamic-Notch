@@ -21,7 +21,7 @@ Singleton {
     // ── Appearance Preferences ──
     property real uiScale: 1.15
     property int fontSize: 13
-    property string fontFamily: "SF Pro Rounded"
+    property string fontFamily: "Inter"
 
     // ── Live Activity Wings Preferences ──
     property bool liveWingsEnabled: true
@@ -35,13 +35,26 @@ Singleton {
     property bool liveAudioMuted: true
     property bool liveCapsLock: true
 
+    property bool _dirty: false
+
+    readonly property var _validCompactWidgets: ["weather", "cpu", "net", "none"]
+    readonly property var _toggleableBoolKeys: [
+        "showSeconds", "showVolumeOsd", "showLayoutOsd", "autoCollapse",
+        "hideInGames", "showOsdInGames", "liveWingsEnabled", "liveMediaEnabled",
+        "liveMediaShowTitle", "liveClipboardPulse", "liveMicPrivacy",
+        "liveThermalAlert", "liveSystemModes", "liveAudioMuted", "liveCapsLock"
+    ]
+
     Process {
         id: initDirProc
         running: true
         command: ["sh", "-c", "mkdir -p \"$1\" && if [ ! -f \"$2\" ]; then printf '%s' \"$3\" > \"$2\"; fi", "sh", root.configDir, root.configPath, "{}"]
         onExited: {
-            configFile.path = root.configPath;
-            configFile.reload();
+            if (configFile.path !== root.configPath) {
+                configFile.path = root.configPath;
+            } else {
+                configFile.reload();
+            }
         }
     }
 
@@ -49,20 +62,25 @@ Singleton {
         id: configFile
         path: ""
         onLoaded: {
+            if (root._dirty) return;
             try {
                 const txt = configFile.text();
                 if (!txt || !txt.trim()) return;
                 const data = JSON.parse(txt);
                 if (data.showSeconds !== undefined) root.showSeconds = !!data.showSeconds;
-                if (data.compactWidget !== undefined) root.compactWidget = String(data.compactWidget);
+                if (data.compactWidget !== undefined && root._validCompactWidgets.indexOf(String(data.compactWidget)) !== -1)
+                    root.compactWidget = String(data.compactWidget);
                 if (data.showVolumeOsd !== undefined) root.showVolumeOsd = !!data.showVolumeOsd;
                 if (data.showLayoutOsd !== undefined) root.showLayoutOsd = !!data.showLayoutOsd;
                 if (data.autoCollapse !== undefined) root.autoCollapse = !!data.autoCollapse;
                 if (data.hideInGames !== undefined) root.hideInGames = !!data.hideInGames;
                 if (data.showOsdInGames !== undefined) root.showOsdInGames = !!data.showOsdInGames;
-                if (data.uiScale !== undefined && typeof data.uiScale === "number") root.uiScale = Math.max(0.75, Math.min(2.0, data.uiScale));
-                if (data.fontSize !== undefined && typeof data.fontSize === "number") root.fontSize = Math.max(9, Math.min(20, data.fontSize));
-                if (data.fontFamily !== undefined && typeof data.fontFamily === "string" && data.fontFamily.length > 0) root.fontFamily = data.fontFamily;
+                if (data.uiScale !== undefined && typeof data.uiScale === "number" && isFinite(data.uiScale))
+                    root.uiScale = Math.max(0.75, Math.min(2.0, data.uiScale));
+                if (data.fontSize !== undefined && typeof data.fontSize === "number" && isFinite(data.fontSize))
+                    root.fontSize = Math.max(9, Math.min(20, Math.round(data.fontSize)));
+                if (data.fontFamily !== undefined && typeof data.fontFamily === "string" && data.fontFamily.length > 0)
+                    root.fontFamily = data.fontFamily;
                 if (data.liveWingsEnabled !== undefined) root.liveWingsEnabled = !!data.liveWingsEnabled;
                 if (data.liveActivityStyle === "duo" || data.liveActivityStyle === "inline") root.liveActivityStyle = data.liveActivityStyle;
                 if (data.liveMediaEnabled !== undefined) root.liveMediaEnabled = !!data.liveMediaEnabled;
@@ -80,6 +98,7 @@ Singleton {
     }
 
     function save() {
+        root._dirty = true;
         const data = {
             showSeconds: root.showSeconds,
             compactWidget: root.compactWidget,
@@ -103,7 +122,11 @@ Singleton {
             liveCapsLock: root.liveCapsLock
         };
         const json = JSON.stringify(data, null, 2);
-        Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "sh", root.configDir, json, root.configPath]);
+        Quickshell.execDetached([
+            "sh", "-c",
+            "mkdir -p \"$1\" && tmp=\"$3.tmp.$$\" && printf '%s' \"$2\" > \"$tmp\" && mv -f \"$tmp\" \"$3\"",
+            "sh", root.configDir, json, root.configPath
+        ]);
     }
 
     function setLiveActivityStyle(style) {
@@ -113,21 +136,25 @@ Singleton {
     }
 
     function setScale(s) {
-        root.uiScale = Math.round(s * 100) / 100;
+        if (typeof s !== "number" || !isFinite(s)) return;
+        root.uiScale = Math.max(0.75, Math.min(2.0, Math.round(s * 100) / 100));
         save();
     }
 
     function setFontSize(fs) {
-        root.fontSize = Math.max(9, Math.min(20, fs));
+        if (typeof fs !== "number" || !isFinite(fs)) return;
+        root.fontSize = Math.max(9, Math.min(20, Math.round(fs)));
         save();
     }
 
     function setFontFamily(ff) {
+        if (typeof ff !== "string" || ff.trim().length === 0) return;
         root.fontFamily = ff;
         save();
     }
 
     function setCompactWidget(w) {
+        if (_validCompactWidgets.indexOf(w) === -1) return;
         root.compactWidget = w;
         save();
     }
@@ -163,7 +190,7 @@ Singleton {
     }
 
     function togglePref(key) {
-        if (root[key] === undefined) return;
+        if (_toggleableBoolKeys.indexOf(key) === -1) return;
         root[key] = !root[key];
         save();
     }

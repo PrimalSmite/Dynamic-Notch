@@ -33,9 +33,10 @@ Row {
                 if (ch === currentCh) return;
                 prevCh = currentCh;
                 currentCh = ch;
-                if (root.animated) {
+                if (root.animated && root.visible) {
                     rollAnim.restart();
                 } else {
+                    rollAnim.stop();
                     newTxt.y = 0;
                     newTxt.opacity = 1;
                     newTxt.scale = 1;

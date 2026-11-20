@@ -10,6 +10,7 @@ Rectangle {
     property real level: 0
     property color tint: Theme.controlFill
     property bool interactive: false
+    property bool iconInteractive: false
     signal moved(real v)
     signal iconClicked()
     signal wheel(int delta)
@@ -41,7 +42,8 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     anchors.margins: Theme.px(-4)
-                    cursorShape: Qt.PointingHandCursor
+                    enabled: root.iconInteractive
+                    cursorShape: root.iconInteractive ? Qt.PointingHandCursor : Qt.ArrowCursor
                     onClicked: root.iconClicked()
                 }
             }
@@ -57,6 +59,8 @@ Rectangle {
             }
         }
         Text {
+            width: parent.width
+            elide: Text.ElideRight
             text: root.label
             color: Theme.text2
             font.family: Theme.fontFamily

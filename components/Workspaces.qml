@@ -15,20 +15,24 @@ Row {
     spacing: Theme.px(5)
 
     readonly property int activeId: (monitor && monitor.activeWorkspace && monitor.activeWorkspace.id) ? monitor.activeWorkspace.id : 1
-    readonly property var wsList: (root.visible && root.opacity > 0.01) ? Hyprland.workspaces.values : []
+    readonly property var wsList: Hyprland.workspaces ? Hyprland.workspaces.values : []
     readonly property var occupied: {
         const s = {};
-        for (const w of wsList)
-            if (w.id > 0 && (!w.toplevels || w.toplevels.values.length > 0)) s[w.id] = true;
+        const monName = monitor ? monitor.name : "";
+        for (const w of wsList) {
+            if (w.id <= 0) continue;
+            if (monName && w.monitor && w.monitor.name && w.monitor.name !== monName) continue;
+            if (!w.toplevels || w.toplevels.values.length > 0) s[w.id] = true;
+        }
         return s;
     }
     readonly property int count: Theme.minWorkspaces
     readonly property int startId: Math.max(1, activeId - count + 1)
 
     function go(id) {
-        id = Math.max(1, Math.min(10, id));
+        id = Math.max(1, Math.round(id));
         if (id !== activeId) {
-            Hyprland.dispatch("hl.dsp.focus({ workspace = " + id + " })");
+            Hyprland.dispatch("workspace " + id);
         }
     }
 

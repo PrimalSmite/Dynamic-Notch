@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Shapes
-import qs.services
 
 // Notch shape: body attached to the top edge of the screen,
 // rounded bottom corners and concave upper ears (fillets).
@@ -45,7 +44,7 @@ Item {
         y: 0
         width: s.f + 1
         height: s.f
-        preferredRendererType: Shape.GeometryRenderer
+        preferredRendererType: Shape.CurveRenderer
 
         ShapePath {
             fillColor: s.color
@@ -64,7 +63,7 @@ Item {
         y: 0
         width: s.f + 1
         height: s.f
-        preferredRendererType: Shape.GeometryRenderer
+        preferredRendererType: Shape.CurveRenderer
 
         ShapePath {
             fillColor: s.color

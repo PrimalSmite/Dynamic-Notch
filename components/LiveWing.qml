@@ -19,7 +19,6 @@ Item {
     readonly property var allItems: LiveActivity.activeItems
     readonly property var secItems: LiveActivity.secondaryItems
 
-    property int selectedIndex: 0
     property string _pinnedKind: ""
 
     readonly property string activeKind: {
@@ -53,14 +52,13 @@ Item {
     onSecItemsChanged: {
         if (secItems.length === 0 || (_pinnedKind !== "" && secItems.indexOf(_pinnedKind) < 0)) {
             _pinnedKind = "";
-            selectedIndex = 0;
         }
     }
 
-    // Track Media progress lazily ONLY when media is actively playing on left wing
-    readonly property bool _mediaShown: active && activeKind === "media" && Media.playing && homeProgress < 0.5 && side === "left"
+    // Track Media progress lazily ONLY when media is actively visible on this wing
+    readonly property bool _mediaShown: visible && active && activeKind === "media" && Media.playing && homeProgress < 0.5 && (side === "left" || !LiveActivity.isSplitMode)
     property bool _mediaConsumerRegistered: false
-    on_MediaShownChanged: {
+    function _syncMediaConsumer() {
         if (_mediaShown && !_mediaConsumerRegistered) {
             Media.activeConsumers++;
             _mediaConsumerRegistered = true;
@@ -69,6 +67,8 @@ Item {
             _mediaConsumerRegistered = false;
         }
     }
+    on_MediaShownChanged: _syncMediaConsumer()
+    Component.onCompleted: _syncMediaConsumer()
     Component.onDestruction: {
         if (_mediaConsumerRegistered) {
             Media.activeConsumers = Math.max(0, Media.activeConsumers - 1);
@@ -83,7 +83,6 @@ Item {
     }
 
     readonly property real compactW: active ? wingRow.implicitWidth : 0
-    readonly property real dashW: 0
 
     width: Math.max(0, compactW * (1 - homeProgress))
     height: Theme.px(38)
@@ -95,7 +94,6 @@ Item {
         if (secItems.length <= 1) return;
         const cur = Math.max(0, secItems.indexOf(activeKind));
         const next = (cur + delta + secItems.length) % secItems.length;
-        selectedIndex = next;
         _pinnedKind = secItems[next];
         slotPulse.restart();
     }
@@ -153,7 +151,6 @@ Item {
                 anchors.centerIn: parent
                 kind: root.activeKind
                 part: root.slotPart
-                notchHovered: root.notchHovered
                 mediaProgress: root.mediaProgress
                 overflowCount: root.overflowCount
             }
@@ -167,10 +164,11 @@ Item {
                 cursorShape: Qt.PointingHandCursor
 
                 onClicked: mouse => {
-                    if (mouse.button === Qt.MiddleButton && root.side === "right") {
-                        root._pinnedKind = "";
-                        root.selectedIndex = 0;
-                        slotPulse.restart();
+                    if (mouse.button === Qt.MiddleButton) {
+                        if (root.side === "right") {
+                            root._pinnedKind = "";
+                            slotPulse.restart();
+                        }
                     } else {
                         LiveActivity.openMenu(root.activeKind, root.host);
                     }
@@ -183,6 +181,8 @@ Item {
                         if (Math.abs(_wheelAcc) < 80) return;
                         root.cycleSecondary(_wheelAcc > 0 ? -1 : 1);
                         _wheelAcc = 0;
+                    } else {
+                        w.accepted = false;
                     }
                 }
             }

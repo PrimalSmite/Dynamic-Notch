@@ -11,7 +11,7 @@ Item {
     signal moved(real v)
 
     implicitHeight: Theme.px(6)
-    readonly property real clamped: Math.max(0, Math.min(1, value))
+    readonly property real clamped: isFinite(value) ? Math.max(0, Math.min(1, value)) : 0
 
     Rectangle {
         anchors.fill: parent
@@ -33,6 +33,7 @@ Item {
         enabled: root.interactive
         cursorShape: root.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
         function send(mx) {
+            if (root.width <= 0) return;
             const pos = ma.mapToItem(root, mx, 0).x;
             root.moved(Math.max(0, Math.min(1, pos / root.width)));
         }

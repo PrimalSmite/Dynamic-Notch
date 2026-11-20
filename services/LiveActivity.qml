@@ -53,14 +53,25 @@ Singleton {
         onTriggered: root.ipcTask = null
     }
 
+    // Shared thermal/load thresholds (used by both priority queue and LiveSlotContent)
+    readonly property int thermalTempThreshold: 80
+    readonly property int thermalCritTemp: 90
+    readonly property real memAlertThreshold: 0.90
+    readonly property real memCritThreshold: 0.94
+
+    function _normProgress(progress, fallback) {
+        if (typeof progress !== "number" || !isFinite(progress)) return fallback;
+        return progress > 1 ? 1 : progress;
+    }
+
     function startTask(id, label, icon, progress) {
         ipcAutoClear.stop();
-        const p = (typeof progress === "number" && !isNaN(progress)) ? progress : -1;
+        const p = _normProgress(progress, -1);
         ipcTask = {
             id: id || "task",
             label: (label || "Task").trim(),
             icon: (icon && icon.length > 0) ? icon : "sync",
-            progress: p > 1 ? 1 : p,
+            progress: p,
             done: false,
             ok: true
         };
@@ -73,12 +84,12 @@ Singleton {
         }
         if (id && ipcTask.id !== id) return;
         ipcAutoClear.stop();
-        const p = (typeof progress === "number" && !isNaN(progress)) ? progress : ipcTask.progress;
+        const p = _normProgress(progress, ipcTask.progress);
         ipcTask = {
             id: ipcTask.id,
             label: (label && label.trim().length > 0) ? label.trim() : ipcTask.label,
             icon: ipcTask.icon,
-            progress: p > 1 ? 1 : p,
+            progress: p,
             done: false,
             ok: true
         };
@@ -123,7 +134,7 @@ Singleton {
         if (IslandPrefs.liveMicPrivacy && (Audio.micInUse || Audio.micMuted)) {
             list.push("mic");
         }
-        if (IslandPrefs.liveThermalAlert && (SysInfo.cpuTemp >= 80 || SysInfo.highLoadAlert || SysInfo.mem >= 0.90)) {
+        if (IslandPrefs.liveThermalAlert && (SysInfo.cpuTemp >= root.thermalTempThreshold || SysInfo.highLoadAlert || SysInfo.mem >= root.memAlertThreshold)) {
             list.push("thermal");
         }
         if (root.ipcTask !== null) {

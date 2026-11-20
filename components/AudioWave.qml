@@ -17,7 +17,7 @@ Row {
     readonly property bool _consume: root.active && root.visible
     property bool _registered: false
 
-    on_ConsumeChanged: {
+    function _syncConsumer() {
         if (_consume && !_registered) {
             Spectrum.activeConsumers++;
             _registered = true;
@@ -26,6 +26,9 @@ Row {
             _registered = false;
         }
     }
+
+    on_ConsumeChanged: _syncConsumer()
+    Component.onCompleted: _syncConsumer()
 
     Component.onDestruction: {
         if (_registered) {

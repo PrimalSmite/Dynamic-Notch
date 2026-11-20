@@ -11,9 +11,6 @@ Singleton {
     property real mem: 0          // 0..1
     property real memUsedGb: 0
     property real memTotalGb: 0
-    property real swap: 0
-    property real swapUsedGb: 0
-    property real swapTotalGb: 0
     property real disk: 0         // 0..1
     property string diskText: ""
     property int cpuTemp: -1      // °C
@@ -30,18 +27,55 @@ Singleton {
     property real _prevIdle: 0
     property real _prevRx: 0
     property real _prevTx: 0
+    property double _prevNetMs: 0
     property string _tempPath: ""
     property bool _firstHistorySample: true
 
-    FileView { id: statF; path: "/proc/stat"; blockLoading: true }
-    FileView { id: memF; path: "/proc/meminfo"; blockLoading: true }
-    FileView { id: netF; path: "/proc/net/dev"; blockLoading: true }
-    FileView { id: upF; path: "/proc/uptime"; blockLoading: true }
-    FileView { id: tempF; path: root._tempPath; blockLoading: true }
+    // Async FileViews (non-blocking) to avoid stalling the UI thread every 2s
+    FileView {
+        id: statF
+        path: "/proc/stat"
+        onLoaded: root._parseStat(text())
+    }
+    FileView {
+        id: memF
+        path: "/proc/meminfo"
+        onLoaded: root._parseMem(text())
+    }
+    FileView {
+        id: netF
+        path: "/proc/net/dev"
+        onLoaded: root._parseNet(text())
+    }
+    FileView {
+        id: upF
+        path: "/proc/uptime"
+        onLoaded: root._parseUptime(text())
+    }
+    FileView {
+        id: tempF
+        path: root._tempPath
+        onLoaded: {
+            const t = parseInt(text(), 10);
+            root.cpuTemp = isNaN(t) ? -1 : Math.round(t / 1000);
+        }
+    }
 
+    // Discover CPU temperature sensor across common x86/ARM hwmon drivers with thermal_zone fallback
     Process {
         running: true
-        command: ["sh", "-c", "for h in /sys/class/hwmon/hwmon*; do case $(cat $h/name 2>/dev/null) in k10temp|coretemp|zenpower|cpu_thermal) echo $h/temp1_input; exit;; esac; done"]
+        command: [
+            "sh", "-c",
+            "for h in /sys/class/hwmon/hwmon*; do " +
+            "  case $(cat \"$h/name\" 2>/dev/null) in " +
+            "    k10temp|coretemp|zenpower|cpu_thermal|acpitz|thinkpad|dell_smm|nct6775|it87) " +
+            "      [ -r \"$h/temp1_input\" ] && { echo \"$h/temp1_input\"; exit; } ;; " +
+            "  esac; " +
+            "done; " +
+            "for z in /sys/class/thermal/thermal_zone*; do " +
+            "  [ -r \"$z/temp\" ] && { echo \"$z/temp\"; exit; }; " +
+            "done"
+        ]
         stdout: StdioCollector {
             onStreamFinished: root._tempPath = text.trim()
         }
@@ -54,11 +88,23 @@ Singleton {
         return (kb / 1024).toFixed(1) + " MB/s";
     }
 
-    property int _uptimeCounter: 0
+    function _isVirtualIface(name) {
+        return name === "lo"
+            || name.startsWith("docker")
+            || name.startsWith("br-")
+            || name.startsWith("veth")
+            || name.startsWith("virbr")
+            || name.startsWith("tun")
+            || name.startsWith("tap")
+            || name.startsWith("wg")
+            || name.startsWith("tailscale")
+            || name.startsWith("zt");
+    }
 
-    function update() {
-        statF.reload();
-        const f = statF.text().split("\n")[0].trim().split(/\s+/).slice(1).map(Number);
+    function _parseStat(raw) {
+        const firstLine = (raw || "").split("\n")[0];
+        if (!firstLine) return;
+        const f = firstLine.trim().split(/\s+/).slice(1).map(Number);
         if (f.length >= 4) {
             const idle = f[3] + (f[4] || 0);
             const total = f.reduce((a, b) => a + b, 0);
@@ -85,62 +131,68 @@ Singleton {
             _prevTotal = total;
             _prevIdle = idle;
         }
+    }
 
-        memF.reload();
-        const m = memF.text();
-        let total = 0, avail = 0, stotal = 0, sfree = 0;
-        const mlines = m.split("\n");
+    function _parseMem(m) {
+        let total = 0, avail = 0;
+        const mlines = (m || "").split("\n");
         for (let i = 0; i < mlines.length; i++) {
             const ln = mlines[i];
             if (ln.startsWith("MemTotal:")) total = parseInt(ln.slice(9).trim(), 10) || 0;
             else if (ln.startsWith("MemAvailable:")) avail = parseInt(ln.slice(13).trim(), 10) || 0;
-            else if (ln.startsWith("SwapTotal:")) stotal = parseInt(ln.slice(10).trim(), 10) || 0;
-            else if (ln.startsWith("SwapFree:")) sfree = parseInt(ln.slice(9).trim(), 10) || 0;
-            if (total > 0 && avail > 0 && stotal > 0 && sfree > 0) break;
+            if (total > 0 && avail > 0) break;
         }
         if (total > 0) {
             mem = (total - avail) / total;
             memUsedGb = (total - avail) / 1048576;
             memTotalGb = total / 1048576;
         }
-        if (stotal > 0) {
-            swap = (stotal - sfree) / stotal;
-            swapUsedGb = (stotal - sfree) / 1048576;
-            swapTotalGb = stotal / 1048576;
-        }
+    }
 
-        netF.reload();
-        const nlines = netF.text().split("\n").slice(2);
+    function _parseNet(raw) {
+        const nlines = (raw || "").split("\n").slice(2);
         let rx = 0, tx = 0;
-        for (const ln of nlines) {
-            const p = ln.trim().split(/[:\s]+/);
-            if (p.length > 9 && p[0] !== "lo") {
+        for (let i = 0; i < nlines.length; i++) {
+            const p = nlines[i].trim().split(/[:\s]+/);
+            if (p.length > 9 && !_isVirtualIface(p[0])) {
                 rx += Number(p[1]) || 0;
                 tx += Number(p[9]) || 0;
             }
         }
-        if (_prevRx > 0) {
-            netDown = fmtRate(Math.max(0, (rx - _prevRx) / 2));
-            netUp = fmtRate(Math.max(0, (tx - _prevTx) / 2));
+        const now = Date.now();
+        const dtSec = _prevNetMs > 0 ? Math.max(0.5, (now - _prevNetMs) / 1000.0) : 2.0;
+        if (_prevNetMs > 0 && _prevRx > 0) {
+            netDown = fmtRate(Math.max(0, (rx - _prevRx) / dtSec));
+            netUp = fmtRate(Math.max(0, (tx - _prevTx) / dtSec));
         }
         _prevRx = rx;
         _prevTx = tx;
+        _prevNetMs = now;
+    }
+
+    function _parseUptime(raw) {
+        const upSec = parseFloat((raw || "").split(" ")[0]) || 0;
+        const d = Math.floor(upSec / 86400);
+        const h = Math.floor((upSec % 86400) / 3600);
+        const mn = Math.floor((upSec % 3600) / 60);
+        uptime = (d > 0 ? d + "d " : "") + (h > 0 ? h + "h " : "") + mn + "m";
+    }
+
+    property int _uptimeCounter: 0
+
+    function update() {
+        statF.reload();
+        memF.reload();
+        netF.reload();
 
         // Uptime changes with minute resolution, refresh every 30 seconds (15 ticks of 2s)
         if (++_uptimeCounter >= 15 || uptime === "") {
             _uptimeCounter = 0;
             upF.reload();
-            const upSec = parseFloat(upF.text().split(" ")[0]) || 0;
-            const d = Math.floor(upSec / 86400);
-            const h = Math.floor((upSec % 86400) / 3600);
-            const mn = Math.floor((upSec % 3600) / 60);
-            uptime = (d > 0 ? d + "d " : "") + (h > 0 ? h + "h " : "") + mn + "m";
         }
 
         if (_tempPath !== "") {
             tempF.reload();
-            const t = parseInt(tempF.text());
-            cpuTemp = isNaN(t) ? -1 : Math.round(t / 1000);
         }
     }
 
@@ -173,14 +225,15 @@ Singleton {
         running: false
         command: [
             "sh", "-c",
-            "LC_ALL=C df -BG / 2>/dev/null | awk 'NR==2{print \"DF\\t\" $3\"/\"$2 \"\\t\" $5}'; " +
-            "LC_ALL=C awk '" +
+            "LC_ALL=C df -P -BG / 2>/dev/null | awk 'NR==2{print \"DF\\t\" $3\"/\"$2 \"\\t\" $5}'; " +
+            "PGKB=$(($(getconf PAGESIZE 2>/dev/null || echo 4096) / 1024)); " +
+            "LC_ALL=C awk -v pgkb=\"$PGKB\" '" +
             "FILENAME == \"/proc/stat\" && /^cpu / { total = $2+$3+$4+$5+$6+$7+$8+$9; print \"CPU\\t\" total; nextfile } " +
             "FNR == 1 { " +
             "  if (match($0, /^[0-9]+ \\(.*\\) [^ ]+/)) { " +
             "    pid = $1; s = $0; sub(/^[0-9]+ \\(/, \"\", s); rest = s; sub(/^.*\\) /, \"\", rest); " +
             "    comm = substr(s, 1, length(s) - length(rest) - 2); " +
-            "    split(rest, f, \" \"); ticks = f[12] + f[13]; rss_kb = f[22] * 4; " +
+            "    split(rest, f, \" \"); ticks = f[12] + f[13]; rss_kb = f[22] * pgkb; " +
             "    if (ticks > 0 || rss_kb > 4096) printf \"P\\t%s\\t%s\\t%.0f\\t%.0f\\n\", pid, comm, ticks, rss_kb " +
             "  } " +
             "}' /proc/stat /proc/[0-9]*/stat 2>/dev/null"
@@ -198,7 +251,7 @@ Singleton {
                     const p = line.split("\t");
                     if (p[0] === "DF" && p.length >= 3) {
                         root.diskText = p[1].replace(/G/g, " GB");
-                        const pct = parseInt(p[2]);
+                        const pct = parseInt(p[2], 10);
                         if (!isNaN(pct)) root.disk = pct / 100;
                     } else if (p[0] === "CPU" && p.length >= 2) {
                         totalCpu = parseFloat(p[1]) || 0;

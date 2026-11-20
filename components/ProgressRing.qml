@@ -21,8 +21,12 @@ Item {
     readonly property real _cy: height / 2
     readonly property real _r: Math.max(1, (Math.min(width, height) - strokeWidth) / 2)
     property real _animValue: Math.max(0, Math.min(1, value))
+    Behavior on _animValue { Spring { epsilon: 0.01 } }
 
     onValueChanged: _animValue = Math.max(0, Math.min(1, value))
+    onIndeterminateChanged: {
+        if (!indeterminate) ringShape.rotation = 0;
+    }
 
     Shape {
         id: ringShape

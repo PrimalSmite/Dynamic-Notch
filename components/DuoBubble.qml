@@ -11,7 +11,6 @@ Item {
     property bool notchHidden: false
 
     readonly property var items: LiveActivity.secondaryItems
-    property int selectedIndex: 0
     property string _pinnedKind: ""
 
     readonly property bool shown: IslandPrefs.liveWingsEnabled
@@ -29,13 +28,35 @@ Item {
         return items[0];
     }
 
+    readonly property bool _mediaShown: shown && activeKind === "media" && Media.playing
+    property bool _mediaConsumerRegistered: false
+    function _syncMediaConsumer() {
+        if (_mediaShown && !_mediaConsumerRegistered) {
+            Media.activeConsumers++;
+            _mediaConsumerRegistered = true;
+        } else if (!_mediaShown && _mediaConsumerRegistered) {
+            Media.activeConsumers = Math.max(0, Media.activeConsumers - 1);
+            _mediaConsumerRegistered = false;
+        }
+    }
+    on_MediaShownChanged: _syncMediaConsumer()
+    Component.onCompleted: _syncMediaConsumer()
+    Component.onDestruction: {
+        if (_mediaConsumerRegistered) {
+            Media.activeConsumers = Math.max(0, Media.activeConsumers - 1);
+            _mediaConsumerRegistered = false;
+        }
+    }
+
+    readonly property real mediaProgress: {
+        const p = Media.player;
+        if (!p || !p.length || p.length <= 0) return 0;
+        return Math.max(0, Math.min(1, p.position / p.length));
+    }
+
     onItemsChanged: {
-        if (items.length === 0) {
+        if (items.length === 0 || (_pinnedKind !== "" && items.indexOf(_pinnedKind) < 0)) {
             _pinnedKind = "";
-            selectedIndex = 0;
-        } else if (_pinnedKind !== "" && items.indexOf(_pinnedKind) < 0) {
-            _pinnedKind = "";
-            selectedIndex = 0;
         }
     }
 
@@ -43,7 +64,6 @@ Item {
         if (items.length <= 1) return;
         const cur = Math.max(0, items.indexOf(activeKind));
         const next = (cur + delta + items.length) % items.length;
-        selectedIndex = next;
         _pinnedKind = items[next];
         slotPulse.restart();
     }
@@ -91,6 +111,7 @@ Item {
         anchors.centerIn: parent
         kind: root.activeKind
         part: "compact"
+        mediaProgress: root.mediaProgress
         overflowCount: Math.max(0, root.items.length - 1)
     }
 
@@ -104,7 +125,6 @@ Item {
         onClicked: mouse => {
             if (mouse.button === Qt.MiddleButton) {
                 root._pinnedKind = "";
-                root.selectedIndex = 0;
                 slotPulse.restart();
             } else {
                 LiveActivity.openMenu(root.activeKind, root.host);

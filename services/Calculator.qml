@@ -14,7 +14,7 @@ Singleton {
     id: root
 
     readonly property string homeDir: Quickshell.env("HOME") || ("/home/" + (Quickshell.env("USER") || "user"))
-    readonly property string stateDir: homeDir + "/.local/state/dynamic-notch"
+    readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || (homeDir + "/.local/state")) + "/dynamic-notch"
     readonly property string historyPath: stateDir + "/calc-history.json"
 
     // Calculation history: array of { expr: string, result: string, time: number }
@@ -68,12 +68,16 @@ Singleton {
 
     function saveHistoryDisk() {
         const json = JSON.stringify(root.history);
-        Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "sh", stateDir, json, historyPath]);
+        Quickshell.execDetached([
+            "sh", "-c",
+            "mkdir -p \"$1\" && tmp=\"$3.tmp.$$\" && printf '%s' \"$2\" > \"$tmp\" && mv -f \"$tmp\" \"$3\"",
+            "sh", stateDir, json, historyPath
+        ]);
     }
 
     function copyText(val) {
         const str = String(val);
-        Quickshell.execDetached(["wl-copy", "--", str]);
+        Quickshell.execDetached(["sh", "-c", "command -v wl-copy >/dev/null 2>&1 && wl-copy -- \"$1\"", "_", str]);
         root.lastCopied = str;
         copiedResetTimer.restart();
     }
@@ -115,7 +119,7 @@ Singleton {
 
     // Mathematical functions and helpers
     function _fact(n) {
-        if (n < 0 || ! isFinite(n)) return NaN;
+        if (n < 0 || !isFinite(n)) return NaN;
         if (Math.abs(n - Math.round(n)) > 1e-9) return NaN;
         const k = Math.round(n);
         if (k > 170) return Infinity;
@@ -137,7 +141,9 @@ Singleton {
 
     function _lcm(a, b) {
         if (a === 0 || b === 0) return 0;
-        return Math.abs(Math.round(a) * Math.round(b)) / _gcd(a, b);
+        const g = _gcd(a, b);
+        if (g === 0) return 0;
+        return Math.abs((Math.round(a) / g) * Math.round(b));
     }
 
     function _ncr(n, r) {
@@ -177,9 +183,14 @@ Singleton {
     // Mathematical expression tokenization
     function _tokenize(input) {
         const tokens = [];
+        const parenStack = []; // true when inside a function call argument list
         let i = 0;
         const s = input;
         const len = s.length;
+
+        function inFuncArgs() {
+            return parenStack.length > 0 && parenStack[parenStack.length - 1] === true;
+        }
 
         while (i < len) {
             const ch = s[i];
@@ -203,8 +214,9 @@ Singleton {
                 continue;
             }
 
-            // Numbers (including 0xFF, 0b1010, decimals with . or , and exponential notation 1e-5)
-            if (/[0-9]/.test(ch) || ((ch === "." || ch === ",") && i + 1 < len && /[0-9]/.test(s[i + 1]))) {
+            // Numbers (including 0xFF, 0b1010, decimals with . or , outside function arg lists, and 1e-5)
+            const allowDecimalComma = !inFuncArgs();
+            if (/[0-9]/.test(ch) || ((ch === "." || (allowDecimalComma && ch === ",")) && i + 1 < len && /[0-9]/.test(s[i + 1]))) {
                 let numStr = "";
                 if (ch === "0" && i + 1 < len && (s[i + 1] === "x" || s[i + 1] === "X")) {
                     numStr = "0x";
@@ -232,7 +244,7 @@ Singleton {
                     if (/[0-9]/.test(c)) {
                         numStr += c;
                         i++;
-                    } else if (!hasDot && (c === "." || (c === "," && i + 1 < len && /[0-9]/.test(s[i + 1])))) {
+                    } else if (!hasDot && (c === "." || (allowDecimalComma && c === "," && i + 1 < len && /[0-9]/.test(s[i + 1])))) {
                         hasDot = true;
                         numStr += ".";
                         i++;
@@ -263,9 +275,12 @@ Singleton {
                     id += s[i++];
                 }
                 const lower = id.toLowerCase();
+                let look = i;
+                while (look < len && /\s/.test(s[look])) look++;
+                const followedByLParen = (look < len && s[look] === "(");
                 if (lower === "mod") {
                     tokens.push({ type: "op", value: "%" });
-                } else if (lower === "deg" && (i >= len || s[i] !== "(")) {
+                } else if (lower === "deg" && !followedByLParen) {
                     // Postfix `45 deg` -> convert degrees to radians
                     tokens.push({ type: "op", value: "°" });
                 } else if (lower === "ans") {
@@ -309,11 +324,14 @@ Singleton {
                 continue;
             }
             if (ch === "(") {
+                const prevTok = tokens.length > 0 ? tokens[tokens.length - 1] : null;
+                parenStack.push(prevTok !== null && prevTok.type === "func");
                 tokens.push({ type: "lparen" });
                 i++;
                 continue;
             }
             if (ch === ")") {
+                if (parenStack.length > 0) parenStack.pop();
                 tokens.push({ type: "rparen" });
                 i++;
                 continue;
@@ -414,7 +432,7 @@ Singleton {
             return val;
         }
 
-        // Primary := Number | '(' Expr ')' | Func '(' Args ')' | Func Primary
+        // Primary := Number | '(' Expr ')' | Func '(' Args ')' | Func Unary
         function parsePrimary() {
             const t = peek();
             if (!t) return NaN;
@@ -451,8 +469,8 @@ Singleton {
                         consume();
                     }
                 } else {
-                    // Notation without parentheses like `sqrt 16` or `√16` or `sin 30°`
-                    args.push(parsePower());
+                    // Notation without parentheses like `sqrt 16`, `√16`, `sin -30°`
+                    args.push(parseUnary());
                 }
                 return _applyFunc(fn, args);
             }
@@ -498,7 +516,12 @@ Singleton {
             case "abs": return Math.abs(a);
             case "floor": return Math.floor(a);
             case "ceil": return Math.ceil(a);
-            case "round": return b !== undefined ? Number(a.toFixed(Math.max(0, Math.min(12, Math.round(b))))) : Math.round(a);
+            case "round":
+                if (b !== undefined) {
+                    if (!isFinite(b)) return NaN;
+                    return Number(a.toFixed(Math.max(0, Math.min(12, Math.round(b)))));
+                }
+                return Math.round(a);
             case "trunc": return Math.trunc(a);
             case "sign": return Math.sign(a);
             case "deg": return a * 180.0 / Math.PI;
@@ -521,8 +544,8 @@ Singleton {
 
     function _formatNumber(val) {
         if (!isFinite(val) || isNaN(val)) return "";
-        // Remove floating point noise around 0 (e.g. sin(pi) = 1.22e-16 -> 0)
-        if (Math.abs(val) < 1e-12) val = 0;
+        // Remove floating point noise around 0 (e.g. sin(pi) = 1.22e-16 -> 0) without clobbering 1e-13..1e-14
+        if (Math.abs(val) < 1e-15) val = 0;
         // Round to 12 significant digits so 0.1 + 0.2 gives 0.3
         const clean = Math.abs(val) >= 1e12 || (Math.abs(val) > 0 && Math.abs(val) < 1e-6)
             ? val.toExponential(6).replace(/\.?0+e/, "e")

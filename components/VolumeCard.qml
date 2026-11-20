@@ -7,15 +7,15 @@ import qs.services
 Rectangle {
     id: root
 
-    readonly property var sinks: Pipewire.nodes.values.filter(n => n.isSink && !n.isStream && n.audio)
+    readonly property var _rawSinks: Pipewire.nodes ? Pipewire.nodes.values.filter(n => n && n.isSink && !n.isStream) : []
+    readonly property var sinks: _rawSinks.filter(n => n.audio)
 
     function cleanSinkName(n) {
         if (!n) return "";
         let s = n.description || n.nickname || n.name || "";
         s = s.replace(/Analog Stereo/gi, "Speakers")
              .replace(/Digital Stereo \(HDMI.*?\)/gi, "HDMI")
-             .replace(/Audio Controller/gi, "")
-             .replace(/Built-in Audio/gi, "Built-in Audio");
+             .replace(/Audio Controller/gi, "");
         return s.trim() || "Audio Output";
     }
 
@@ -32,7 +32,7 @@ Rectangle {
     radius: Theme.px(18)
     color: Theme.card
 
-    PwObjectTracker { objects: root.sinks }
+    PwObjectTracker { objects: root._rawSinks }
 
     MouseArea {
         anchors.fill: parent
@@ -68,7 +68,7 @@ Rectangle {
                     anchors.centerIn: parent
                     name: Audio.icon
                     size: Theme.px(17)
-                    color: Audio.muted ? "white" : Theme.controlFill
+                    color: Audio.muted ? Theme.text : Theme.controlFill
                 }
                 MouseArea {
                     id: muteMa
@@ -137,6 +137,20 @@ Rectangle {
             contentWidth: sinkRow.implicitWidth
             boundsBehavior: Flickable.StopAtBounds
 
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.NoButton
+                onWheel: w => {
+                    if (sinkScroll.contentWidth > sinkScroll.width) {
+                        const maxX = sinkScroll.contentWidth - sinkScroll.width;
+                        sinkScroll.contentX = Math.max(0, Math.min(maxX, sinkScroll.contentX - w.angleDelta.y * 0.5));
+                        w.accepted = true;
+                    } else {
+                        w.accepted = false;
+                    }
+                }
+            }
+
             Row {
                 id: sinkRow
                 spacing: Theme.px(6)
@@ -164,13 +178,13 @@ Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
                                 name: root.sinkIcon(chip.modelData)
                                 size: Theme.px(13)
-                                color: chip.current ? "black" : Theme.text2
+                                color: chip.current ? Theme.textOnLight : Theme.text2
                             }
 
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: root.cleanSinkName(chip.modelData)
-                                color: chip.current ? "black" : Theme.text
+                                color: chip.current ? Theme.textOnLight : Theme.text
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.px(11)
                                 font.weight: Font.Medium
@@ -181,7 +195,7 @@ Rectangle {
                             id: chipMa
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: Pipewire.preferredDefaultAudioSink = chip.modelData
+                            onClicked: Audio.setSink(chip.modelData)
                         }
                     }
                 }

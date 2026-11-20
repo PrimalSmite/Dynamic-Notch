@@ -53,8 +53,11 @@ Singleton {
     readonly property color text: "#FFFFFF"
     readonly property color text2: Qt.rgba(1, 1, 1, 0.65)
     readonly property color text3: Qt.rgba(1, 1, 1, 0.35)
+    readonly property color textDim: text3
+    readonly property color textOnLight: "#000000"
     readonly property color card: Qt.rgba(1, 1, 1, 0.08)
     readonly property color cardHover: Qt.rgba(1, 1, 1, 0.13)
+    readonly property color notifCard: "#181D1C"
     readonly property color track: Qt.rgba(1, 1, 1, 0.14)
     readonly property color divider: Qt.rgba(1, 1, 1, 0.10)
 

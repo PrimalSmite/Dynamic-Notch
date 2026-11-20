@@ -94,7 +94,10 @@ Rectangle {
                     tint: Theme.controlFill
                     value: root.player && root.player.length > 0 ? (root.player.position / root.player.length) : 0
                     interactive: root.player ? root.player.canSeek : false
-                    onMoved: v => { if (root.player) root.player.position = v * root.player.length; }
+                    onMoved: v => {
+                        if (root.player && root.player.length > 0 && isFinite(v))
+                            root.player.position = v * root.player.length;
+                    }
                 }
             }
 
@@ -121,10 +124,12 @@ Rectangle {
 
                     // Prev track
                     Rectangle {
+                        readonly property bool canUse: root.player !== null && root.player.canGoPrevious
                         anchors.verticalCenter: parent.verticalCenter
                         width: Theme.px(26); height: width; radius: width / 2
-                        color: prevMa.containsMouse ? Theme.cardHover : "transparent"
-                        scale: prevMa.pressed ? 0.88 : 1.0
+                        color: (canUse && prevMa.containsMouse) ? Theme.cardHover : "transparent"
+                        opacity: canUse ? 1.0 : 0.35
+                        scale: (canUse && prevMa.pressed) ? 0.88 : 1.0
                         Behavior on scale { Spring { epsilon: 0.01 } }
 
                         Icon {
@@ -136,41 +141,47 @@ Rectangle {
                         MouseArea {
                             id: prevMa
                             anchors.fill: parent
+                            enabled: parent.canUse
                             hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
+                            cursorShape: parent.canUse ? Qt.PointingHandCursor : Qt.ArrowCursor
                             onClicked: Media.prev()
                         }
                     }
 
                     // Play/Pause (Clean circular button)
                     Rectangle {
+                        readonly property bool canUse: root.player !== null
                         anchors.verticalCenter: parent.verticalCenter
                         width: Theme.px(32); height: width; radius: width / 2
                         color: Theme.controlFill
-                        scale: playMa.pressed ? 0.88 : (playMa.containsMouse ? 1.05 : 1.0)
+                        opacity: canUse ? 1.0 : 0.35
+                        scale: (canUse && playMa.pressed) ? 0.88 : ((canUse && playMa.containsMouse) ? 1.05 : 1.0)
                         Behavior on scale { Spring { epsilon: 0.01 } }
 
                         Icon {
                             anchors.centerIn: parent
                             name: Media.playing ? "pause" : "play_arrow"
                             size: Theme.px(19)
-                            color: "#000000"
+                            color: Theme.textOnLight
                         }
                         MouseArea {
                             id: playMa
                             anchors.fill: parent
+                            enabled: parent.canUse
                             hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
+                            cursorShape: parent.canUse ? Qt.PointingHandCursor : Qt.ArrowCursor
                             onClicked: Media.togglePlay()
                         }
                     }
 
                     // Next track
                     Rectangle {
+                        readonly property bool canUse: root.player !== null && root.player.canGoNext
                         anchors.verticalCenter: parent.verticalCenter
                         width: Theme.px(26); height: width; radius: width / 2
-                        color: nextMa.containsMouse ? Theme.cardHover : "transparent"
-                        scale: nextMa.pressed ? 0.88 : 1.0
+                        color: (canUse && nextMa.containsMouse) ? Theme.cardHover : "transparent"
+                        opacity: canUse ? 1.0 : 0.35
+                        scale: (canUse && nextMa.pressed) ? 0.88 : 1.0
                         Behavior on scale { Spring { epsilon: 0.01 } }
 
                         Icon {
@@ -182,8 +193,9 @@ Rectangle {
                         MouseArea {
                             id: nextMa
                             anchors.fill: parent
+                            enabled: parent.canUse
                             hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
+                            cursorShape: parent.canUse ? Qt.PointingHandCursor : Qt.ArrowCursor
                             onClicked: Media.next()
                         }
                     }

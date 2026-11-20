@@ -7,8 +7,6 @@ Item {
     id: root
     property string icon: ""
     property string glyph: ""
-    property string label: ""
-    property string hint: ""
     property bool active: false
     property bool badge: false
     property color tint: Theme.text
@@ -18,8 +16,6 @@ Item {
 
     implicitWidth: Theme.px(34)
     implicitHeight: Theme.px(30)
-
-    readonly property bool hovered: ma.containsMouse
 
     scale: ma.pressed ? 0.90 : ma.containsMouse ? 1.05 : 1.0
     Behavior on scale { Spring { epsilon: 0.01 } }
@@ -40,9 +36,7 @@ Item {
         font.pixelSize: root.size
         color: root.active ? Theme.text : root.tint
         opacity: root.active || ma.containsMouse ? 1 : 0.76
-        scale: ma.pressed ? 0.88 : ma.containsMouse ? 1.06 : 1.0
         Behavior on opacity { NumberAnimation { duration: 140 } }
-        Behavior on scale { Spring { epsilon: 0.01 } }
     }
 
     Rectangle {
@@ -73,7 +67,6 @@ Item {
     MouseArea {
         id: ma
         anchors.fill: parent
-        anchors.margins: -Theme.px(2)
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         cursorShape: Qt.PointingHandCursor

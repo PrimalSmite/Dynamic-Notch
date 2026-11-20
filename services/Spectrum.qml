@@ -10,7 +10,16 @@ Singleton {
 
     property int activeConsumers: 0
     property var levels: [0, 0, 0, 0]
-    readonly property bool shouldRun: activeConsumers > 0 && Media.playing
+    property bool available: false
+    readonly property bool shouldRun: available && activeConsumers > 0 && Media.playing
+
+    Process {
+        running: true
+        command: ["sh", "-c", "command -v cava >/dev/null 2>&1 && echo 1 || echo 0"]
+        stdout: StdioCollector {
+            onStreamFinished: root.available = (text.trim() === "1")
+        }
+    }
 
     onShouldRunChanged: {
         if (!shouldRun) {
@@ -56,6 +65,10 @@ Singleton {
                 ];
                 root.levels = next;
             }
+        }
+
+        onExited: {
+            root.levels = [0, 0, 0, 0];
         }
     }
 }

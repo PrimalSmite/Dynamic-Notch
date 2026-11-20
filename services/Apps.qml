@@ -7,20 +7,29 @@ import QtQuick
 Singleton {
     id: root
 
-    readonly property string pinsPath: Quickshell.env("HOME") + "/.config/dynamic-notch/pins.json"
-    readonly property string usagePath: Quickshell.env("HOME") + "/.local/state/dynamic-notch/launcher-usage.json"
+    readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/dynamic-notch"
+    readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/dynamic-notch"
+    readonly property string pinsPath: configDir + "/pins.json"
+    readonly property string usagePath: stateDir + "/launcher-usage.json"
 
-    property var pinIds: ["firefox", "steam", "org.telegram.desktop", "discord"]
+    property var pinIds: []
     property var usage: ({})
+    property bool _pinsLoaded: false
+    property bool _pinsDirty: false
+    property bool _usageDirty: false
 
     readonly property var allEntries: DesktopEntries.applications.values.filter(e => !e.noDisplay)
 
     readonly property var pins: {
         const res = [];
+        const seen = {};
         const _ = allEntries.length; // dependency on list updates
         for (const id of pinIds) {
             const e = findById(id);
-            if (e) res.push(e);
+            if (e && !seen[e.id]) {
+                seen[e.id] = true;
+                res.push(e);
+            }
         }
         return res;
     }
@@ -40,16 +49,37 @@ Singleton {
         return null;
     }
 
+    function _canonicalId(id) {
+        if (!id) return "";
+        const e = findById(id);
+        return (e && e.id) ? e.id : id;
+    }
+
     function isPinned(id) {
-        return pinIds.indexOf(id) >= 0;
+        if (!id) return false;
+        const canon = _canonicalId(id);
+        for (let i = 0; i < pinIds.length; i++) {
+            if (pinIds[i] === id || pinIds[i] === canon || _canonicalId(pinIds[i]) === canon)
+                return true;
+        }
+        return false;
     }
 
     function togglePin(id) {
         if (!id) return;
-        const next = pinIds.slice();
-        const idx = next.indexOf(id);
-        if (idx >= 0) next.splice(idx, 1);
-        else next.push(id);
+        const canon = _canonicalId(id);
+        const next = [];
+        let removed = false;
+        for (let i = 0; i < pinIds.length; i++) {
+            const cur = pinIds[i];
+            if (cur === id || cur === canon || _canonicalId(cur) === canon) {
+                removed = true;
+            } else {
+                next.push(cur);
+            }
+        }
+        if (!removed) next.push(canon);
+        _pinsDirty = true;
         pinIds = next;
         savePins();
     }
@@ -60,6 +90,7 @@ Singleton {
         if (id) {
             const u = Object.assign({}, usage);
             u[id] = (u[id] || 0) + 1;
+            _usageDirty = true;
             usage = u;
             saveUsage();
         }
@@ -74,24 +105,34 @@ Singleton {
 
     function savePins() {
         const json = JSON.stringify(pinIds);
-        Quickshell.execDetached(["sh", "-c", "mkdir -p ~/.config/dynamic-notch && printf '%s' \"$1\" > \"$2\"", "_", json, pinsPath]);
+        Quickshell.execDetached([
+            "sh", "-c",
+            "mkdir -p \"$1\" && tmp=\"$2.tmp.$$\" && printf '%s' \"$3\" > \"$tmp\" && mv -f \"$tmp\" \"$2\"",
+            "_", configDir, pinsPath, json
+        ]);
     }
 
     function saveUsage() {
         const json = JSON.stringify(usage);
-        Quickshell.execDetached(["sh", "-c", "mkdir -p ~/.local/state/dynamic-notch && printf '%s' \"$1\" > \"$2\"", "_", json, usagePath]);
+        Quickshell.execDetached([
+            "sh", "-c",
+            "mkdir -p \"$1\" && tmp=\"$2.tmp.$$\" && printf '%s' \"$3\" > \"$tmp\" && mv -f \"$tmp\" \"$2\"",
+            "_", stateDir, usagePath, json
+        ]);
     }
 
     Process {
         running: true
-        command: ["sh", "-c", "cat ~/.config/dynamic-notch/pins.json 2>/dev/null"]
+        command: ["sh", "-c", "[ -f \"$1\" ] && cat \"$1\" 2>/dev/null || true", "_", root.pinsPath]
         stdout: StdioCollector {
             onStreamFinished: {
+                root._pinsLoaded = true;
+                if (root._pinsDirty) return;
                 const t = text.trim();
                 if (!t) return;
                 try {
                     const arr = JSON.parse(t);
-                    if (Array.isArray(arr) && arr.length > 0) root.pinIds = arr;
+                    if (Array.isArray(arr)) root.pinIds = arr;
                 } catch (e) {}
             }
         }
@@ -99,9 +140,10 @@ Singleton {
 
     Process {
         running: true
-        command: ["sh", "-c", "cat ~/.local/state/dynamic-notch/launcher-usage.json 2>/dev/null"]
+        command: ["sh", "-c", "[ -f \"$1\" ] && cat \"$1\" 2>/dev/null || true", "_", root.usagePath]
         stdout: StdioCollector {
             onStreamFinished: {
+                if (root._usageDirty) return;
                 const t = text.trim();
                 if (!t) return;
                 try {

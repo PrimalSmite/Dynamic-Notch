@@ -12,54 +12,152 @@ Singleton {
     property int nightTemp: 4200
     property bool keepAwake: false
     property bool gameMode: false
+    property bool hasHyprsunset: true
+    property bool hasSystemdInhibit: true
 
-    // Sync state on startup/reload with running background processes
+    // Saved Hyprland option values before enabling Game Mode so disabling restores them cleanly
+    property var _savedGameOpts: null
+
+    // Sync state on startup/reload with running background processes and binary availability
     Process {
         id: syncProc
         running: true
         command: [
             "sh", "-c",
-            "pgrep -x hyprsunset >/dev/null 2>&1 && echo NL; " +
-            "if [ -f /tmp/di-keepawake.pid ] && kill -0 \"$(cat /tmp/di-keepawake.pid 2>/dev/null)\" 2>/dev/null; then echo KA; fi"
+            "command -v hyprsunset >/dev/null 2>&1 && echo HS=1 || echo HS=0; " +
+            "command -v systemd-inhibit >/dev/null 2>&1 && echo SI=1 || echo SI=0; " +
+            "pgrep -x hyprsunset >/dev/null 2>&1 && echo NL=1 || echo NL=0"
         ]
         stdout: StdioCollector {
             onStreamFinished: {
-                const out = text.trim();
-                root.nightLight = out.indexOf("NL") !== -1;
-                root.keepAwake = out.indexOf("KA") !== -1;
+                const lines = text.trim().split("\n");
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i] === "HS=0") root.hasHyprsunset = false;
+                    else if (lines[i] === "SI=0") root.hasSystemdInhibit = false;
+                    else if (lines[i] === "NL=1") root.nightLight = true;
+                }
+            }
+        }
+    }
+
+    // Debounced hyprsunset launcher to avoid Wayland gamma-control race when restarting or dragging slider
+    Timer {
+        id: nightApplyTimer
+        interval: 120
+        onTriggered: {
+            if (!root.nightLight || !root.hasHyprsunset) return;
+            nightRestartProc.running = false;
+            nightRestartProc.command = [
+                "sh", "-c",
+                "pkill -x hyprsunset 2>/dev/null; i=0; while pgrep -x hyprsunset >/dev/null 2>&1 && [ $i -lt 15 ]; do sleep 0.03; i=$((i+1)); done; exec hyprsunset -t \"$1\" >/dev/null 2>&1",
+                "_", String(root.nightTemp)
+            ];
+            nightRestartProc.running = true;
+        }
+    }
+
+    Process {
+        id: nightRestartProc
+        onExited: (code) => {
+            if (code !== 0 && root.nightLight) {
+                // Only clear if hyprsunset actually failed to stay running
+                nightCheckProc.running = false;
+                nightCheckProc.running = true;
+            }
+        }
+    }
+
+    Process {
+        id: nightCheckProc
+        command: ["pgrep", "-x", "hyprsunset"]
+        onExited: (code) => {
+            if (code !== 0) root.nightLight = false;
+        }
+    }
+
+    // Managed systemd-inhibit process (no /tmp PID files, clean termination on disable or shell exit)
+    Process {
+        id: keepAwakeProc
+        command: ["systemd-inhibit", "--what=idle", "--who=DynamicNotch", "--why=KeepAwake", "sleep", "infinity"]
+        onExited: {
+            root.keepAwake = false;
+        }
+    }
+
+    Process {
+        id: gameSaveProc
+        command: [
+            "sh", "-c",
+            "for opt in animations:enabled decoration:blur:enabled general:gaps_in general:gaps_out; do " +
+            "  val=$(hyprctl getoption \"$opt\" 2>/dev/null | awk '/^(int|custom type):/{sub(/^[^:]+:[[:space:]]*/, \"\"); print; exit}'); " +
+            "  printf '%s=%s\\n' \"$opt\" \"$val\"; " +
+            "done"
+        ]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const saved = {};
+                const lines = text.trim().split("\n");
+                for (let i = 0; i < lines.length; i++) {
+                    const idx = lines[i].indexOf("=");
+                    if (idx > 0) {
+                        const k = lines[i].slice(0, idx);
+                        const v = lines[i].slice(idx + 1).trim();
+                        if (v.length > 0) saved[k] = v;
+                    }
+                }
+                root._savedGameOpts = saved;
+                if (root.gameMode) {
+                    Quickshell.execDetached([
+                        "hyprctl", "--batch",
+                        "keyword animations:enabled 0 ; keyword decoration:blur:enabled 0 ; keyword general:gaps_in 0 ; keyword general:gaps_out 0"
+                    ]);
+                }
             }
         }
     }
 
     function setNightTemp(temp) {
         nightTemp = Math.max(2500, Math.min(6500, Math.round(temp)));
-        if (nightLight) {
-            Quickshell.execDetached(["sh", "-c", "pkill -x hyprsunset 2>/dev/null; hyprsunset -t " + nightTemp + " >/dev/null 2>&1 &"]);
+        if (nightLight && hasHyprsunset) {
+            nightApplyTimer.restart();
         }
     }
 
     function toggleNightLight() {
+        if (!nightLight && !hasHyprsunset) return;
         nightLight = !nightLight;
         if (nightLight) {
-            Quickshell.execDetached(["sh", "-c", "pkill -x hyprsunset 2>/dev/null; hyprsunset -t " + nightTemp + " >/dev/null 2>&1 &"]);
+            nightApplyTimer.restart();
         } else {
+            nightApplyTimer.stop();
+            nightRestartProc.running = false;
             Quickshell.execDetached(["pkill", "-x", "hyprsunset"]);
         }
     }
 
     function toggleKeepAwake() {
+        if (!keepAwake && !hasSystemdInhibit) return;
         keepAwake = !keepAwake;
         if (keepAwake) {
-            Quickshell.execDetached(["sh", "-c", "systemd-inhibit --what=idle --who='DynamicNotch' --why='KeepAwake' sleep infinity >/dev/null 2>&1 & echo $! > /tmp/di-keepawake.pid"]);
+            keepAwakeProc.running = false;
+            keepAwakeProc.running = true;
         } else {
-            Quickshell.execDetached(["sh", "-c", "[ -f /tmp/di-keepawake.pid ] && { PID=$(cat /tmp/di-keepawake.pid); pkill -P \"$PID\" 2>/dev/null; kill \"$PID\" 2>/dev/null; rm -f /tmp/di-keepawake.pid; }"]);
+            keepAwakeProc.running = false;
         }
     }
 
     function toggleGameMode() {
         gameMode = !gameMode;
         if (gameMode) {
-            Quickshell.execDetached(["hyprctl", "--batch", "keyword animations:enabled 0 ; keyword decoration:blur:enabled 0 ; keyword general:gaps_in 0 ; keyword general:gaps_out 0"]);
+            gameSaveProc.running = false;
+            gameSaveProc.running = true;
+        } else if (_savedGameOpts && Object.keys(_savedGameOpts).length > 0) {
+            const parts = [];
+            for (const k in _savedGameOpts) {
+                parts.push("keyword " + k + " " + _savedGameOpts[k]);
+            }
+            Quickshell.execDetached(["hyprctl", "--batch", parts.join(" ; ")]);
+            _savedGameOpts = null;
         } else {
             Quickshell.execDetached(["hyprctl", "reload"]);
         }

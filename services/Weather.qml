@@ -10,6 +10,8 @@ Singleton {
     readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/dynamic-notch/weather"
 
     property bool ready: false
+    property bool loading: false
+    property string lastError: ""
     property real temp: NaN
     property real feelsLike: NaN
     property int humidity: 0
@@ -28,14 +30,15 @@ Singleton {
 
     property bool searchingCities: false
     property var searchResults: []
-    property string _pendingQuery: ""
+    property int _fetchGen: 0
+    property int _searchGen: 0
 
     readonly property var presetCities: [
-        { name: "Izhevsk", sub: "Russia · Udmurtia", aliases: "ижевск izhevsk", lat: 56.8523, lon: 53.1986 },
-        { name: "Moscow", sub: "Russia", aliases: "москва moscow", lat: 55.7558, lon: 37.6173 },
-        { name: "Saint Petersburg", sub: "Russia", aliases: "санкт-петербург питер спб saint petersburg", lat: 59.9343, lon: 30.3351 },
         { name: "London", sub: "United Kingdom", aliases: "лондон london", lat: 51.5074, lon: -0.1278 },
-        { name: "Tokyo", sub: "Japan", aliases: "токио tokyo", lat: 35.6762, lon: 139.6503 }
+        { name: "New York", sub: "United States", aliases: "нью-йорк new york nyc", lat: 40.7128, lon: -74.0060 },
+        { name: "Tokyo", sub: "Japan", aliases: "токио tokyo", lat: 35.6762, lon: 139.6503 },
+        { name: "Berlin", sub: "Germany", aliases: "берлин berlin", lat: 52.5200, lon: 13.4050 },
+        { name: "Paris", sub: "France", aliases: "париж paris", lat: 48.8566, lon: 2.3522 }
     ]
 
     function codeInfo(c, day) {
@@ -48,6 +51,10 @@ Singleton {
         if ((c >= 71 && c <= 77) || c === 85 || c === 86) return { icon: "weather_snowy", desc: "Snow", color: "#90CAF9" };
         if (c >= 95) return { icon: "thunderstorm", desc: "Thunderstorm", color: "#BF5AF2" };
         return { icon: "cloud", desc: "Cloudy", color: Qt.rgba(1, 1, 1, 0.65) };
+    }
+
+    function _safeRound(v) {
+        return (typeof v === "number" && isFinite(v)) ? Math.round(v) : 0;
     }
 
     // Calculates a representative daily weather code based on hourly data (rather than Open-Meteo worst-hour WMO)
@@ -120,7 +127,11 @@ Singleton {
     }
 
     function refresh() {
+        root._fetchGen++;
+        root.loading = true;
+        root.lastError = "";
         fetchProc.running = false;
+        fetchProc._runGen = root._fetchGen;
         fetchProc.running = true;
     }
 
@@ -136,10 +147,11 @@ Singleton {
         });
         Quickshell.execDetached([
             "sh", "-c",
-            "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"",
+            "mkdir -p \"$1\" && tmp=\"$3.tmp.$$\" && printf '%s' \"$2\" > \"$tmp\" && mv -f \"$tmp\" \"$3\"",
             "sh", root.cacheDir, locData, root.cacheDir + "/weather-loc.json"
         ]);
         root.retryCount = 0;
+        retryTimer.stop();
         root.refresh();
     }
 
@@ -150,14 +162,16 @@ Singleton {
 
     function searchCities(query) {
         const q = (query || "").trim();
+        root._searchGen++;
         if (q.length < 2) {
+            geoSearchProc.running = false;
             root.searchResults = [];
             root.searchingCities = false;
             return;
         }
-        root._pendingQuery = q;
         root.searchingCities = true;
         geoSearchProc.running = false;
+        geoSearchProc._runGen = root._searchGen;
         const isCyrillic = /[а-яё]/i.test(q);
         const lang = isCyrillic ? "ru" : "en";
         geoSearchProc.command = [
@@ -187,9 +201,16 @@ Singleton {
             const raw = weatherCacheFile.text();
             if (!raw || !raw.trim()) return;
             const c = JSON.parse(raw);
-            if (c && typeof c.temp === "number") {
+            if (!c) return;
+            // Ignore cache older than 6 hours or belonging to a different location
+            if (c.ts && (Date.now() - c.ts) > 6 * 3600 * 1000) return;
+            if (c.lat !== undefined && c.lon !== undefined) {
+                if (Math.abs(Number(c.lat) - root.lat) > 0.05 || Math.abs(Number(c.lon) - root.lon) > 0.05)
+                    return;
+            }
+            if (typeof c.temp === "number" && isFinite(c.temp)) {
                 root.temp = c.temp;
-                root.feelsLike = c.feelsLike !== undefined ? c.feelsLike : c.temp;
+                root.feelsLike = (typeof c.feelsLike === "number" && isFinite(c.feelsLike)) ? c.feelsLike : c.temp;
                 root.humidity = c.humidity || 0;
                 root.wind = c.wind || 0;
                 root.code = c.code || 0;
@@ -201,8 +222,7 @@ Singleton {
                 if (c.hourly && c.hourly.length) root.hourly = c.hourly;
                 if (c.daily && c.daily.length) root.daily = c.daily;
                 root.ready = true;
-            } else if (c && typeof c.tempNow === "number") {
-                // Compatibility with legacy cache format
+            } else if (typeof c.tempNow === "number" && isFinite(c.tempNow)) {
                 root.temp = c.tempNow;
                 root.feelsLike = c.tempNow;
                 root.humidity = c.humidity || 0;
@@ -219,6 +239,8 @@ Singleton {
 
     function saveCache() {
         const data = {
+            lat: root.lat,
+            lon: root.lon,
             temp: root.temp,
             feelsLike: root.feelsLike,
             humidity: root.humidity,
@@ -230,7 +252,11 @@ Singleton {
             ts: Date.now()
         };
         const json = JSON.stringify(data);
-        Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "sh", root.cacheDir, json, root.cacheDir + "/weather-cache.json"]);
+        Quickshell.execDetached([
+            "sh", "-c",
+            "mkdir -p \"$1\" && tmp=\"$3.tmp.$$\" && printf '%s' \"$2\" > \"$tmp\" && mv -f \"$tmp\" \"$3\"",
+            "sh", root.cacheDir, json, root.cacheDir + "/weather-cache.json"
+        ]);
     }
 
     FileView {
@@ -255,6 +281,7 @@ Singleton {
 
     Process {
         id: fetchProc
+        property int _runGen: 0
         command: [
             "curl", "-s", "--max-time", "8",
             "https://api.open-meteo.com/v1/forecast?latitude=" + root.lat + "&longitude=" + root.lon
@@ -265,6 +292,8 @@ Singleton {
         ]
         stdout: StdioCollector {
             onStreamFinished: {
+                if (fetchProc._runGen !== root._fetchGen) return;
+                root.loading = false;
                 const raw = text.trim();
                 let success = false;
                 if (raw) {
@@ -285,15 +314,14 @@ Singleton {
                             // Hourly (slot "Now" + next 6 hours)
                             if (d.hourly && d.hourly.time) {
                                 const hrs = [];
-                                const currentRound = Math.round(root.temp) || 0;
                                 hrs.push({
                                     time: "Now",
-                                    temp: currentRound,
+                                    temp: root._safeRound(root.temp),
                                     icon: root.icon,
                                     iconColor: root.iconColor
                                 });
 
-                                const nowIso = d.current.time || "";
+                                const nowIso = d.current.time || Qt.formatDateTime(new Date(), "yyyy-MM-ddTHH:00");
                                 let startIdx = -1;
                                 for (let i = 0; i < d.hourly.time.length; i++) {
                                     if (d.hourly.time[i] > nowIso) {
@@ -305,12 +333,11 @@ Singleton {
                                 if (startIdx !== -1) {
                                     for (let i = startIdx; i < Math.min(startIdx + 6, d.hourly.time.length); i++) {
                                         const tStr = d.hourly.time[i].split("T")[1] || "00:00";
-                                        const isDay = d.hourly.is_day ? d.hourly.is_day[i] === 1 : true;
-                                        const hi = root.codeInfo(d.hourly.weather_code[i], isDay);
-                                        const rTemp = Math.round(d.hourly.temperature_2m[i]) || 0;
+                                        const hDay = d.hourly.is_day ? d.hourly.is_day[i] === 1 : true;
+                                        const hi = root.codeInfo(d.hourly.weather_code[i], hDay);
                                         hrs.push({
                                             time: tStr.slice(0, 5),
-                                            temp: rTemp,
+                                            temp: root._safeRound(d.hourly.temperature_2m[i]),
                                             icon: hi.icon,
                                             iconColor: hi.color
                                         });
@@ -329,12 +356,10 @@ Singleton {
                                     const sSum = d.daily.snowfall_sum ? d.daily.snowfall_sum[i] : 0;
                                     const repCode = root.representativeDailyCode(d.daily.time[i], d.hourly, pSum, sSum);
                                     const di = root.codeInfo(repCode, true);
-                                    const rMin = Math.round(d.daily.temperature_2m_min[i]) || 0;
-                                    const rMax = Math.round(d.daily.temperature_2m_max[i]) || 0;
                                     dlist.push({
                                         day: i === 0 ? "Today" : days[dt.getDay()],
-                                        min: rMin,
-                                        max: rMax,
+                                        min: root._safeRound(d.daily.temperature_2m_min[i]),
+                                        max: root._safeRound(d.daily.temperature_2m_max[i]),
                                         icon: di.icon,
                                         iconColor: di.color,
                                         desc: di.desc
@@ -344,6 +369,7 @@ Singleton {
                             }
 
                             root.ready = true;
+                            root.lastError = "";
                             root.saveCache();
                             success = true;
                         }
@@ -351,16 +377,12 @@ Singleton {
                 }
 
                 if (!success) {
+                    root.lastError = "Unable to update forecast";
                     root.scheduleRetry();
                 } else {
                     root.retryCount = 0;
                     retryTimer.stop();
                 }
-            }
-        }
-        onExited: function(exitCode) {
-            if (exitCode !== 0) {
-                root.scheduleRetry();
             }
         }
     }
@@ -392,9 +414,11 @@ Singleton {
     // Geocoding search via Open-Meteo
     Process {
         id: geoSearchProc
+        property int _runGen: 0
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
+                if (geoSearchProc._runGen !== root._searchGen) return;
                 root.searchingCities = false;
                 const raw = text.trim();
                 if (!raw) {
@@ -423,9 +447,6 @@ Singleton {
                     root.searchResults = [];
                 }
             }
-        }
-        onExited: function(code) {
-            if (code !== 0) root.searchingCities = false;
         }
     }
 

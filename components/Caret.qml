@@ -59,6 +59,10 @@ Item {
         }
     }
 
+    onVisibleChanged: {
+        if (visible) resetBlink();
+    }
+
     function resetBlink() {
         bar.opacity = 1.0;
         blinkAnim.restart();
