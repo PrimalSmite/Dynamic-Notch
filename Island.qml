@@ -247,14 +247,29 @@ PanelWindow {
         else if (key === "mixer") Audio.toggleMute();
         else if (key === "media") Media.togglePlay();
         else if (key === "recorder") {
-            if (Recorder.recording) Recorder.stop();
+            if (Recorder.recording || Recorder.counting) Recorder.stop();
             else Recorder.start((win.monitor && win.monitor.name) ? win.monitor.name : "screen");
         } else if (key === "timer") Timers.toggleStart();
         else openPanel(key);
     }
 
+    property string lastModeKey: "nightLight"
+    property bool lastModeEnabled: false
+    property string lastScreenshotMode: "region"
+    property string lastTrackTitle: ""
+    property string lastTrackArtist: ""
+    property string lastTrackArt: ""
+
     function isInstantKind(kind) {
-        return kind === "layout" || kind === "clipboard" || kind === "caps" || kind === "dnd";
+        return kind === "layout" || kind === "clipboard" || kind === "caps" || kind === "dnd"
+            || kind === "mode" || kind === "screenshot" || kind === "timer_done";
+    }
+
+    function _osdPriority(kind) {
+        if (kind === "timer_done") return 4;
+        if (kind === "screenshot" || kind === "notif") return 3;
+        if (kind === "clipboard") return 1;
+        return 2;
     }
 
     function showOsd(kind) {
@@ -265,9 +280,14 @@ PanelWindow {
         if (kind === "layout" && !IslandPrefs.showLayoutOsd) return;
         if (kind === "clipboard" && !IslandPrefs.liveClipboardPulse) return;
         if (kind === "caps" && !IslandPrefs.liveCapsLock) return;
+        if (kind === "track" && !IslandPrefs.liveTrackOsd) return;
+        if (kind === "mode" && !IslandPrefs.liveModeOsd) return;
         const wasOsd = (mode === "osd");
+        if (wasOsd && osd !== "" && osd !== kind && _osdPriority(kind) < _osdPriority(osd)) {
+            return;
+        }
         if (wasOsd && lastOsd !== kind) {
-            const order = ["volume", "layout", "clipboard", "caps", "dnd", "notif"];
+            const order = ["volume", "layout", "clipboard", "caps", "dnd", "mode", "track", "screenshot", "notif", "timer_done"];
             const oldIdx = order.indexOf(lastOsd);
             const newIdx = order.indexOf(kind);
             osdSwitchDir = (newIdx >= oldIdx) ? 1 : -1;
@@ -278,8 +298,11 @@ PanelWindow {
         lastOsd = kind;
         osd = kind;
         osdTimer.interval = kind === "notif" ? Theme.notifMs
+                          : kind === "timer_done" ? 4000
+                          : kind === "track" ? 2200
+                          : kind === "screenshot" ? 1400
                           : kind === "layout" ? Theme.layoutOsdMs
-                          : (kind === "clipboard" || kind === "caps" || kind === "dnd") ? 1100
+                          : (kind === "clipboard" || kind === "caps" || kind === "dnd" || kind === "mode") ? 1100
                           : Theme.osdMs;
         osdTimer.restart();
     }
@@ -324,6 +347,36 @@ PanelWindow {
         target: Notifs
         function onPopup(n) { win.notif = n; win.showOsd("notif"); }
         function onDndChanged() { if (win.armed) win.showOsd("dnd"); }
+    }
+    Connections {
+        target: Media
+        function onTrackChanged(title, artist, artUrl) {
+            if (!win.armed) return;
+            win.lastTrackTitle = title;
+            win.lastTrackArtist = artist;
+            win.lastTrackArt = artUrl;
+            win.showOsd("track");
+        }
+    }
+    Connections {
+        target: SysToggles
+        function onModeToggled(modeKey, enabled) {
+            if (!win.armed) return;
+            win.lastModeKey = modeKey;
+            win.lastModeEnabled = enabled;
+            win.showOsd("mode");
+        }
+        function onScreenshotTaken(mode) {
+            if (!win.armed) return;
+            win.lastScreenshotMode = mode || "region";
+            win.showOsd("screenshot");
+        }
+    }
+    Connections {
+        target: Timers
+        function onFinished() {
+            if (win.armed) win.showOsd("timer_done");
+        }
     }
     Connections {
         target: Auth
@@ -381,6 +434,7 @@ PanelWindow {
     readonly property real rightZoneCompactW: (rightCoreCompactW > 0 ? (liveItem.activeCompact ? Theme.px(7) : Theme.px(10)) + rightCoreCompactW : 0) + (rightWingItem.active ? rightWingItem.compactW + Theme.px(10) : 0)
     readonly property real compactW: leftZoneCompactW + clockPill.compactW + rightZoneCompactW + Theme.px(12) * 2
     readonly property real instantOsdW: Theme.px(196)
+    readonly property real trackOsdW: Theme.px(252)
     readonly property bool isInstantOsd: isInstantKind(win.lastOsd)
     readonly property real topRowTargetW: wsItem.dashW + divItem.dashW + clkItem.dashW + liveItem.dashW + weatherItem.dashW + mediaItem.dashW + layoutItem.dashW + trayItem.dashW
     readonly property real dashW: Math.max(Theme.px(520),
@@ -424,6 +478,7 @@ PanelWindow {
         property real bw: win.mode === "panel" ? win.activePanelW
                         : win.mode === "dashboard" ? win.dashW
                         : win.mode === "osd" ? (win.lastOsd === "notif" ? Theme.notifW
+                                              : win.lastOsd === "track" ? win.trackOsdW
                                               : win.isInstantOsd ? win.instantOsdW
                                               : Theme.osdW)
                         : win.compactW + (compactHovered ? Theme.hoverGrowW : 0)
@@ -451,12 +506,41 @@ PanelWindow {
             acceptedButtons: Qt.AllButtons
         }
 
+        readonly property bool _glowAllowed: IslandPrefs.liveAmbientGlow && (win.mode === "compact" || win.mode === "osd") && !win.notchHidden
+        readonly property color ambientGlowColor: {
+            if (!_glowAllowed) return "transparent";
+            if (win.mode === "osd" && win.lastOsd === "timer_done") return Theme.orange;
+            if (win.mode === "osd" && win.lastOsd === "screenshot") return Theme.mint;
+            if (Timers.running && Timers.mode === "timer" && Timers.remainSec <= 10) return Theme.orange;
+            if (Recorder.recording) return Theme.red;
+            if (LiveActivity.activeItems.indexOf("thermal") >= 0) return Theme.red;
+            if (Audio.micInUse && !Audio.micMuted) return Theme.orange;
+            if (Media.playing) return Theme.mint;
+            return "transparent";
+        }
+        readonly property bool _glowBreathing: _glowAllowed && (
+            (win.mode === "osd" && win.lastOsd === "timer_done")
+            || Recorder.recording
+            || (Timers.running && Timers.mode === "timer" && Timers.remainSec <= 10)
+        )
+        property real _pulseAlpha: 0.48
+        SequentialAnimation on _pulseAlpha {
+            running: notch._glowBreathing
+            loops: Animation.Infinite
+            NumberAnimation { from: 0.22; to: 0.62; duration: 900; easing.type: Easing.InOutSine }
+            NumberAnimation { from: 0.62; to: 0.22; duration: 900; easing.type: Easing.InOutSine }
+        }
+
         NotchShape {
             bodyW: notch.bw
             bodyH: notch.bh
             radius: notch.rad
             fillet: Theme.notchFillet
             color: Theme.bg
+            glowColor: notch.ambientGlowColor
+            glowOpacity: notch.ambientGlowColor === "transparent" ? 0
+                       : notch._glowBreathing ? notch._pulseAlpha
+                       : (win.mode === "osd" ? 0.42 : 0.22)
         }
 
         HoverHandler {
@@ -588,8 +672,10 @@ PanelWindow {
                         return;
                     }
                     if (win.mode === "osd" && (win.lastOsd === "notif" || win.lastOsd === "dnd")) win.openPanel("notifications");
-                    else if (win.mode === "osd" && win.lastOsd === "clipboard") win.openPanel("clipboard");
-                    else if (win.mode === "osd" && win.lastOsd === "caps") win.openPanel("settings");
+                    else if (win.mode === "osd" && (win.lastOsd === "clipboard" || win.lastOsd === "screenshot")) win.openPanel("clipboard");
+                    else if (win.mode === "osd" && (win.lastOsd === "caps" || win.lastOsd === "mode")) win.openPanel("settings");
+                    else if (win.mode === "osd" && win.lastOsd === "track") win.openPanel("media");
+                    else if (win.mode === "osd" && win.lastOsd === "timer_done") win.openPanel("timer");
                     else if (win.mode === "dashboard") win.collapse();
                     else if (win.mode === "compact") win.toggle();
                 }
@@ -1282,6 +1368,7 @@ PanelWindow {
                 hiddenY: -Theme.px(8)
                 transformOrigin: Item.Top
                 width: win.lastOsd === "notif" ? Theme.notifW
+                     : win.lastOsd === "track" ? win.trackOsdW
                      : win.isInstantOsd ? win.instantOsdW
                      : Theme.osdW
                 height: win.lastOsd === "notif" ? Theme.notifH
@@ -1620,6 +1707,323 @@ PanelWindow {
                             slotActive: capsSlot.active
                             topEnterText: "Caps Lock ON"
                         }
+                    }
+                }
+
+                // mode — compact popup for Night Light / Keep Awake / Game Mode
+                OsdSlot {
+                    id: modeSlot
+                    kind: "mode"
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(8)
+
+                        readonly property string modeIcon: win.lastModeKey === "nightLight" ? "bedtime"
+                                                         : win.lastModeKey === "keepAwake" ? "coffee"
+                                                         : "sports_esports"
+                        readonly property color modeColor: win.lastModeKey === "nightLight" ? Theme.orange
+                                                         : win.lastModeKey === "keepAwake" ? Theme.yellow
+                                                         : Theme.teal
+                        readonly property string modeName: win.lastModeKey === "nightLight" ? "Night Light"
+                                                         : win.lastModeKey === "keepAwake" ? "Keep Awake"
+                                                         : "Game Mode"
+
+                        Icon {
+                            id: modeIconItem
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: parent.modeIcon
+                            size: Theme.px(15)
+                            color: win.lastModeEnabled ? parent.modeColor : Theme.text2
+
+                            Connections {
+                                target: SysToggles
+                                function onModeToggled() {
+                                    if (modeSlot.active && win.mode === "osd") modeIconPop.restart();
+                                }
+                            }
+                            SpringAnimation {
+                                id: modeIconPop
+                                target: modeIconItem
+                                property: "scale"
+                                from: 0.72
+                                to: 1.0
+                                spring: Theme.springK
+                                damping: Theme.springDamp
+                                epsilon: 0.01
+                            }
+                        }
+                        RollingLabel {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: parent.modeName + (win.lastModeEnabled ? " ON" : " OFF")
+                            color: Theme.text
+                            pixelSize: Theme.px(13)
+                            fontWeight: Font.DemiBold
+                            slotActive: modeSlot.active
+                            topEnterText: parent.modeName + " ON"
+                        }
+                    }
+                }
+
+                // screenshot — compact popup when grim/slurp copies screenshot
+                OsdSlot {
+                    id: screenshotSlot
+                    kind: "screenshot"
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(8)
+
+                        Icon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: "photo_camera"
+                            size: Theme.px(15)
+                            color: Theme.mint
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: win.lastScreenshotMode === "full" ? "Screen Copied" : "Region Copied"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(13)
+                            font.weight: Font.DemiBold
+                        }
+                    }
+                }
+
+                // timer_done — compact popup when countdown finishes
+                OsdSlot {
+                    id: timerDoneSlot
+                    kind: "timer_done"
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(8)
+
+                        Icon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: "alarm"
+                            size: Theme.px(15)
+                            color: Theme.orange
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Time's Up!"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(13)
+                            font.weight: Font.Bold
+                        }
+                    }
+                }
+
+                // track — iOS-style expanded card with swipe animation on track change
+                OsdSlot {
+                    id: trackSlot
+                    kind: "track"
+
+                    Item {
+                        id: trackStage
+                        anchors.fill: parent
+                        anchors.leftMargin: Theme.px(14)
+                        anchors.rightMargin: Theme.px(16)
+
+                        // Old card slides out, new card slides in (dir: +1 next → leftwards, -1 prev → rightwards)
+                        function swipe(dir) {
+                            const dist = Theme.px(56);
+                            const hasOut = win.prevTrackTitle !== "" || win.prevTrackSkeleton;
+                            swipeAnim.stop();
+                            outCard.title = win.prevTrackTitle;
+                            outCard.artist = win.prevTrackArtist;
+                            outCard.art = win.prevTrackArt;
+                            outCard.skeleton = win.prevTrackSkeleton;
+                            outCard.x = 0;
+                            outCard.scale = 1.0;
+                            outCard.opacity = hasOut ? 1.0 : 0.0;
+                            inCard.x = dir * dist;
+                            inCard.scale = 0.9;
+                            inCard.opacity = 0.0;
+                            inCard.artScale = 0.82;
+                            swipeAnim.dir = dir;
+                            swipeAnim.restart();
+                        }
+
+                        Connections {
+                            target: win
+                            function onTrackSwipeSeqChanged() { trackStage.swipe(win.trackSwipeDir); }
+                        }
+
+                        ParallelAnimation {
+                            id: swipeAnim
+                            property int dir: 1
+                            NumberAnimation { target: outCard; property: "x"; to: -swipeAnim.dir * Theme.px(56); duration: 260; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: outCard; property: "opacity"; to: 0; duration: 200; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: outCard; property: "scale"; to: 0.9; duration: 260; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: inCard; property: "x"; to: 0; duration: 320; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: inCard; property: "opacity"; to: 1; duration: 240; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: inCard; property: "scale"; to: 1.0; duration: 320; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: inCard; property: "artScale"; to: 1.0; duration: 460; easing.type: Easing.OutBack }
+                        }
+
+                        Item {
+                            id: cardArea
+                            anchors.left: parent.left
+                            anchors.right: trackOsdWave.left
+                            anchors.rightMargin: Theme.px(10)
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            clip: true
+
+                            TrackCard {
+                                id: outCard
+                                width: cardArea.width
+                                height: cardArea.height
+                                opacity: 0
+                                visible: opacity > 0.01
+                            }
+                            TrackCard {
+                                id: inCard
+                                width: cardArea.width
+                                height: cardArea.height
+                                title: win.lastTrackTitle
+                                artist: win.lastTrackArtist
+                                art: win.lastTrackArt
+                                skeleton: win.trackPending
+                            }
+                        }
+
+                        AudioWave {
+                            id: trackOsdWave
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            active: Media.playing && trackSlot.active
+                            color: Theme.mint
+                            maxH: Theme.px(16)
+                            minH: Theme.px(3)
+                        }
+                    }
+                }
+
+                // rec_countdown — pre-record countdown ring (3 · 2 · 1)
+                OsdSlot {
+                    id: recCdSlot
+                    kind: "rec_countdown"
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(9)
+
+                        Item {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(22)
+                            height: Theme.px(22)
+
+                            ProgressRing {
+                                anchors.centerIn: parent
+                                size: Theme.px(22)
+                                strokeWidth: Theme.px(2)
+                                value: Recorder.countdownTotal > 0 ? Recorder.countdownLeft / Recorder.countdownTotal : 0
+                                fillColor: Theme.red
+                                trackColor: Qt.rgba(1, 0.27, 0.23, 0.24)
+                            }
+                            Text {
+                                id: cdNum
+                                anchors.centerIn: parent
+                                text: Recorder.countdownLeft
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.Bold
+                                font.features: { "tnum": 1 }
+
+                                Connections {
+                                    target: Recorder
+                                    function onCountdownTick() { if (recCdSlot.active) cdNumPop.restart(); }
+                                }
+                                SpringAnimation {
+                                    id: cdNumPop
+                                    target: cdNum
+                                    property: "scale"
+                                    from: 1.5
+                                    to: 1.0
+                                    spring: Theme.springK
+                                    damping: Theme.springDamp
+                                    epsilon: 0.01
+                                }
+                            }
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Recording in…"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(13)
+                            font.weight: Font.DemiBold
+                        }
+                    }
+                }
+
+                // rec_start — recording just began (dot + REC + timer), morphs into the persistent wing
+                OsdSlot {
+                    id: recStartSlot
+                    kind: "rec_start"
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(9)
+
+                        Item {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(14)
+                            height: Theme.px(14)
+
+                            Rectangle {
+                                id: recHalo
+                                anchors.centerIn: parent
+                                width: Theme.px(14)
+                                height: width
+                                radius: width / 2
+                                color: Theme.red
+                                opacity: 0
+                            }
+                            Rectangle {
+                                id: recDot
+                                anchors.centerIn: parent
+                                width: Theme.px(8)
+                                height: width
+                                radius: width / 2
+                                color: Theme.red
+                            }
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "REC"
+                            color: Theme.red
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(13)
+                            font.weight: Font.Bold
+                            font.letterSpacing: Theme.px(0.6)
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Recorder.elapsedText
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(13)
+                            font.weight: Font.DemiBold
+                            font.features: { "tnum": 1 }
+                        }
+                    }
+
+                    Connections {
+                        target: recStartSlot
+                        function onActiveChanged() { if (recStartSlot.active) recStartPop.restart(); }
+                    }
+                    ParallelAnimation {
+                        id: recStartPop
+                        NumberAnimation { target: recDot; property: "scale"; from: 1.8; to: 1.0; duration: 380; easing.type: Easing.OutBack }
+                        NumberAnimation { target: recHalo; property: "opacity"; from: 0.5; to: 0; duration: 700; easing.type: Easing.OutCubic }
+                        NumberAnimation { target: recHalo; property: "scale"; from: 0.6; to: 2.0; duration: 700; easing.type: Easing.OutCubic }
                     }
                 }
 

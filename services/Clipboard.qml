@@ -18,8 +18,14 @@ Singleton {
     property bool available: true
     property int _respawnFailures: 0
     property int _gen: 0
+    property double _suppressUntilMs: 0
 
     signal copied()
+
+    function suppressCopied(ms) {
+        const until = Date.now() + Math.max(0, ms || 1500);
+        if (until > _suppressUntilMs) _suppressUntilMs = until;
+    }
 
     readonly property string thumbDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/dynamic-notch/cliphist-thumbs/"
     readonly property string thumbScript: {
@@ -122,7 +128,7 @@ Singleton {
                 root._respawnFailures = 0;
                 if (!root._watchPrimed) {
                     root._watchPrimed = true;
-                } else {
+                } else if (Date.now() >= root._suppressUntilMs) {
                     root.copied();
                 }
                 if (root.surfaceOpen)

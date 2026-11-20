@@ -35,7 +35,7 @@ Singleton {
         function prevTrack() { Media.prev(); }
         function dnd() { Notifs.dnd = !Notifs.dnd; }
         function record() {
-            if (Recorder.recording || Recorder.selectingRegion) Recorder.stop();
+            if (Recorder.recording || Recorder.selectingRegion || Recorder.counting) Recorder.stop();
             else Recorder.start("screen");
         }
         function refreshWeather() { Weather.refresh(); }
@@ -57,5 +57,11 @@ Singleton {
         function toggleMic() { Audio.toggleMic(); }
         function toggleKeepAwake() { SysToggles.toggleKeepAwake(); }
         function toggleNightLight() { SysToggles.toggleNightLight(); }
+        function screenshotRegion() { SysToggles.takeScreenshotRegion(); }
+        function screenshotFull() { SysToggles.takeScreenshotFull(); }
+        function screenshotTaken(mode: string) {
+            Clipboard.suppressCopied(1500);
+            SysToggles.screenshotTaken(mode || "region");
+        }
     }
 }

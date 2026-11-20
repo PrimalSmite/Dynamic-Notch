@@ -140,7 +140,7 @@ Singleton {
         if (root.ipcTask !== null) {
             list.push("ipc");
         }
-        if (IslandPrefs.liveSystemModes && (SysToggles.keepAwake || SysToggles.nightLight || SysToggles.gameMode)) {
+        if (IslandPrefs.liveSystemModes && (SysToggles.nightLight || SysToggles.gameMode)) {
             list.push("modes");
         }
         if (IslandPrefs.liveAudioMuted && Audio.muted) {
@@ -162,5 +162,49 @@ Singleton {
         else if (kind === "mic" || kind === "muted") host.openPanel("mixer");
         else if (kind === "thermal" || kind === "ipc") host.openPanel("sysmon");
         else if (kind === "modes") host.openPanel("settings");
+    }
+
+    // Right/Middle click quick actions directly on Live Activity wings
+    function quickAction(kind, button) {
+        if (!kind) return false;
+        const isRight = (button === Qt.RightButton);
+        const isMiddle = (button === Qt.MiddleButton);
+        if (!isRight && !isMiddle) return false;
+
+        if (kind === "media") {
+            if (isRight) Media.togglePlay();
+            else if (isMiddle) Media.next();
+            return true;
+        }
+        if (kind === "recorder" && isRight) {
+            Recorder.stop();
+            return true;
+        }
+        if (kind === "timer") {
+            if (isRight) Timers.toggleStart();
+            else if (isMiddle) {
+                if (Timers.mode === "stopwatch") Timers.addLap();
+                else Timers.reset();
+            }
+            return true;
+        }
+        if (kind === "mic" && isRight) {
+            Audio.toggleMic();
+            return true;
+        }
+        if (kind === "muted" && isRight) {
+            Audio.toggleMute();
+            return true;
+        }
+        if (kind === "modes" && isRight) {
+            if (SysToggles.nightLight) SysToggles.toggleNightLight();
+            else if (SysToggles.gameMode) SysToggles.toggleGameMode();
+            return true;
+        }
+        if (kind === "ipc" && isRight) {
+            clearTask();
+            return true;
+        }
+        return false;
     }
 }

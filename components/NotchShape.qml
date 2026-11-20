@@ -12,6 +12,8 @@ Item {
     property real radius: 15
     property real fillet: 10
     property color color: "black"
+    property color glowColor: "transparent"
+    property real glowOpacity: 0
 
     readonly property real r: Math.max(0, Math.min(radius, bodyH / 2, bodyW / 2))
     readonly property real f: fillet
@@ -36,6 +38,21 @@ Item {
         height: s.bodyH
         radius: s.r
         color: s.color
+        clip: true
+
+        // Subtle ambient rim glow (no shader/tessellation overhead)
+        Rectangle {
+            anchors.fill: parent
+            anchors.topMargin: -s.r
+            radius: s.r
+            color: "transparent"
+            border.width: 1.25
+            border.color: s.glowColor
+            opacity: s.glowOpacity
+            visible: opacity > 0.005
+            Behavior on border.color { ColorAnimation { duration: 240 } }
+            Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+        }
     }
 
     // Static left concave ear

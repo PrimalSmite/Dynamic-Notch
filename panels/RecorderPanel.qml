@@ -69,7 +69,7 @@ Item {
     }
 
     function toggleRec() {
-        if (Recorder.recording) {
+        if (Recorder.recording || Recorder.counting) {
             Recorder.stop();
         } else {
             const mon = (root.host && root.host.monitor && root.host.monitor.name) ? root.host.monitor.name : "screen";
@@ -90,13 +90,14 @@ Item {
         } else if (event.key === Qt.Key_O || t === "o" || t === "щ") {
             openRecordingsDir();
             event.accepted = true;
-        } else if (!Recorder.recording) {
+        } else if (!Recorder.recording && !Recorder.counting) {
             if (event.key === Qt.Key_S || t === "s" || t === "ы") { Recorder.target = "screen"; event.accepted = true; }
             else if (event.key === Qt.Key_G || t === "g" || t === "п") { Recorder.target = "region"; event.accepted = true; }
             else if (event.key === Qt.Key_A || t === "a" || t === "ф") { Recorder.audioDesktop = !Recorder.audioDesktop; event.accepted = true; }
             else if (event.key === Qt.Key_M || t === "m" || t === "ь") { Recorder.audioMic = !Recorder.audioMic; event.accepted = true; }
             else if (event.key === Qt.Key_C || t === "c" || t === "с") { Recorder.showCursor = !Recorder.showCursor; event.accepted = true; }
             else if (event.key === Qt.Key_F || t === "f") { Recorder.fps = (Recorder.fps === 60 ? 30 : 60); event.accepted = true; }
+            else if (event.key === Qt.Key_T || t === "t" || t === "е") { IslandPrefs.cycleRecCountdown(); event.accepted = true; }
         }
     }
 
@@ -157,11 +158,11 @@ Item {
                     width: Theme.px(8)
                     height: width
                     radius: width / 2
-                    color: Recorder.recording ? root.recRed : root.idleGreen
+                    color: Recorder.recording ? root.recRed : (Recorder.counting ? root.warmAccent : root.idleGreen)
                     Behavior on color { ColorAnimation { duration: 200 } }
 
                     SequentialAnimation on opacity {
-                        running: Recorder.recording
+                        running: Recorder.recording || Recorder.counting
                         loops: Animation.Infinite
                         NumberAnimation { to: 0.35; duration: 650; easing.type: Easing.InOutSine }
                         NumberAnimation { to: 1.0; duration: 650; easing.type: Easing.InOutSine }
@@ -170,8 +171,10 @@ Item {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: Recorder.recording ? ("REC · " + Recorder.elapsedText) : "IDLE"
-                    color: Recorder.recording ? root.recRed : Theme.text2
+                    text: Recorder.recording ? ("REC · " + Recorder.elapsedText)
+                        : Recorder.counting ? ("STARTING · " + Recorder.countdownLeft)
+                        : "IDLE"
+                    color: Recorder.recording ? root.recRed : (Recorder.counting ? root.warmAccent : Theme.text2)
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(11)
                     font.weight: Font.Medium
@@ -228,6 +231,7 @@ Item {
                         + (Recorder.showCursor ? "High quality" : "Cursor hidden")
                         + " · "
                         + (Recorder.target === "screen" ? "Fullscreen" : "Record area")
+                        + (IslandPrefs.recCountdown > 0 ? (" · " + IslandPrefs.recCountdown + "s delay") : "")
                     color: Theme.text2
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.px(12)
@@ -238,7 +242,7 @@ Item {
                 id: vfMa
                 anchors.fill: parent
                 hoverEnabled: true
-                enabled: !Recorder.recording
+                enabled: !Recorder.recording && !Recorder.counting
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     Recorder.fps = (Recorder.fps === 60 ? 30 : 60);
@@ -306,9 +310,90 @@ Item {
                         id: modeMa
                         anchors.fill: parent
                         hoverEnabled: true
-                        enabled: !Recorder.recording
+                        enabled: !Recorder.recording && !Recorder.counting
                         cursorShape: Qt.PointingHandCursor
                         onClicked: Recorder.target = modeBtn.modelData.key
+                    }
+                }
+            }
+        }
+
+        // ── 3b. Countdown selector: ⏱ Countdown  [ Off ][ 3s ][ 5s ][ 10s ] ──
+        Item {
+            width: parent.width
+            height: Theme.px(34)
+            opacity: (Recorder.recording || Recorder.counting) ? 0.45 : 1.0
+            Behavior on opacity { NumberAnimation { duration: 160 } }
+
+            Row {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Theme.px(7)
+
+                Icon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: "timer"
+                    size: Theme.px(15)
+                    color: IslandPrefs.recCountdown > 0 ? root.warmAccent : Theme.text3
+                }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Countdown"
+                    color: Theme.text2
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.px(12.5)
+                    font.weight: Font.Medium
+                }
+            }
+
+            Row {
+                id: cdSeg
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.right: parent.right
+                spacing: Theme.px(6)
+
+                Repeater {
+                    model: [
+                        { sec: 0,  label: "Off" },
+                        { sec: 3,  label: "3s" },
+                        { sec: 5,  label: "5s" },
+                        { sec: 10, label: "10s" }
+                    ]
+
+                    Rectangle {
+                        id: cdBtn
+                        required property var modelData
+                        readonly property bool active: IslandPrefs.recCountdown === modelData.sec
+                        width: Theme.px(46)
+                        height: Theme.px(30)
+                        radius: Theme.px(10)
+                        color: active ? (cdMa.containsMouse ? root.slateHover : root.slateFill)
+                                      : (cdMa.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
+                        border.width: 1
+                        border.color: active ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.14)
+                        scale: cdMa.pressed ? 0.94 : 1.0
+                        Behavior on color { ColorAnimation { duration: 160 } }
+                        Behavior on border.color { ColorAnimation { duration: 160 } }
+                        Behavior on scale { Spring { epsilon: 0.01 } }
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: cdBtn.modelData.label
+                            color: cdBtn.active ? root.warmAccent : Theme.text2
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(12.5)
+                            font.weight: cdBtn.active ? Font.DemiBold : Font.Medium
+                            Behavior on color { ColorAnimation { duration: 160 } }
+                        }
+
+                        MouseArea {
+                            id: cdMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            enabled: !Recorder.recording && !Recorder.counting
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: IslandPrefs.setRecCountdown(cdBtn.modelData.sec)
+                        }
                     }
                 }
             }
@@ -347,6 +432,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     text: Recorder.recording
                         ? ("Stop recording · " + Recorder.elapsedText)
+                        : Recorder.counting
+                        ? ("Cancel · " + Recorder.countdownLeft)
                         : "Start recording"
                     color: Theme.text
                     font.family: Theme.fontFamily

@@ -16,6 +16,75 @@ Singleton {
     property string trackTitle: ""
     property string trackArtist: ""
     property string trackArtUrl: ""
+    property string _lastEmittedTrackKey: ""
+    property double _lastEmitMs: 0
+
+    // Optimistic skip: set the instant next()/prev() is requested so the Island can react
+    // before the browser delivers new MPRIS metadata.
+    property int _pendingSkipDir: 0
+    property double _pendingSkipUntil: 0
+    property string _skipBaseKey: ""
+
+    // Fired immediately when a skip is requested (dir: +1 next, -1 prev).
+    signal skipRequested(int dir)
+    // dir: +1/-1 = swipe direction; 0 = in-place metadata refresh of an already shown track.
+    signal trackChanged(string title, string artist, string artUrl, int dir)
+
+    function _armSkip(dir) {
+        _pendingSkipDir = dir;
+        _pendingSkipUntil = Date.now() + 3000;
+        _skipBaseKey = root.trackTitle + "|" + root.trackArtist;
+        skipRequested(dir);
+    }
+
+    function _emitTrack(dir) {
+        root._lastEmittedTrackKey = root.trackTitle + "|" + root.trackArtist;
+        root._lastEmitMs = Date.now();
+        root.trackChanged(root.trackTitle, root.trackArtist, root.trackArtUrl, dir);
+    }
+
+    Timer {
+        id: trackDebounceTimer
+        interval: 220
+        repeat: false
+        onTriggered: {
+            if (!root.playing || !root.trackTitle) return;
+            const key = root.trackTitle + "|" + root.trackArtist;
+            if (key === root._lastEmittedTrackKey) return;
+            // Follow-up metadata (e.g. artist arriving after title) refreshes the card in place
+            const recent = (Date.now() - root._lastEmitMs) < 2000;
+            root._emitTrack(recent ? 0 : 1);
+        }
+    }
+
+    function _onMetaChanged() {
+        if (trackTitle === "") {
+            _lastEmittedTrackKey = "";
+            return;
+        }
+        if (!playing) return;
+        // Pending skip: emit right away on the first title that differs from the old track
+        if (_pendingSkipDir !== 0) {
+            if (Date.now() > _pendingSkipUntil) {
+                _pendingSkipDir = 0;
+            } else if (trackTitle !== _skipBaseKey.split("|")[0]) {
+                const d = _pendingSkipDir;
+                _pendingSkipDir = 0;
+                trackDebounceTimer.stop();
+                _emitTrack(d);
+                return;
+            }
+        }
+        trackDebounceTimer.restart();
+    }
+
+    onTrackTitleChanged: _onMetaChanged()
+    onTrackArtistChanged: _onMetaChanged()
+    onPlayingChanged: {
+        if (playing && trackTitle !== "" && (trackTitle + "|" + trackArtist) !== _lastEmittedTrackKey) {
+            trackDebounceTimer.restart();
+        }
+    }
 
     // Counter of active components displaying progress (MediaCard / MediaPanel).
     // Position polling once per second runs ONLY when there are active consumers.
@@ -225,11 +294,15 @@ Singleton {
     }
 
     function next() {
-        if (player && player.canGoNext) player.next();
+        if (!player || !player.canGoNext) return;
+        _armSkip(1);
+        player.next();
     }
 
     function prev() {
-        if (player && player.canGoPrevious) player.previous();
+        if (!player || !player.canGoPrevious) return;
+        _armSkip(-1);
+        player.previous();
     }
 
     function fmt(sec) {

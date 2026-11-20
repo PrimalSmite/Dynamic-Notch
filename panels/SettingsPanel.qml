@@ -227,12 +227,12 @@ Item {
 
     function takeScreenshotRegion() {
         if (host) host.collapse();
-        Quickshell.execDetached(["sh", "-c", "sleep 0.25 && REG=$(slurp </dev/null) && [ -n \"$REG\" ] && grim -g \"$REG\" - | wl-copy && notify-send -a 'Dynamic Notch' 'Screenshot' 'Selected region copied to clipboard'"]);
+        SysToggles.takeScreenshotRegion();
     }
 
     function takeScreenshotFull() {
         if (host) host.collapse();
-        Quickshell.execDetached(["sh", "-c", "sleep 0.25 && grim - | wl-copy && notify-send -a 'Dynamic Notch' 'Screen Screenshot' 'Full display snapshot copied to clipboard'"]);
+        SysToggles.takeScreenshotFull();
     }
 
     function lockScreen() {
@@ -889,7 +889,10 @@ Item {
                                 { key: "liveThermalAlert",   name: "Thermal / Load",   icon: "local_fire_department" },
                                 { key: "liveSystemModes",    name: "System Modes",     icon: "coffee" },
                                 { key: "liveAudioMuted",     name: "Muted Output",     icon: "volume_off" },
-                                { key: "liveCapsLock",       name: "Caps Lock OSD",    icon: "keyboard_capslock" }
+                                { key: "liveCapsLock",       name: "Caps Lock OSD",    icon: "keyboard_capslock" },
+                                { key: "liveTrackOsd",       name: "Track Change OSD", icon: "queue_music" },
+                                { key: "liveModeOsd",        name: "System Mode OSD",  icon: "tune" },
+                                { key: "liveAmbientGlow",    name: "Ambient Rim Glow", icon: "flare" }
                             ]
 
                             Rectangle {

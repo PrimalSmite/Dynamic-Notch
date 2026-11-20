@@ -160,13 +160,19 @@ Item {
                 anchors.fill: parent
                 anchors.margins: Theme.px(-4)
                 hoverEnabled: true
-                acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                 cursorShape: Qt.PointingHandCursor
 
                 onClicked: mouse => {
                     if (mouse.button === Qt.MiddleButton) {
-                        if (root.side === "right") {
+                        if (root.side === "right" && root._pinnedKind !== "") {
                             root._pinnedKind = "";
+                            slotPulse.restart();
+                        } else if (LiveActivity.quickAction(root.activeKind, mouse.button)) {
+                            slotPulse.restart();
+                        }
+                    } else if (mouse.button === Qt.RightButton) {
+                        if (LiveActivity.quickAction(root.activeKind, mouse.button)) {
                             slotPulse.restart();
                         }
                     } else {

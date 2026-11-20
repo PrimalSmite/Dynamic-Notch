@@ -119,13 +119,21 @@ Item {
         id: bubbleMa
         anchors.fill: parent
         hoverEnabled: true
-        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         cursorShape: Qt.PointingHandCursor
 
         onClicked: mouse => {
             if (mouse.button === Qt.MiddleButton) {
-                root._pinnedKind = "";
-                slotPulse.restart();
+                if (root._pinnedKind !== "") {
+                    root._pinnedKind = "";
+                    slotPulse.restart();
+                } else if (LiveActivity.quickAction(root.activeKind, mouse.button)) {
+                    slotPulse.restart();
+                }
+            } else if (mouse.button === Qt.RightButton) {
+                if (LiveActivity.quickAction(root.activeKind, mouse.button)) {
+                    slotPulse.restart();
+                }
             } else {
                 LiveActivity.openMenu(root.activeKind, root.host);
             }

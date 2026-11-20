@@ -222,15 +222,9 @@ Row {
         Row {
             spacing: Theme.px(4)
 
-            readonly property string modeIcon: SysToggles.keepAwake ? "coffee"
-                                             : SysToggles.nightLight ? "bedtime"
-                                             : "sports_esports"
-            readonly property string modeLabel: SysToggles.keepAwake ? "AWAKE"
-                                              : SysToggles.nightLight ? "NIGHT"
-                                              : "GAME"
-            readonly property color modeColor: SysToggles.keepAwake ? Theme.yellow
-                                             : SysToggles.nightLight ? Theme.orange
-                                             : Theme.teal
+            readonly property string modeIcon: SysToggles.nightLight ? "bedtime" : "sports_esports"
+            readonly property string modeLabel: SysToggles.nightLight ? "NIGHT" : "GAME"
+            readonly property color modeColor: SysToggles.nightLight ? Theme.orange : Theme.teal
 
             Icon {
                 visible: root.part === "left" || root.part === "compact"

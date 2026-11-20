@@ -116,6 +116,9 @@ Singleton {
         }
     }
 
+    signal modeToggled(string modeKey, bool enabled)
+    signal screenshotTaken(string mode)
+
     function setNightTemp(temp) {
         nightTemp = Math.max(2500, Math.min(6500, Math.round(temp)));
         if (nightLight && hasHyprsunset) {
@@ -126,6 +129,7 @@ Singleton {
     function toggleNightLight() {
         if (!nightLight && !hasHyprsunset) return;
         nightLight = !nightLight;
+        modeToggled("nightLight", nightLight);
         if (nightLight) {
             nightApplyTimer.restart();
         } else {
@@ -138,6 +142,7 @@ Singleton {
     function toggleKeepAwake() {
         if (!keepAwake && !hasSystemdInhibit) return;
         keepAwake = !keepAwake;
+        modeToggled("keepAwake", keepAwake);
         if (keepAwake) {
             keepAwakeProc.running = false;
             keepAwakeProc.running = true;
@@ -148,6 +153,7 @@ Singleton {
 
     function toggleGameMode() {
         gameMode = !gameMode;
+        modeToggled("gameMode", gameMode);
         if (gameMode) {
             gameSaveProc.running = false;
             gameSaveProc.running = true;
@@ -161,5 +167,32 @@ Singleton {
         } else {
             Quickshell.execDetached(["hyprctl", "reload"]);
         }
+    }
+
+    Process {
+        id: screenshotProc
+        property string modeName: "region"
+        onExited: (code) => {
+            if (code === 0) {
+                Clipboard.suppressCopied(1500);
+                root.screenshotTaken(modeName);
+            }
+        }
+    }
+
+    function takeScreenshotRegion() {
+        if (screenshotProc.running) return;
+        Clipboard.suppressCopied(2500);
+        screenshotProc.modeName = "region";
+        screenshotProc.command = ["sh", "-c", "sleep 0.25 && REG=$(slurp </dev/null) && [ -n \"$REG\" ] && grim -g \"$REG\" - | wl-copy"];
+        screenshotProc.running = true;
+    }
+
+    function takeScreenshotFull() {
+        if (screenshotProc.running) return;
+        Clipboard.suppressCopied(2500);
+        screenshotProc.modeName = "full";
+        screenshotProc.command = ["sh", "-c", "sleep 0.25 && grim - | wl-copy"];
+        screenshotProc.running = true;
     }
 }

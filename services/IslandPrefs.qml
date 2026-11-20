@@ -34,6 +34,10 @@ Singleton {
     property bool liveSystemModes: true
     property bool liveAudioMuted: true
     property bool liveCapsLock: true
+    property bool liveTrackOsd: true
+    property bool liveModeOsd: true
+    property bool liveAmbientGlow: true
+    property int recCountdown: 3   // 0 | 3 | 5 | 10 seconds before recording starts
 
     property bool _dirty: false
 
@@ -42,7 +46,8 @@ Singleton {
         "showSeconds", "showVolumeOsd", "showLayoutOsd", "autoCollapse",
         "hideInGames", "showOsdInGames", "liveWingsEnabled", "liveMediaEnabled",
         "liveMediaShowTitle", "liveClipboardPulse", "liveMicPrivacy",
-        "liveThermalAlert", "liveSystemModes", "liveAudioMuted", "liveCapsLock"
+        "liveThermalAlert", "liveSystemModes", "liveAudioMuted", "liveCapsLock",
+        "liveTrackOsd", "liveModeOsd", "liveAmbientGlow"
     ]
 
     Process {
@@ -91,6 +96,11 @@ Singleton {
                 if (data.liveSystemModes !== undefined) root.liveSystemModes = !!data.liveSystemModes;
                 if (data.liveAudioMuted !== undefined) root.liveAudioMuted = !!data.liveAudioMuted;
                 if (data.liveCapsLock !== undefined) root.liveCapsLock = !!data.liveCapsLock;
+                if (data.liveTrackOsd !== undefined) root.liveTrackOsd = !!data.liveTrackOsd;
+                if (data.liveModeOsd !== undefined) root.liveModeOsd = !!data.liveModeOsd;
+                if (data.liveAmbientGlow !== undefined) root.liveAmbientGlow = !!data.liveAmbientGlow;
+                if (typeof data.recCountdown === "number" && [0, 3, 5, 10].indexOf(data.recCountdown) !== -1)
+                    root.recCountdown = data.recCountdown;
             } catch (e) {
                 console.log("[IslandPrefs] Config load exception:", e);
             }
@@ -119,7 +129,11 @@ Singleton {
             liveThermalAlert: root.liveThermalAlert,
             liveSystemModes: root.liveSystemModes,
             liveAudioMuted: root.liveAudioMuted,
-            liveCapsLock: root.liveCapsLock
+            liveCapsLock: root.liveCapsLock,
+            liveTrackOsd: root.liveTrackOsd,
+            liveModeOsd: root.liveModeOsd,
+            liveAmbientGlow: root.liveAmbientGlow,
+            recCountdown: root.recCountdown
         };
         const json = JSON.stringify(data, null, 2);
         Quickshell.execDetached([
@@ -127,6 +141,17 @@ Singleton {
             "mkdir -p \"$1\" && tmp=\"$3.tmp.$$\" && printf '%s' \"$2\" > \"$tmp\" && mv -f \"$tmp\" \"$3\"",
             "sh", root.configDir, json, root.configPath
         ]);
+    }
+
+    function setRecCountdown(sec) {
+        if ([0, 3, 5, 10].indexOf(sec) === -1) return;
+        root.recCountdown = sec;
+        save();
+    }
+
+    function cycleRecCountdown() {
+        const opts = [0, 3, 5, 10];
+        setRecCountdown(opts[(opts.indexOf(root.recCountdown) + 1) % opts.length]);
     }
 
     function setLiveActivityStyle(style) {

@@ -66,8 +66,62 @@ Singleton {
         return "screen";
     }
 
+    // ── Pre-record countdown ──
+    readonly property int countdownSec: IslandPrefs.recCountdown
+    property bool counting: false
+    property int countdownLeft: 0
+    property int countdownTotal: 0
+    property string _countdownTarget: ""
+
+    signal countdownStarted(int total)
+    signal countdownTick(int left)
+    signal countdownCancelled()
+    signal recordingStarted()
+
+    function _beginCountdown(captureTarget) {
+        if (!captureTarget) return;
+        if (countdownSec <= 0) {
+            launchRecorder(captureTarget);
+            return;
+        }
+        _countdownTarget = captureTarget;
+        countdownTotal = countdownSec;
+        countdownLeft = countdownSec;
+        counting = true;
+        countdownStarted(countdownTotal);
+        countdownTick(countdownLeft);
+        countdownTimer.restart();
+    }
+
+    function _cancelCountdown() {
+        if (!counting) return;
+        countdownTimer.stop();
+        counting = false;
+        countdownLeft = 0;
+        _countdownTarget = "";
+        countdownCancelled();
+    }
+
+    Timer {
+        id: countdownTimer
+        interval: 1000
+        repeat: true
+        onTriggered: {
+            root.countdownLeft = Math.max(0, root.countdownLeft - 1);
+            if (root.countdownLeft <= 0) {
+                countdownTimer.stop();
+                const t = root._countdownTarget;
+                root.counting = false;
+                root._countdownTarget = "";
+                root.launchRecorder(t);
+            } else {
+                root.countdownTick(root.countdownLeft);
+            }
+        }
+    }
+
     function start(monitorName, forceTarget) {
-        if (recording) return;
+        if (recording || counting) return;
         if (!available) {
             statusError = "gpu-screen-recorder not installed";
             return;
@@ -85,7 +139,7 @@ Singleton {
             slurpProc.running = false;
             slurpProc.running = true;
         } else {
-            launchRecorder(pendingMonitor);
+            _beginCountdown(pendingMonitor);
         }
     }
 
@@ -148,10 +202,15 @@ Singleton {
             recProc.command = args;
             recProc.running = true;
             root.recording = true;
+            root.recordingStarted();
         }
     }
 
     function stop() {
+        if (counting) {
+            _cancelCountdown();
+            return;
+        }
         if (selectingRegion) {
             slurpProc.running = false;
             selectingRegion = false;
@@ -197,7 +256,7 @@ Singleton {
                     const w = parseInt(dims[0], 10) || 0;
                     const h = parseInt(dims[1], 10) || 0;
                     if (w >= 16 && h >= 16) {
-                        root.launchRecorder(reg);
+                        root._beginCountdown(reg);
                     }
                 }
             }
