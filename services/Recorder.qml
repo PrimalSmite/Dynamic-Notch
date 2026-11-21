@@ -77,6 +77,8 @@ Singleton {
     signal countdownTick(int left)
     signal countdownCancelled()
     signal recordingStarted()
+    signal recordingSaved(string filePath, string durationText)
+    property string lastSavedDuration: "0:00"
 
     function _beginCountdown(captureTarget) {
         if (!captureTarget) return;
@@ -274,10 +276,13 @@ Singleton {
         onExited: (code) => {
             stopWatchdog.stop();
             const wasElapsed = root.elapsed;
+            const durM = Math.floor(wasElapsed / 60);
+            const durS = wasElapsed % 60;
+            const durText = durM + ":" + (durS < 10 ? "0" : "") + durS;
             root.recording = false;
-            const mbps = Math.round(root.bitrateKbps / 1000);
             if ((code === 0 || code === 130) && wasElapsed >= 1 && root.lastFile) {
-                Quickshell.execDetached(["sh", "-c", "command -v notify-send >/dev/null 2>&1 && notify-send -a 'Screen Recorder' \"$1\" \"$2\"", "_", "Video saved (" + mbps + " Mbps)", root.lastFile]);
+                root.lastSavedDuration = durText;
+                root.recordingSaved(root.lastFile, durText);
             } else if (code !== 0 && code !== 130) {
                 root.statusError = "gpu-screen-recorder exited with code " + code;
                 Quickshell.execDetached(["sh", "-c", "command -v notify-send >/dev/null 2>&1 && notify-send -a 'Screen Recorder' 'Recording failed' \"$1\"", "_", root.statusError]);

@@ -16,6 +16,7 @@ Singleton {
     property string trackTitle: ""
     property string trackArtist: ""
     property string trackArtUrl: ""
+    property color trackAccent: "#5EEAD4"
     property string _lastEmittedTrackKey: ""
     property double _lastEmitMs: 0
 

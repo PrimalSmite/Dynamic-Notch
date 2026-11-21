@@ -48,14 +48,84 @@ Singleton {
                                  : volume < 0.34 ? "volume_mute"
                                  : volume < 0.67 ? "volume_down" : "volume_up"
 
+    readonly property var _inputDevices: {
+        const nodes = Pipewire.nodes ? Pipewire.nodes.values : [];
+        const out = [];
+        for (let i = 0; i < nodes.length; i++) {
+            const n = nodes[i];
+            if (!n || n.isSink || n.isStream) continue;
+            const props = n.properties || ({});
+            const mclass = String(props["media.class"] || "");
+            if (mclass !== "" && mclass.indexOf("Audio/Source") === -1) continue;
+            out.push(n);
+        }
+        return out;
+    }
+
     PwObjectTracker {
         objects: {
             const arr = [];
             if (root.sink) arr.push(root.sink);
             if (root.source) arr.push(root.source);
+            const devs = root._inputDevices;
+            for (let i = 0; i < devs.length; i++) arr.push(devs[i]);
             const streams = root._inputStreams;
             for (let i = 0; i < streams.length; i++) arr.push(streams[i]);
             return arr;
+        }
+    }
+
+    readonly property string sinkName: {
+        if (!sink) return "";
+        let raw = (sink.description || sink.nickname || sink.name || "").trim();
+        raw = raw.replace(/\s+(Analog|Digital)\s+Stereo.*$/i, "")
+                 .replace(/\s+IEC958.*$/i, "")
+                 .replace(/\s*\([^)]*Controller[^)]*\)/gi, "")
+                 .trim();
+        return raw || "Audio Output";
+    }
+
+    readonly property string sinkIcon: {
+        const s = sinkName.toLowerCase();
+        if (s.indexOf("headphone") !== -1 || s.indexOf("headset") !== -1 || s.indexOf("earbud") !== -1 || s.indexOf("buds") !== -1)
+            return "headphones";
+        if (s.indexOf("hdmi") !== -1 || s.indexOf("displayport") !== -1 || s.indexOf("monitor") !== -1 || s.indexOf("tv") !== -1)
+            return "tv";
+        return "speaker";
+    }
+
+    signal volumeStepped(real delta, int boundary)
+    signal micMuteToggled(bool muted)
+    signal sinkSwitched(string name, string icon)
+
+    property bool _audioInitDone: false
+    property int _lastSinkId: -1
+    property bool _lastMicMuted: false
+
+    Timer {
+        interval: 1200
+        running: true
+        repeat: false
+        onTriggered: {
+            root._lastSinkId = root.sink ? root.sink.id : -1;
+            root._lastMicMuted = root.micMuted;
+            root._audioInitDone = true;
+        }
+    }
+
+    onSinkChanged: {
+        if (!_audioInitDone || !sink) return;
+        if (sink.id !== _lastSinkId) {
+            _lastSinkId = sink.id;
+            sinkSwitched(sinkName, sinkIcon);
+        }
+    }
+
+    onMicMutedChanged: {
+        if (!_audioInitDone) return;
+        if (micMuted !== _lastMicMuted) {
+            _lastMicMuted = micMuted;
+            micMuteToggled(micMuted);
         }
     }
 
@@ -70,12 +140,31 @@ Singleton {
     function setSource(node) {
         if (node) Pipewire.preferredDefaultAudioSource = node;
     }
-    function step(d) { setVolume(volume + d); }
+    function step(d) {
+        if (!ready || !isFinite(d)) return;
+        const cur = sink.audio.muted ? 0 : sink.audio.volume;
+        const next = cur + d;
+        const boundary = (d > 0 && cur >= 0.995) ? 1 : (d < 0 && cur <= 0.005) ? -1 : 0;
+        setVolume(next);
+        volumeStepped(d, boundary);
+    }
     function toggleMute() { if (ready) sink.audio.muted = !sink.audio.muted; }
     function toggleMic() {
+        const targetMuted = !root.micMuted;
+        let touched = false;
+        const devs = root._inputDevices;
+        for (let i = 0; i < devs.length; i++) {
+            const n = devs[i];
+            if (n && n.ready && n.audio) {
+                n.audio.muted = targetMuted;
+                touched = true;
+            }
+        }
         if (sourceReady) {
-            source.audio.muted = !source.audio.muted;
-        } else {
+            source.audio.muted = targetMuted;
+            touched = true;
+        }
+        if (!touched) {
             Quickshell.execDetached(["sh", "-c", "command -v wpctl >/dev/null 2>&1 && wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"]);
         }
     }

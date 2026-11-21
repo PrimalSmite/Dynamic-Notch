@@ -19,6 +19,9 @@ Singleton {
     property int _respawnFailures: 0
     property int _gen: 0
     property double _suppressUntilMs: 0
+    property string lastKind: "text"
+    property string lastPreview: ""
+    property string lastColorHex: ""
 
     signal copied()
 
@@ -129,7 +132,8 @@ Singleton {
                 if (!root._watchPrimed) {
                     root._watchPrimed = true;
                 } else if (Date.now() >= root._suppressUntilMs) {
-                    root.copied();
+                    inspectProc.running = false;
+                    inspectProc.running = true;
                 }
                 if (root.surfaceOpen)
                     debounce.restart();
@@ -144,6 +148,48 @@ Singleton {
                 root._respawnFailures++;
                 respawn.interval = Math.min(30000, 2000 * Math.pow(2, root._respawnFailures - 1));
                 respawn.restart();
+            }
+        }
+    }
+
+    Process {
+        id: inspectProc
+        command: [
+            "sh", "-c",
+            "TYPES=$(wl-paste --list-types 2>/dev/null); " +
+            "if printf '%s' \"$TYPES\" | grep -qiE '^image/'; then echo 'IMG'; exit 0; fi; " +
+            "TXT=$(wl-paste --no-newline 2>/dev/null | head -c 140 | tr '\\r\\n\\t' '   '); " +
+            "printf 'TXT:%s\\n' \"$TXT\""
+        ]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const out = text.trim();
+                if (out === "IMG") {
+                    root.lastKind = "image";
+                    root.lastColorHex = "";
+                    root.lastPreview = "Image Copied";
+                } else if (out.indexOf("TXT:") === 0) {
+                    const s = out.slice(4).trim();
+                    if (/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(s)) {
+                        root.lastKind = "color";
+                        root.lastColorHex = s.slice(0, 7);
+                        root.lastPreview = s.toUpperCase();
+                    } else if (/^https?:\/\/\S+/i.test(s)) {
+                        root.lastKind = "url";
+                        root.lastColorHex = "";
+                        const host = s.replace(/^https?:\/\/(?:www\.)?/i, "").split(/[\/?#]/)[0];
+                        root.lastPreview = host.slice(0, 22);
+                    } else {
+                        root.lastKind = "text";
+                        root.lastColorHex = "";
+                        root.lastPreview = s.length > 18 ? (s.slice(0, 17).trim() + "…") : s;
+                    }
+                } else {
+                    root.lastKind = "text";
+                    root.lastColorHex = "";
+                    root.lastPreview = "";
+                }
+                root.copied();
             }
         }
     }

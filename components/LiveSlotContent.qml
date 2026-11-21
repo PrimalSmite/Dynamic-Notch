@@ -49,6 +49,10 @@ Row {
                 height: Theme.px(20)
                 radius: Theme.px(6)
                 color: Qt.rgba(1, 1, 1, 0.09)
+                scale: Media.playing ? 1.0 : 0.84
+                opacity: Media.playing ? 1.0 : 0.65
+                Behavior on scale { Spring { epsilon: 0.01 } }
+                Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
                 Icon {
                     anchors.centerIn: parent
@@ -90,7 +94,8 @@ Row {
                 visible: root.part === "right"
                 anchors.verticalCenter: parent.verticalCenter
                 active: Media.playing
-                color: Media.playing ? Theme.text : Theme.text3
+                color: Media.playing ? Media.trackAccent : Theme.text3
+                Behavior on color { ColorAnimation { duration: 280 } }
                 maxH: Theme.px(12)
                 minH: Theme.px(3)
             }
@@ -318,6 +323,13 @@ Row {
         id: timerComp
         Row {
             spacing: Theme.px(5)
+            opacity: 1.0
+            SequentialAnimation on opacity {
+                running: Timers.running && Timers.paused
+                loops: Animation.Infinite
+                NumberAnimation { to: 0.45; duration: 750; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 1.0; duration: 750; easing.type: Easing.InOutSine }
+            }
 
             Item {
                 visible: root.part === "left" || root.part === "compact"

@@ -267,15 +267,22 @@ PanelWindow {
     property int trackSwipeDir: 1
     property int trackSwipeSeq: 0
 
+    property string lastSavedRecFile: ""
+    property string lastSavedRecDur: "0:00"
+    property string lastSinkName: ""
+    property string lastSinkIcon: "speaker"
+    property bool lastMicMutedState: false
+
     function isInstantKind(kind) {
         return kind === "layout" || kind === "clipboard" || kind === "caps" || kind === "dnd"
             || kind === "mode" || kind === "screenshot" || kind === "timer_done"
-            || kind === "rec_countdown" || kind === "rec_start";
+            || kind === "rec_countdown" || kind === "rec_start" || kind === "rec_saved"
+            || kind === "mic" || kind === "sink";
     }
 
     function _osdPriority(kind) {
         if (kind === "rec_countdown" || kind === "rec_start") return 5;
-        if (kind === "timer_done") return 4;
+        if (kind === "timer_done" || kind === "rec_saved") return 4;
         if (kind === "screenshot" || kind === "notif") return 3;
         if (kind === "clipboard") return 1;
         return 2;
@@ -296,7 +303,7 @@ PanelWindow {
             return;
         }
         if (wasOsd && lastOsd !== kind) {
-            const order = ["volume", "layout", "clipboard", "caps", "dnd", "mode", "track", "screenshot", "notif", "timer_done", "rec_countdown", "rec_start"];
+            const order = ["volume", "layout", "clipboard", "caps", "dnd", "mic", "sink", "mode", "track", "screenshot", "notif", "rec_saved", "timer_done", "rec_countdown", "rec_start"];
             const oldIdx = order.indexOf(lastOsd);
             const newIdx = order.indexOf(kind);
             osdSwitchDir = (newIdx >= oldIdx) ? 1 : -1;
@@ -312,11 +319,12 @@ PanelWindow {
         }
         osdTimer.interval = kind === "notif" ? Theme.notifMs
                           : kind === "timer_done" ? 4000
+                          : kind === "rec_saved" ? 2400
                           : kind === "track" ? (win.trackPending ? 3000 : 2200)
                           : kind === "rec_start" ? 1200
-                          : kind === "screenshot" ? 1400
+                          : kind === "screenshot" || kind === "sink" ? 1400
                           : kind === "layout" ? Theme.layoutOsdMs
-                          : (kind === "clipboard" || kind === "caps" || kind === "dnd" || kind === "mode") ? 1100
+                          : (kind === "clipboard" || kind === "caps" || kind === "dnd" || kind === "mode" || kind === "mic") ? 1100
                           : Theme.osdMs;
         osdTimer.restart();
     }
@@ -347,6 +355,21 @@ PanelWindow {
         target: Audio
         function onVolumeChanged() { win.showOsd("volume"); }
         function onMutedChanged() { win.showOsd("volume"); }
+        function onVolumeStepped(delta, boundary) {
+            win.showOsd("volume");
+            if (boundary !== 0) notch.triggerVolOvershoot(boundary);
+        }
+        function onMicMuteToggled(muted) {
+            if (!win.armed) return;
+            win.lastMicMutedState = muted;
+            win.showOsd("mic");
+        }
+        function onSinkSwitched(name, icon) {
+            if (!win.armed) return;
+            win.lastSinkName = name;
+            win.lastSinkIcon = icon;
+            win.showOsd("sink");
+        }
     }
     Connections {
         target: Keyboard
@@ -404,6 +427,12 @@ PanelWindow {
         function onRecordingStarted() {
             if (win.armed) win.showOsd("rec_start");
         }
+        function onRecordingSaved(filePath, durationText) {
+            if (!win.armed) return;
+            win.lastSavedRecFile = filePath || "";
+            win.lastSavedRecDur = durationText || "0:00";
+            win.showOsd("rec_saved");
+        }
     }
     Connections {
         target: SysToggles
@@ -436,6 +465,58 @@ PanelWindow {
             if (win.panel === "auth") win.collapse();
         }
     }
+    // ── Lightweight album-art accent color sampler (runs once per cover change) ──
+    Image {
+        id: artSamplerImg
+        visible: false
+        width: 16
+        height: 16
+        source: Media.trackArtUrl
+        asynchronous: true
+        cache: true
+        sourceSize: Qt.size(16, 16)
+        onStatusChanged: {
+            if (status === Image.Ready && source !== "") {
+                artSamplerCanvas.requestPaint();
+            } else if (status === Image.Null || source === "") {
+                Media.trackAccent = Theme.mint;
+            }
+        }
+    }
+    Canvas {
+        id: artSamplerCanvas
+        visible: false
+        width: 8
+        height: 8
+        onPaint: {
+            const ctx = getContext("2d");
+            if (!ctx || artSamplerImg.status !== Image.Ready) return;
+            ctx.clearRect(0, 0, 8, 8);
+            ctx.drawImage(artSamplerImg, 0, 0, 8, 8);
+            const data = ctx.getImageData(0, 0, 8, 8).data;
+            let bestR = 94, bestG = 234, bestB = 212, bestScore = -1;
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+                if (a < 128) continue;
+                const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                const lum = (max + min) / 510;
+                const sat = max === min ? 0 : (max - min) / (lum > 0.5 ? (510 - max - min) : (max + min));
+                if (lum < 0.14 || lum > 0.90 || sat < 0.18) continue;
+                const score = sat * (1.0 - Math.abs(lum - 0.55));
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestR = r; bestG = g; bestB = b;
+                }
+            }
+            if (bestScore > 0) {
+                const c = Qt.rgba(bestR / 255, bestG / 255, bestB / 255, 1.0);
+                Media.trackAccent = Qt.hsla(c.hslHue, Math.max(0.58, c.hslSaturation), Math.max(0.64, Math.min(0.76, c.hslLightness)), 1.0);
+            } else {
+                Media.trackAccent = Theme.text;
+            }
+        }
+    }
+
     Connections {
         target: IslandIpc
         function onToggleRequested() {
@@ -523,20 +604,45 @@ PanelWindow {
 
         readonly property bool compactHovered: notchHover.hovered && win.mode === "compact"
 
-        property real bw: win.mode === "panel" ? win.activePanelW
+        property real _volStretchW: 0
+        property real _volStretchH: 0
+        property real _volNudgeX: 0
+        function triggerVolOvershoot(dir) {
+            _volStretchW = Theme.px(24);
+            _volStretchH = -Theme.px(3);
+            _volNudgeX = dir * Theme.px(8);
+            volOvershootReset.restart();
+        }
+        Timer {
+            id: volOvershootReset
+            interval: 140
+            repeat: false
+            onTriggered: {
+                notch._volStretchW = 0;
+                notch._volStretchH = 0;
+                notch._volNudgeX = 0;
+            }
+        }
+        Behavior on _volNudgeX { Spring { epsilon: 0.1 } }
+
+        property real bw: (win.mode === "panel" ? win.activePanelW
                         : win.mode === "dashboard" ? win.dashW
                         : win.mode === "osd" ? (win.lastOsd === "notif" ? Theme.notifW
                                               : win.lastOsd === "track" ? win.trackOsdW
+                                              : (win.lastOsd === "clipboard" && Clipboard.lastPreview !== "") ? Theme.px(244)
+                                              : win.lastOsd === "rec_saved" ? Theme.px(228)
+                                              : win.lastOsd === "sink" ? Theme.px(244)
                                               : win.isInstantOsd ? win.instantOsdW
                                               : Theme.osdW)
-                        : win.compactW + (compactHovered ? Theme.hoverGrowW : 0)
-        property real bh: win.mode === "panel" ? win.activePanelH
+                        : win.compactW + (compactHovered ? Theme.hoverGrowW : 0)) + (win.mode === "osd" && win.lastOsd === "volume" ? _volStretchW : 0)
+        property real bh: (win.mode === "panel" ? win.activePanelH
                         : win.mode === "dashboard" ? Theme.stripH
                         : win.mode === "osd" ? (win.lastOsd === "notif" ? Theme.notifH
                                               : win.lastOsd === "track" ? win.trackOsdH
                                               : win.isInstantOsd ? Theme.compactH
                                               : Theme.osdH)
-                        : Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)
+                        : Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)) + (win.mode === "osd" && win.lastOsd === "volume" ? _volStretchH : 0)
+        transform: Translate { x: win.mode === "osd" && win.lastOsd === "volume" ? notch._volNudgeX : 0 }
         property real rad: (win.mode === "dashboard" || win.mode === "panel") ? Theme.expandedRadius
                          : (win.mode === "osd" && win.lastOsd === "track") ? Theme.px(24)
                          : Theme.compactRadius + (compactHovered ? Theme.px(2) : 0)
@@ -565,7 +671,7 @@ PanelWindow {
             if (Recorder.recording || Recorder.counting) return Theme.red;
             if (LiveActivity.activeItems.indexOf("thermal") >= 0) return Theme.red;
             if (Audio.micInUse && !Audio.micMuted) return Theme.orange;
-            if (Media.playing) return Theme.mint;
+            if (Media.playing) return Media.trackAccent;
             return "transparent";
         }
         readonly property bool _glowBreathing: _glowAllowed && (
@@ -729,6 +835,12 @@ PanelWindow {
                     else if (win.mode === "osd" && win.lastOsd === "timer_done") win.openPanel("timer");
                     else if (win.mode === "osd" && win.lastOsd === "rec_countdown") Recorder.stop();
                     else if (win.mode === "osd" && win.lastOsd === "rec_start") win.openPanel("recorder");
+                    else if (win.mode === "osd" && win.lastOsd === "rec_saved") {
+                        if (win.lastSavedRecFile !== "") Quickshell.execDetached(["xdg-open", win.lastSavedRecFile]);
+                        else win.openPanel("recorder");
+                        win.osd = "";
+                    }
+                    else if (win.mode === "osd" && (win.lastOsd === "mic" || win.lastOsd === "sink")) win.openPanel("mixer");
                     else if (win.mode === "dashboard") win.collapse();
                     else if (win.mode === "compact") win.toggle();
                 }
@@ -1422,6 +1534,9 @@ PanelWindow {
                 transformOrigin: Item.Top
                 width: win.lastOsd === "notif" ? Theme.notifW
                      : win.lastOsd === "track" ? win.trackOsdW
+                     : (win.lastOsd === "clipboard" && Clipboard.lastPreview !== "") ? Theme.px(244)
+                     : win.lastOsd === "rec_saved" ? Theme.px(228)
+                     : win.lastOsd === "sink" ? Theme.px(244)
                      : win.isInstantOsd ? win.instantOsdW
                      : Theme.osdW
                 height: win.lastOsd === "notif" ? Theme.notifH
@@ -1571,6 +1686,7 @@ PanelWindow {
 
                 // volume
                 OsdSlot {
+                    id: volSlot
                     kind: "volume"
 
                     Icon {
@@ -1581,8 +1697,20 @@ PanelWindow {
                         name: Audio.icon
                         size: Theme.px(18)
                         color: Audio.muted ? Theme.red : Theme.text
+                        onNameChanged: if (volSlot.active && win.mode === "osd") volIconPop.restart()
+                        SpringAnimation {
+                            id: volIconPop
+                            target: osdVolIcon
+                            property: "scale"
+                            from: 0.76
+                            to: 1.0
+                            spring: Theme.springK
+                            damping: Theme.springDamp
+                            epsilon: 0.01
+                        }
                     }
                     Bar {
+                        id: osdVolBar
                         anchors.left: osdVolIcon.right
                         anchors.right: osdVolText.left
                         anchors.leftMargin: Theme.px(12)
@@ -1591,20 +1719,43 @@ PanelWindow {
                         height: Theme.px(6)
                         value: Audio.muted ? 0 : Audio.volume
                         tint: Theme.text
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: Theme.px(-8)
+                            cursorShape: Qt.PointingHandCursor
+                            onPressed: m => {
+                                Audio.setVolume(m.x / parent.width);
+                                osdTimer.restart();
+                            }
+                            onPositionChanged: m => {
+                                if (pressed) {
+                                    Audio.setVolume(m.x / parent.width);
+                                    osdTimer.restart();
+                                }
+                            }
+                            onWheel: w => {
+                                Audio.step(w.angleDelta.y > 0 ? 0.05 : -0.05);
+                                osdTimer.restart();
+                            }
+                        }
                     }
-                    Text {
+                    Item {
                         id: osdVolText
                         anchors.right: parent.right
                         anchors.rightMargin: Theme.px(18)
                         anchors.verticalCenter: parent.verticalCenter
-                        width: Theme.px(30)
-                        horizontalAlignment: Text.AlignRight
-                        text: Audio.muted ? "off" : Math.round(Audio.volume * 100)
-                        color: Theme.text2
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.px(13)
-                        font.weight: Font.DemiBold
-                        font.features: { "tnum": 1 }
+                        width: Theme.px(32)
+                        height: Theme.px(20)
+
+                        RollingClock {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            timeString: Audio.muted ? "off" : String(Math.round(Audio.volume * 100))
+                            fontSize: Theme.px(13)
+                            fontWeight: Font.DemiBold
+                            textColor: Audio.muted ? Theme.red : Theme.text2
+                        }
                     }
                 }
 
@@ -1647,8 +1798,9 @@ PanelWindow {
                     }
                 }
 
-                // clipboard — compact popup sized to the notch
+                // clipboard — smart preview (color swatch, URL domain, image, or text)
                 OsdSlot {
+                    id: clipboardSlot
                     kind: "clipboard"
 
                     Row {
@@ -1656,15 +1808,32 @@ PanelWindow {
                         anchors.centerIn: parent
                         spacing: Theme.px(8)
 
-                        Icon {
+                        Rectangle {
+                            visible: Clipboard.lastKind === "color" && Clipboard.lastColorHex !== ""
                             anchors.verticalCenter: parent.verticalCenter
-                            name: "content_paste"
+                            width: Theme.px(14)
+                            height: width
+                            radius: width / 2
+                            color: Clipboard.lastColorHex || "transparent"
+                            border.width: 1.5
+                            border.color: Qt.rgba(1, 1, 1, 0.55)
+                        }
+                        Icon {
+                            visible: Clipboard.lastKind !== "color"
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: Clipboard.lastKind === "url" ? "link"
+                                : Clipboard.lastKind === "image" ? "image"
+                                : "content_paste"
                             size: Theme.px(15)
-                            color: Theme.mint
+                            color: Clipboard.lastKind === "url" ? Theme.blue : Theme.mint
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Copied"
+                            width: Math.min(implicitWidth, Theme.px(185))
+                            elide: Text.ElideRight
+                            text: Clipboard.lastKind === "image" ? "Image Copied"
+                                : Clipboard.lastPreview !== "" ? ("Copied · " + Clipboard.lastPreview)
+                                : "Copied"
                             color: Theme.text
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(13)
@@ -1951,7 +2120,8 @@ PanelWindow {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
                             active: Media.playing && trackSlot.active
-                            color: Theme.mint
+                            color: Media.trackAccent
+                            Behavior on color { ColorAnimation { duration: 280 } }
                             maxH: Theme.px(16)
                             minH: Theme.px(3)
                         }
@@ -2078,6 +2248,136 @@ PanelWindow {
                         NumberAnimation { target: recDot; property: "scale"; from: 1.8; to: 1.0; duration: 380; easing.type: Easing.OutBack }
                         NumberAnimation { target: recHalo; property: "opacity"; from: 0.5; to: 0; duration: 700; easing.type: Easing.OutCubic }
                         NumberAnimation { target: recHalo; property: "scale"; from: 0.6; to: 2.0; duration: 700; easing.type: Easing.OutCubic }
+                    }
+                }
+
+                // rec_saved — native confirmation when screen recording is saved
+                OsdSlot {
+                    id: recSavedSlot
+                    kind: "rec_saved"
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(8)
+
+                        Icon {
+                            id: recSavedIcon
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: "check_circle"
+                            size: Theme.px(15)
+                            color: Theme.green
+
+                            Connections {
+                                target: recSavedSlot
+                                function onActiveChanged() { if (recSavedSlot.active) recSavedPop.restart(); }
+                            }
+                            SpringAnimation {
+                                id: recSavedPop
+                                target: recSavedIcon
+                                property: "scale"
+                                from: 0.65
+                                to: 1.0
+                                spring: Theme.springK
+                                damping: Theme.springDamp
+                                epsilon: 0.01
+                            }
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Video Saved · " + win.lastSavedRecDur
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(13)
+                            font.weight: Font.DemiBold
+                            font.features: { "tnum": 1 }
+                        }
+                    }
+                }
+
+                // mic — instant feedback on microphone mute toggle
+                OsdSlot {
+                    id: micOsdSlot
+                    kind: "mic"
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(8)
+
+                        Icon {
+                            id: micOsdIcon
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: win.lastMicMutedState ? "mic_off" : "mic"
+                            size: Theme.px(15)
+                            color: win.lastMicMutedState ? Theme.red : Theme.mint
+
+                            Connections {
+                                target: Audio
+                                function onMicMuteToggled() { if (micOsdSlot.active && win.mode === "osd") micOsdPop.restart(); }
+                            }
+                            SpringAnimation {
+                                id: micOsdPop
+                                target: micOsdIcon
+                                property: "scale"
+                                from: 0.72
+                                to: 1.0
+                                spring: Theme.springK
+                                damping: Theme.springDamp
+                                epsilon: 0.01
+                            }
+                        }
+                        RollingLabel {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: win.lastMicMutedState ? "Mic Muted" : "Mic Live"
+                            color: Theme.text
+                            pixelSize: Theme.px(13)
+                            fontWeight: Font.DemiBold
+                            slotActive: micOsdSlot.active
+                            topEnterText: "Mic Muted"
+                        }
+                    }
+                }
+
+                // sink — instant feedback on default audio output switch
+                OsdSlot {
+                    id: sinkOsdSlot
+                    kind: "sink"
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(8)
+
+                        Icon {
+                            id: sinkOsdIcon
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: win.lastSinkIcon || "speaker"
+                            size: Theme.px(15)
+                            color: Theme.blue
+
+                            Connections {
+                                target: Audio
+                                function onSinkSwitched() { if (sinkOsdSlot.active && win.mode === "osd") sinkOsdPop.restart(); }
+                            }
+                            SpringAnimation {
+                                id: sinkOsdPop
+                                target: sinkOsdIcon
+                                property: "scale"
+                                from: 0.72
+                                to: 1.0
+                                spring: Theme.springK
+                                damping: Theme.springDamp
+                                epsilon: 0.01
+                            }
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Math.min(implicitWidth, Theme.px(185))
+                            elide: Text.ElideRight
+                            text: win.lastSinkName || "Audio Output"
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(13)
+                            font.weight: Font.DemiBold
+                        }
                     }
                 }
 

@@ -153,6 +153,7 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
 - `cliphist`, `wl-clipboard`, `imagemagick` (clipboard history and thumbnail generation)
 - `grim`, `slurp` (screenshot capture and screen region selection)
 - `gpu-screen-recorder` (screen and window recording)
+- `cava` (optional, 4-band audio-reactive wave in Media Live Activity)
 - `brightnessctl` (optional, display brightness control)
 - `hyprsunset` (optional, night light color temperature)
 - `curl` (weather API and IP geolocation)
@@ -175,19 +176,30 @@ git clone https://github.com/your-username/dynamic-notch.git ~/.config/quickshel
 
 ### 2. Manual Test Run
 ```bash
+# Standard run
 qs -p ~/.config/quickshell/dynamic-notch
+
+# Or using the low-memory launcher (sets MALLOC_ARENA_MAX=2 and GLIBC_TUNABLES)
+~/.config/quickshell/dynamic-notch/scripts/run.sh
 ```
 
 ### 3. Autostart in Hyprland
 
 #### Hyprland Lua (`hyprland.lua` / v0.57+)
 ```lua
-hl.exec("qs -d -p ~/.config/quickshell/dynamic-notch")
+hl.exec("~/.config/quickshell/dynamic-notch/scripts/run.sh -d")
+-- or: hl.exec("qs -d -p ~/.config/quickshell/dynamic-notch")
 ```
 
 #### Classic `hyprland.conf`
 ```ini
-exec-once = qs -d -p ~/.config/quickshell/dynamic-notch
+exec-once = ~/.config/quickshell/dynamic-notch/scripts/run.sh -d
+# or: exec-once = qs -d -p ~/.config/quickshell/dynamic-notch
+```
+
+#### Optional: Integrated `sudo` Askpass
+```bash
+export SUDO_ASKPASS="$HOME/.config/quickshell/dynamic-notch/scripts/sudo-askpass.sh"
 ```
 
 ---
@@ -252,4 +264,5 @@ bind = , XF86AudioPrev,        exec, qs -p ~/.config/quickshell/dynamic-notch ip
 
 ## Documentation
 
-For architecture details, panel contracts, and service APIs, see [docs/PANELS.md](docs/PANELS.md).
+- Architecture, panel contracts, and service APIs: [docs/PANELS.md](docs/PANELS.md)
+- Agent handoff & developer onboarding guide: [AGENTS.md](AGENTS.md)
