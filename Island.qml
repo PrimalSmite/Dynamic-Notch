@@ -259,13 +259,22 @@ PanelWindow {
     property string lastTrackTitle: ""
     property string lastTrackArtist: ""
     property string lastTrackArt: ""
+    property string prevTrackTitle: ""
+    property string prevTrackArtist: ""
+    property string prevTrackArt: ""
+    property bool prevTrackSkeleton: false
+    property bool trackPending: false
+    property int trackSwipeDir: 1
+    property int trackSwipeSeq: 0
 
     function isInstantKind(kind) {
         return kind === "layout" || kind === "clipboard" || kind === "caps" || kind === "dnd"
-            || kind === "mode" || kind === "screenshot" || kind === "timer_done";
+            || kind === "mode" || kind === "screenshot" || kind === "timer_done"
+            || kind === "rec_countdown" || kind === "rec_start";
     }
 
     function _osdPriority(kind) {
+        if (kind === "rec_countdown" || kind === "rec_start") return 5;
         if (kind === "timer_done") return 4;
         if (kind === "screenshot" || kind === "notif") return 3;
         if (kind === "clipboard") return 1;
@@ -287,7 +296,7 @@ PanelWindow {
             return;
         }
         if (wasOsd && lastOsd !== kind) {
-            const order = ["volume", "layout", "clipboard", "caps", "dnd", "mode", "track", "screenshot", "notif", "timer_done"];
+            const order = ["volume", "layout", "clipboard", "caps", "dnd", "mode", "track", "screenshot", "notif", "timer_done", "rec_countdown", "rec_start"];
             const oldIdx = order.indexOf(lastOsd);
             const newIdx = order.indexOf(kind);
             osdSwitchDir = (newIdx >= oldIdx) ? 1 : -1;
@@ -297,9 +306,14 @@ PanelWindow {
         }
         lastOsd = kind;
         osd = kind;
+        if (kind === "rec_countdown") {
+            osdTimer.stop();
+            return;
+        }
         osdTimer.interval = kind === "notif" ? Theme.notifMs
                           : kind === "timer_done" ? 4000
-                          : kind === "track" ? 2200
+                          : kind === "track" ? (win.trackPending ? 3000 : 2200)
+                          : kind === "rec_start" ? 1200
                           : kind === "screenshot" ? 1400
                           : kind === "layout" ? Theme.layoutOsdMs
                           : (kind === "clipboard" || kind === "caps" || kind === "dnd" || kind === "mode") ? 1100
@@ -350,12 +364,45 @@ PanelWindow {
     }
     Connections {
         target: Media
-        function onTrackChanged(title, artist, artUrl) {
+        function onSkipRequested(dir) {
+            if (!win.armed || !IslandPrefs.liveTrackOsd) return;
+            win.prevTrackTitle = win.trackPending ? "" : (win.lastTrackTitle || Media.trackTitle);
+            win.prevTrackArtist = win.trackPending ? "" : (win.lastTrackArtist || Media.trackArtist);
+            win.prevTrackArt = win.trackPending ? "" : (win.lastTrackArt || Media.trackArtUrl);
+            win.prevTrackSkeleton = win.trackPending;
+            win.trackPending = true;
+            win.trackSwipeDir = dir || 1;
+            win.trackSwipeSeq++;
+            win.showOsd("track");
+        }
+        function onTrackChanged(title, artist, artUrl, dir) {
             if (!win.armed) return;
+            const wasPending = win.trackPending;
+            if (!wasPending && dir !== 0) {
+                win.prevTrackTitle = win.lastTrackTitle;
+                win.prevTrackArtist = win.lastTrackArtist;
+                win.prevTrackArt = win.lastTrackArt;
+                win.prevTrackSkeleton = false;
+                win.trackSwipeDir = dir || 1;
+                win.trackSwipeSeq++;
+            }
+            win.trackPending = false;
             win.lastTrackTitle = title;
             win.lastTrackArtist = artist;
             win.lastTrackArt = artUrl;
             win.showOsd("track");
+        }
+    }
+    Connections {
+        target: Recorder
+        function onCountdownStarted() {
+            if (win.armed) win.showOsd("rec_countdown");
+        }
+        function onCountdownCancelled() {
+            if (win.osd === "rec_countdown") win.osd = "";
+        }
+        function onRecordingStarted() {
+            if (win.armed) win.showOsd("rec_start");
         }
     }
     Connections {
@@ -434,7 +481,8 @@ PanelWindow {
     readonly property real rightZoneCompactW: (rightCoreCompactW > 0 ? (liveItem.activeCompact ? Theme.px(7) : Theme.px(10)) + rightCoreCompactW : 0) + (rightWingItem.active ? rightWingItem.compactW + Theme.px(10) : 0)
     readonly property real compactW: leftZoneCompactW + clockPill.compactW + rightZoneCompactW + Theme.px(12) * 2
     readonly property real instantOsdW: Theme.px(196)
-    readonly property real trackOsdW: Theme.px(252)
+    readonly property real trackOsdW: Theme.px(330)
+    readonly property real trackOsdH: Theme.px(68)
     readonly property bool isInstantOsd: isInstantKind(win.lastOsd)
     readonly property real topRowTargetW: wsItem.dashW + divItem.dashW + clkItem.dashW + liveItem.dashW + weatherItem.dashW + mediaItem.dashW + layoutItem.dashW + trayItem.dashW
     readonly property real dashW: Math.max(Theme.px(520),
@@ -485,10 +533,12 @@ PanelWindow {
         property real bh: win.mode === "panel" ? win.activePanelH
                         : win.mode === "dashboard" ? Theme.stripH
                         : win.mode === "osd" ? (win.lastOsd === "notif" ? Theme.notifH
+                                              : win.lastOsd === "track" ? win.trackOsdH
                                               : win.isInstantOsd ? Theme.compactH
                                               : Theme.osdH)
                         : Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)
         property real rad: (win.mode === "dashboard" || win.mode === "panel") ? Theme.expandedRadius
+                         : (win.mode === "osd" && win.lastOsd === "track") ? Theme.px(24)
                          : Theme.compactRadius + (compactHovered ? Theme.px(2) : 0)
         property real cw: win.compactW + (compactHovered ? Theme.hoverGrowW : 0)
         property real ch: Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)
@@ -512,7 +562,7 @@ PanelWindow {
             if (win.mode === "osd" && win.lastOsd === "timer_done") return Theme.orange;
             if (win.mode === "osd" && win.lastOsd === "screenshot") return Theme.mint;
             if (Timers.running && Timers.mode === "timer" && Timers.remainSec <= 10) return Theme.orange;
-            if (Recorder.recording) return Theme.red;
+            if (Recorder.recording || Recorder.counting) return Theme.red;
             if (LiveActivity.activeItems.indexOf("thermal") >= 0) return Theme.red;
             if (Audio.micInUse && !Audio.micMuted) return Theme.orange;
             if (Media.playing) return Theme.mint;
@@ -521,6 +571,7 @@ PanelWindow {
         readonly property bool _glowBreathing: _glowAllowed && (
             (win.mode === "osd" && win.lastOsd === "timer_done")
             || Recorder.recording
+            || Recorder.counting
             || (Timers.running && Timers.mode === "timer" && Timers.remainSec <= 10)
         )
         property real _pulseAlpha: 0.48
@@ -676,6 +727,8 @@ PanelWindow {
                     else if (win.mode === "osd" && (win.lastOsd === "caps" || win.lastOsd === "mode")) win.openPanel("settings");
                     else if (win.mode === "osd" && win.lastOsd === "track") win.openPanel("media");
                     else if (win.mode === "osd" && win.lastOsd === "timer_done") win.openPanel("timer");
+                    else if (win.mode === "osd" && win.lastOsd === "rec_countdown") Recorder.stop();
+                    else if (win.mode === "osd" && win.lastOsd === "rec_start") win.openPanel("recorder");
                     else if (win.mode === "dashboard") win.collapse();
                     else if (win.mode === "compact") win.toggle();
                 }
@@ -1372,6 +1425,7 @@ PanelWindow {
                      : win.isInstantOsd ? win.instantOsdW
                      : Theme.osdW
                 height: win.lastOsd === "notif" ? Theme.notifH
+                      : win.lastOsd === "track" ? win.trackOsdH
                       : win.isInstantOsd ? Theme.compactH
                       : Theme.osdH
                 anchors.horizontalCenter: parent.horizontalCenter
