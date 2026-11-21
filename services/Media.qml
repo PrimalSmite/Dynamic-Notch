@@ -23,7 +23,12 @@ Singleton {
     // before the browser delivers new MPRIS metadata.
     property int _pendingSkipDir: 0
     property double _pendingSkipUntil: 0
-    property string _skipBaseKey: ""
+    property string _skipBaseTitle: ""
+    property string _skipBaseArtist: ""
+    property string _skipBaseArt: ""
+    property int _settleDir: 0
+    property bool _syncing: false
+    property bool _metaDirty: false
 
     // Fired immediately when a skip is requested (dir: +1 next, -1 prev).
     signal skipRequested(int dir)
@@ -33,7 +38,11 @@ Singleton {
     function _armSkip(dir) {
         _pendingSkipDir = dir;
         _pendingSkipUntil = Date.now() + 3000;
-        _skipBaseKey = root.trackTitle + "|" + root.trackArtist;
+        _skipBaseTitle = root.trackTitle;
+        _skipBaseArtist = root.trackArtist;
+        _skipBaseArt = root.trackArtUrl;
+        _settleDir = 0;
+        skipSettleTimer.stop();
         skipRequested(dir);
     }
 
@@ -41,6 +50,19 @@ Singleton {
         root._lastEmittedTrackKey = root.trackTitle + "|" + root.trackArtist;
         root._lastEmitMs = Date.now();
         root.trackChanged(root.trackTitle, root.trackArtist, root.trackArtUrl, dir);
+    }
+
+    Timer {
+        id: skipSettleTimer
+        interval: 260
+        repeat: false
+        onTriggered: {
+            if (!root.playing || !root.trackTitle) return;
+            const d = root._settleDir || 1;
+            root._settleDir = 0;
+            root._pendingSkipDir = 0;
+            root._emitTrack(d);
+        }
     }
 
     Timer {
@@ -58,28 +80,47 @@ Singleton {
     }
 
     function _onMetaChanged() {
+        if (_syncing) {
+            _metaDirty = true;
+            return;
+        }
         if (trackTitle === "") {
             _lastEmittedTrackKey = "";
             return;
         }
         if (!playing) return;
-        // Pending skip: emit right away on the first title that differs from the old track
+
+        // Pending skip: wait briefly for artist and artUrl to settle if only title changed
         if (_pendingSkipDir !== 0) {
             if (Date.now() > _pendingSkipUntil) {
                 _pendingSkipDir = 0;
-            } else if (trackTitle !== _skipBaseKey.split("|")[0]) {
-                const d = _pendingSkipDir;
-                _pendingSkipDir = 0;
+                _settleDir = 0;
+                skipSettleTimer.stop();
+            } else if (trackTitle !== _skipBaseTitle) {
+                const artistSettled = (_skipBaseArtist === "" || trackArtist !== _skipBaseArtist);
+                const artSettled = (_skipBaseArt === "" || trackArtUrl !== _skipBaseArt);
+                if (artistSettled && artSettled) {
+                    const d = _pendingSkipDir;
+                    _pendingSkipDir = 0;
+                    _settleDir = 0;
+                    skipSettleTimer.stop();
+                    trackDebounceTimer.stop();
+                    _emitTrack(d);
+                    return;
+                }
+                _settleDir = _pendingSkipDir;
                 trackDebounceTimer.stop();
-                _emitTrack(d);
+                if (!skipSettleTimer.running) skipSettleTimer.restart();
                 return;
             }
         }
+        if (skipSettleTimer.running) return;
         trackDebounceTimer.restart();
     }
 
     onTrackTitleChanged: _onMetaChanged()
     onTrackArtistChanged: _onMetaChanged()
+    onTrackArtUrlChanged: _onMetaChanged()
     onPlayingChanged: {
         if (playing && trackTitle !== "" && (trackTitle + "|" + trackArtist) !== _lastEmittedTrackKey) {
             trackDebounceTimer.restart();
@@ -242,6 +283,8 @@ Singleton {
         const cTitle = cleanTitle(rawTitle);
         const cArtist = cleanArtist(chosen, meta, cTitle);
 
+        root._syncing = true;
+        root._metaDirty = false;
         // If artist was extracted from "Artist - Title", strip artist prefix from title
         if (cArtist && cTitle.startsWith(cArtist + " - ")) {
             root.trackTitle = cTitle.slice(cArtist.length + 3).trim();
@@ -251,6 +294,11 @@ Singleton {
 
         root.trackArtist = cArtist || chosen.identity || "";
         root.trackArtUrl = cleanArtUrl(chosen, meta);
+        root._syncing = false;
+        if (root._metaDirty) {
+            root._metaDirty = false;
+            root._onMetaChanged();
+        }
 
         if (root.playing && chosen.positionChanged) {
             chosen.positionChanged();

@@ -284,7 +284,7 @@ PanelWindow {
     function showOsd(kind) {
         if ((mode !== "compact" && mode !== "osd") || !armed) return;
         if (!win.isFocusedMonitor) return;
-        if (isGameActive && kind !== "notif" && kind !== "volume" && !isInstantKind(kind) && !IslandPrefs.showOsdInGames) return;
+        if (isGameActive && kind !== "notif" && kind !== "volume" && kind !== "track" && !isInstantKind(kind) && !IslandPrefs.showOsdInGames) return;
         if (kind === "volume" && !IslandPrefs.showVolumeOsd) return;
         if (kind === "layout" && !IslandPrefs.showLayoutOsd) return;
         if (kind === "clipboard" && !IslandPrefs.liveClipboardPulse) return;
