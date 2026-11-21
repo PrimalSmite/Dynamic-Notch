@@ -31,6 +31,7 @@ Row {
             case "muted": return mutedComp;
             case "recorder": return recorderComp;
             case "timer": return timerComp;
+            case "submap": return submapComp;
             default: return null;
             }
         }
@@ -210,9 +211,15 @@ Row {
         Row {
             spacing: Theme.px(4)
 
-            readonly property string modeIcon: SysToggles.nightLight ? "bedtime" : "sports_esports"
-            readonly property string modeLabel: SysToggles.nightLight ? "NIGHT" : "GAME"
-            readonly property color modeColor: SysToggles.nightLight ? Theme.orange : Theme.teal
+            readonly property string modeIcon: SysToggles.nightLight ? "bedtime"
+                                             : SysToggles.gameMode ? "sports_esports"
+                                             : "coffee"
+            readonly property string modeLabel: SysToggles.nightLight ? (SysToggles.nightTemp + "K")
+                                              : SysToggles.gameMode ? "GAME"
+                                              : "AWAKE"
+            readonly property color modeColor: SysToggles.nightLight ? Theme.orange
+                                             : SysToggles.gameMode ? Theme.teal
+                                             : Theme.yellow
 
             Icon {
                 visible: root.part === "left" || root.part === "compact"
@@ -365,6 +372,37 @@ Row {
                 fontSize: Theme.px(12)
                 fontWeight: Font.DemiBold
                 textColor: Theme.orange
+            }
+        }
+    }
+
+    // ── 9. Hyprland Submap ──
+    Component {
+        id: submapComp
+        Row {
+            spacing: Theme.px(4)
+
+            readonly property string subName: Keyboard.submap.toLowerCase()
+            readonly property string subIcon: subName.indexOf("resize") !== -1 ? "open_with"
+                                            : subName.indexOf("pass") !== -1 ? "lock_open"
+                                            : "keyboard_command_key"
+
+            Icon {
+                visible: root.part === "left" || root.part === "compact"
+                anchors.verticalCenter: parent.verticalCenter
+                name: parent.subIcon
+                size: Theme.px(13)
+                color: Theme.orange
+            }
+            Text {
+                visible: root.part === "right" || root.part === "compact"
+                anchors.verticalCenter: parent.verticalCenter
+                text: Keyboard.submap.toUpperCase()
+                color: Theme.orange
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.px(10)
+                font.weight: Font.Bold
+                font.letterSpacing: Theme.px(0.4)
             }
         }
     }

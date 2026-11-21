@@ -203,7 +203,7 @@ Item {
                         if (Math.abs(_wheelAcc) < 80) return;
                         root.cycleSecondary(_wheelAcc > 0 ? -1 : 1);
                         _wheelAcc = 0;
-                    } else if (LiveActivity.wheelAction(root.activeKind, w.angleDelta.y)) {
+                    } else if (LiveActivity.wheelAction(root.activeKind, w.angleDelta.y, (w.modifiers & Qt.ShiftModifier) !== 0)) {
                         slotPulse.restart();
                         w.accepted = true;
                     } else {

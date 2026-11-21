@@ -55,6 +55,7 @@ Singleton {
             LiveActivity.clearTask(id);
         }
         function toggleMic() { Audio.toggleMic(); }
+        function cycleSink() { Audio.cycleSink(); }
         function toggleKeepAwake() { SysToggles.toggleKeepAwake(); }
         function toggleNightLight() { SysToggles.toggleNightLight(); }
         function screenshotRegion() { SysToggles.takeScreenshotRegion(); }

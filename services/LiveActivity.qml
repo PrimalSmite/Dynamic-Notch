@@ -125,6 +125,9 @@ Singleton {
         if (Recorder.recording) {
             list.push("recorder");
         }
+        if (Keyboard.submap !== "") {
+            list.push("submap");
+        }
         if (IslandPrefs.liveMediaEnabled && Media.player !== null && (Media.playing || root._mediaGrace)) {
             list.push("media");
         }
@@ -140,7 +143,7 @@ Singleton {
         if (root.ipcTask !== null) {
             list.push("ipc");
         }
-        if (IslandPrefs.liveSystemModes && (SysToggles.nightLight || SysToggles.gameMode)) {
+        if (IslandPrefs.liveSystemModes && (SysToggles.nightLight || SysToggles.gameMode || SysToggles.keepAwake)) {
             list.push("modes");
         }
         if (IslandPrefs.liveAudioMuted && Audio.muted) {
@@ -153,9 +156,11 @@ Singleton {
     readonly property var secondaryItems: activeItems.length > 1 ? activeItems.slice(1) : []
     readonly property bool isSplitMode: activeItems.length === 1
 
-    // Left-click always opens the corresponding menu/panel
+    // Left-click always opens the corresponding menu/panel (or resets submap)
     function openMenu(kind, host) {
-        if (!host || !kind) return;
+        if (!kind) return;
+        if (kind === "submap") { Keyboard.resetSubmap(); return; }
+        if (!host) return;
         if (kind === "recorder") host.openPanel("recorder");
         else if (kind === "timer") host.openPanel("timer");
         else if (kind === "media") host.openPanel("media");
@@ -171,6 +176,10 @@ Singleton {
         const isMiddle = (button === Qt.MiddleButton);
         if (!isRight && !isMiddle) return false;
 
+        if (kind === "submap" && isRight) {
+            Keyboard.resetSubmap();
+            return true;
+        }
         if (kind === "media") {
             if (isRight) Media.togglePlay();
             else if (isMiddle) Media.next();
@@ -199,6 +208,7 @@ Singleton {
         if (kind === "modes" && isRight) {
             if (SysToggles.nightLight) SysToggles.toggleNightLight();
             else if (SysToggles.gameMode) SysToggles.toggleGameMode();
+            else if (SysToggles.keepAwake) SysToggles.toggleKeepAwake();
             return true;
         }
         if (kind === "ipc" && isRight) {
@@ -209,11 +219,23 @@ Singleton {
     }
 
     // Wheel scroll actions directly on Live Activity wings
-    function wheelAction(kind, stepDir) {
+    function wheelAction(kind, stepDir, shiftHeld) {
         if (!kind || !stepDir) return false;
         const dir = stepDir > 0 ? 1 : -1;
-        if (kind === "media" || kind === "muted") {
+        if (kind === "media") {
+            if (shiftHeld && Media.player && Media.player.canSeek) {
+                Media.player.seek(dir * 5);
+            } else {
+                Audio.step(dir * 0.05);
+            }
+            return true;
+        }
+        if (kind === "muted") {
             Audio.step(dir * 0.05);
+            return true;
+        }
+        if (kind === "modes" && SysToggles.nightLight) {
+            SysToggles.setNightTemp(SysToggles.nightTemp + dir * 200);
             return true;
         }
         if (kind === "timer" && Timers.mode === "timer") {

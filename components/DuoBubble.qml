@@ -100,10 +100,22 @@ Item {
         }
     }
 
+    readonly property color glowColor: {
+        if (activeKind === "media") return Media.trackAccent;
+        if (activeKind === "recorder" || activeKind === "thermal" || activeKind === "muted") return Theme.red;
+        if (activeKind === "timer" || activeKind === "mic" || activeKind === "submap") return Theme.orange;
+        return "transparent";
+    }
+
     Rectangle {
         anchors.fill: parent
         radius: height / 2
         color: Theme.bg
+        border.width: root.glowColor !== "transparent" ? 1.25 : 0
+        border.color: root.glowColor !== "transparent"
+                    ? Qt.rgba(root.glowColor.r, root.glowColor.g, root.glowColor.b, 0.35)
+                    : "transparent"
+        Behavior on border.color { ColorAnimation { duration: 240 } }
     }
 
     LiveSlotContent {
@@ -141,11 +153,16 @@ Item {
 
         property real _wheelAcc: 0
         onWheel: w => {
-            if (root.items.length <= 1) return;
-            _wheelAcc += w.angleDelta.y;
-            if (Math.abs(_wheelAcc) < 80) return;
-            root.cycle(_wheelAcc > 0 ? -1 : 1);
-            _wheelAcc = 0;
+            if (root.items.length > 1 && (w.modifiers & Qt.ShiftModifier) === 0) {
+                _wheelAcc += w.angleDelta.y;
+                if (Math.abs(_wheelAcc) < 80) return;
+                root.cycle(_wheelAcc > 0 ? -1 : 1);
+                _wheelAcc = 0;
+                w.accepted = true;
+            } else if (LiveActivity.wheelAction(root.activeKind, w.angleDelta.y, (w.modifiers & Qt.ShiftModifier) !== 0)) {
+                slotPulse.restart();
+                w.accepted = true;
+            }
         }
     }
 }

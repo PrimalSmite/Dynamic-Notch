@@ -29,6 +29,38 @@ Item {
     readonly property int count: Theme.minWorkspaces
     readonly property int startId: Math.max(1, activeId - count + 1)
 
+    property var urgentMap: ({})
+    onActiveIdChanged: {
+        if (urgentMap[activeId]) {
+            const next = Object.assign({}, urgentMap);
+            delete next[activeId];
+            urgentMap = next;
+        }
+    }
+
+    Connections {
+        target: Hyprland
+        function onRawEvent(ev) {
+            if (!ev || ev.name !== "urgent") return;
+            const addr = (ev.data || "").trim().toLowerCase();
+            if (!addr) return;
+            const toplevels = Hyprland.toplevels ? Hyprland.toplevels.values : [];
+            for (let i = 0; i < toplevels.length; i++) {
+                const t = toplevels[i];
+                const tAddr = String(t.address || (t.lastIpcObject && t.lastIpcObject.address) || "").toLowerCase();
+                if (tAddr === addr || tAddr === ("0x" + addr) || ("0x" + tAddr) === addr) {
+                    const wsId = t.workspace ? t.workspace.id : (t.lastIpcObject && t.lastIpcObject.workspace ? t.lastIpcObject.workspace.id : 0);
+                    if (wsId > 0 && wsId !== root.activeId) {
+                        const next = Object.assign({}, root.urgentMap);
+                        next[wsId] = true;
+                        root.urgentMap = next;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     property real _bounceX: 0
     Behavior on _bounceX { Spring { epsilon: 0.05 } }
     Timer {
@@ -71,6 +103,7 @@ Item {
                 readonly property int wsId: root.startId + index
                 readonly property bool active: wsId === root.activeId
                 readonly property bool busy: root.occupied[wsId] === true
+                readonly property bool urgent: root.urgentMap[wsId] === true && !active
 
                 anchors.verticalCenter: parent.verticalCenter
                 width: active ? root.activeW : root.pillW
@@ -79,13 +112,21 @@ Item {
                 Behavior on height { Spring { epsilon: 0.5 } }
 
                 Rectangle {
+                    id: pillRect
                     anchors.fill: parent
                     radius: width / 2
-                    color: Theme.text
-                    opacity: d.active ? 0.0 : (d.busy ? 0.45 : 0.24)
+                    color: d.urgent ? Theme.orange : Theme.text
+                    opacity: d.active ? 0.0 : (d.urgent ? 0.9 : (d.busy ? 0.45 : 0.24))
                     scale: ma.containsMouse && !d.active ? 1.18 : 1
                     Behavior on opacity { NumberAnimation { duration: 160 } }
                     Behavior on scale { Spring { epsilon: 0.01 } }
+
+                    SequentialAnimation on opacity {
+                        running: d.urgent
+                        loops: Animation.Infinite
+                        NumberAnimation { from: 0.45; to: 1.0; duration: 600; easing.type: Easing.InOutSine }
+                        NumberAnimation { from: 1.0; to: 0.45; duration: 600; easing.type: Easing.InOutSine }
+                    }
                 }
 
                 MouseArea {

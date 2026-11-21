@@ -10,6 +10,7 @@ Singleton {
 
     property string layout: ""            // e.g. "Russian", "English (US)"
     property bool capsLock: false
+    property string submap: ""            // active Hyprland submap ("" = default)
     property var _capsPaths: []
     property var _capsValues: ({})
 
@@ -46,6 +47,10 @@ Singleton {
 
     function next() {
         Quickshell.execDetached(["hyprctl", "switchxkblayout", "all", "next"]);
+    }
+
+    function resetSubmap() {
+        Quickshell.execDetached(["hyprctl", "dispatch", "submap", "reset"]);
     }
 
     function _recalcCaps() {
@@ -137,6 +142,11 @@ Singleton {
         function onRawEvent(ev) {
             if (ev.name === "configreloaded") {
                 rescanTimer.restart();
+                return;
+            }
+            if (ev.name === "submap") {
+                const name = (ev.data || "").trim();
+                root.submap = (name === "reset" || name === "default") ? "" : name;
                 return;
             }
             if (ev.name !== "activelayout") return;

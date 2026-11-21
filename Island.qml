@@ -290,12 +290,12 @@ PanelWindow {
         return kind === "layout" || kind === "clipboard" || kind === "caps" || kind === "dnd"
             || kind === "mode" || kind === "screenshot" || kind === "timer_done"
             || kind === "rec_countdown" || kind === "rec_start" || kind === "rec_saved"
-            || kind === "mic" || kind === "sink";
+            || kind === "mic" || kind === "sink" || kind === "submap";
     }
 
     function _osdPriority(kind) {
         if (kind === "rec_countdown" || kind === "rec_start") return 5;
-        if (kind === "timer_done" || kind === "rec_saved") return 4;
+        if (kind === "timer_done" || kind === "rec_saved" || kind === "submap") return 4;
         if (kind === "screenshot" || kind === "notif") return 3;
         if (kind === "clipboard") return 1;
         return 2;
@@ -316,7 +316,7 @@ PanelWindow {
             return;
         }
         if (wasOsd && lastOsd !== kind) {
-            const order = ["volume", "layout", "clipboard", "caps", "dnd", "mic", "sink", "mode", "track", "screenshot", "notif", "rec_saved", "timer_done", "rec_countdown", "rec_start"];
+            const order = ["volume", "layout", "clipboard", "caps", "dnd", "mic", "sink", "mode", "submap", "track", "screenshot", "notif", "rec_saved", "timer_done", "rec_countdown", "rec_start"];
             const oldIdx = order.indexOf(lastOsd);
             const newIdx = order.indexOf(kind);
             osdSwitchDir = (newIdx >= oldIdx) ? 1 : -1;
@@ -331,13 +331,14 @@ PanelWindow {
             return;
         }
         osdTimer.interval = kind === "notif" ? Theme.notifMs
-                          : kind === "timer_done" ? 4000
-                          : kind === "rec_saved" ? 2400
+                          : kind === "timer_done" ? 5000
+                          : kind === "rec_saved" ? 3200
                           : kind === "track" ? (win.trackPending ? 3000 : 2200)
                           : kind === "rec_start" ? 1200
-                          : kind === "screenshot" || kind === "sink" ? 1400
+                          : kind === "screenshot" ? 2600
+                          : kind === "sink" ? 1400
                           : kind === "layout" ? Theme.layoutOsdMs
-                          : (kind === "clipboard" || kind === "caps" || kind === "dnd" || kind === "mode" || kind === "mic") ? 1100
+                          : (kind === "clipboard" || kind === "caps" || kind === "dnd" || kind === "mode" || kind === "mic" || kind === "submap") ? 1200
                           : Theme.osdMs;
         osdTimer.restart();
     }
@@ -388,6 +389,9 @@ PanelWindow {
         target: Keyboard
         function onSwitched() { win.showOsd("layout"); }
         function onCapsLockChanged() { if (win.armed) win.showOsd("caps"); }
+        function onSubmapChanged() {
+            if (win.armed && Keyboard.submap !== "") win.showOsd("submap");
+        }
     }
     Connections {
         target: Clipboard
@@ -410,6 +414,7 @@ PanelWindow {
             win.trackSwipeDir = dir || 1;
             win.trackSwipeSeq++;
             win.showOsd("track");
+            notch.triggerImpulse((dir || 1) * Theme.px(6), Theme.px(10), 0);
         }
         function onTrackChanged(title, artist, artUrl, dir) {
             if (!win.armed) return;
@@ -421,6 +426,7 @@ PanelWindow {
                 win.prevTrackSkeleton = false;
                 win.trackSwipeDir = dir || 1;
                 win.trackSwipeSeq++;
+                notch.triggerImpulse((dir || 1) * Theme.px(6), Theme.px(10), 0);
             }
             win.trackPending = false;
             win.lastTrackTitle = title;
@@ -620,11 +626,14 @@ PanelWindow {
         property real _volStretchW: 0
         property real _volStretchH: 0
         property real _volNudgeX: 0
-        function triggerVolOvershoot(dir) {
-            _volStretchW = Theme.px(24);
-            _volStretchH = -Theme.px(3);
-            _volNudgeX = dir * Theme.px(8);
+        function triggerImpulse(dx, stretchW, stretchH) {
+            _volStretchW = stretchW || 0;
+            _volStretchH = stretchH || 0;
+            _volNudgeX = dx || 0;
             volOvershootReset.restart();
+        }
+        function triggerVolOvershoot(dir) {
+            triggerImpulse(dir * Theme.px(8), Theme.px(24), -Theme.px(3));
         }
         Timer {
             id: volOvershootReset
@@ -642,20 +651,23 @@ PanelWindow {
                         : win.mode === "dashboard" ? win.dashW
                         : win.mode === "osd" ? (win.lastOsd === "notif" ? Theme.notifW
                                               : win.lastOsd === "track" ? win.trackOsdW
+                                              : win.lastOsd === "timer_done" ? Theme.px(254)
+                                              : win.lastOsd === "screenshot" ? Theme.px(268)
+                                              : (win.lastOsd === "clipboard" && Clipboard.lastKind === "url") ? Theme.px(258)
                                               : (win.lastOsd === "clipboard" && Clipboard.lastPreview !== "") ? Theme.px(244)
-                                              : win.lastOsd === "rec_saved" ? Theme.px(228)
+                                              : win.lastOsd === "rec_saved" ? Theme.px(264)
                                               : win.lastOsd === "sink" ? Theme.px(244)
                                               : win.isInstantOsd ? win.instantOsdW
                                               : Theme.osdW)
-                        : win.compactW + (compactHovered ? Theme.hoverGrowW : 0)) + (win.mode === "osd" && win.lastOsd === "volume" ? _volStretchW : 0)
+                        : win.compactW + (compactHovered ? Theme.hoverGrowW : 0)) + ((win.mode === "compact" || win.mode === "osd") ? _volStretchW : 0)
         property real bh: (win.mode === "panel" ? win.activePanelH
                         : win.mode === "dashboard" ? Theme.stripH
                         : win.mode === "osd" ? (win.lastOsd === "notif" ? Theme.notifH
                                               : win.lastOsd === "track" ? win.trackOsdH
                                               : win.isInstantOsd ? Theme.compactH
                                               : Theme.osdH)
-                        : Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)) + (win.mode === "osd" && win.lastOsd === "volume" ? _volStretchH : 0)
-        transform: Translate { x: win.mode === "osd" && win.lastOsd === "volume" ? notch._volNudgeX : 0 }
+                        : Theme.compactH + (compactHovered ? Theme.hoverGrowH : 0)) + ((win.mode === "compact" || win.mode === "osd") ? _volStretchH : 0)
+        transform: Translate { x: (win.mode === "compact" || win.mode === "osd") ? notch._volNudgeX : 0 }
         property real rad: (win.mode === "dashboard" || win.mode === "panel") ? Theme.expandedRadius
                          : (win.mode === "osd" && win.lastOsd === "track") ? Theme.px(24)
                          : Theme.compactRadius + (compactHovered ? Theme.px(2) : 0)
@@ -1642,8 +1654,11 @@ PanelWindow {
                 transformOrigin: Item.Top
                 width: win.lastOsd === "notif" ? Theme.notifW
                      : win.lastOsd === "track" ? win.trackOsdW
+                     : win.lastOsd === "timer_done" ? Theme.px(254)
+                     : win.lastOsd === "screenshot" ? Theme.px(268)
+                     : (win.lastOsd === "clipboard" && Clipboard.lastKind === "url") ? Theme.px(258)
                      : (win.lastOsd === "clipboard" && Clipboard.lastPreview !== "") ? Theme.px(244)
-                     : win.lastOsd === "rec_saved" ? Theme.px(228)
+                     : win.lastOsd === "rec_saved" ? Theme.px(264)
                      : win.lastOsd === "sink" ? Theme.px(244)
                      : win.isInstantOsd ? win.instantOsdW
                      : Theme.osdW
@@ -1816,6 +1831,18 @@ PanelWindow {
                             damping: Theme.springDamp
                             epsilon: 0.01
                         }
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: Theme.px(-6)
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: mouse => {
+                                mouse.accepted = true;
+                                if (mouse.button === Qt.RightButton) Audio.cycleSink();
+                                else Audio.toggleMute();
+                                osdTimer.restart();
+                            }
+                        }
                     }
                     Bar {
                         id: osdVolBar
@@ -1937,7 +1964,7 @@ PanelWindow {
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: Math.min(implicitWidth, Theme.px(185))
+                            width: Math.min(implicitWidth, Clipboard.lastKind === "url" ? Theme.px(140) : Theme.px(185))
                             elide: Text.ElideRight
                             text: Clipboard.lastKind === "image" ? "Image Copied"
                                 : Clipboard.lastPreview !== "" ? ("Copied · " + Clipboard.lastPreview)
@@ -1946,6 +1973,37 @@ PanelWindow {
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(13)
                             font.weight: Font.DemiBold
+                        }
+                        Rectangle {
+                            visible: Clipboard.lastKind === "url"
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: Theme.px(22)
+                            width: clipOpenLbl.implicitWidth + Theme.px(14)
+                            radius: height / 2
+                            color: clipOpenMa.containsMouse ? Qt.rgba(1, 1, 1, 0.18) : Qt.rgba(1, 1, 1, 0.09)
+                            scale: clipOpenMa.pressed ? 0.90 : 1.0
+                            Behavior on scale { Spring { epsilon: 0.01 } }
+
+                            Text {
+                                id: clipOpenLbl
+                                anchors.centerIn: parent
+                                text: "Open"
+                                color: Theme.blue
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.Bold
+                            }
+                            MouseArea {
+                                id: clipOpenMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: mouse => {
+                                    mouse.accepted = true;
+                                    Quickshell.execDetached(["sh", "-c", "wl-paste 2>/dev/null | head -n 1 | xargs -r xdg-open"]);
+                                    win.osd = "";
+                                }
+                            }
                         }
                     }
                 }
@@ -2096,7 +2154,7 @@ PanelWindow {
                     }
                 }
 
-                // screenshot — compact popup when grim/slurp copies screenshot
+                // screenshot — interactive popup when grim/slurp copies screenshot
                 OsdSlot {
                     id: screenshotSlot
                     kind: "screenshot"
@@ -2113,16 +2171,76 @@ PanelWindow {
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: win.lastScreenshotMode === "full" ? "Screen Copied" : "Region Copied"
+                            text: win.lastScreenshotMode === "full" ? "Screen" : "Region"
                             color: Theme.text
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(13)
                             font.weight: Font.DemiBold
                         }
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: Theme.px(22)
+                            width: shotSaveLbl.implicitWidth + Theme.px(12)
+                            radius: height / 2
+                            color: shotSaveMa.containsMouse ? Qt.rgba(1, 1, 1, 0.18) : Qt.rgba(1, 1, 1, 0.09)
+                            scale: shotSaveMa.pressed ? 0.90 : 1.0
+                            Behavior on scale { Spring { epsilon: 0.01 } }
+
+                            Text {
+                                id: shotSaveLbl
+                                anchors.centerIn: parent
+                                text: "Save"
+                                color: Theme.mint
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.Bold
+                            }
+                            MouseArea {
+                                id: shotSaveMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: mouse => {
+                                    mouse.accepted = true;
+                                    Quickshell.execDetached(["sh", "-c", "DIR=\"$(xdg-user-dir PICTURES 2>/dev/null || echo \"$HOME/Pictures\")/Screenshots\"; mkdir -p \"$DIR\" && wl-paste -t image/png > \"$DIR/shot_$(date +%Y-%m-%d_%H-%M-%S).png\""]);
+                                    win.osd = "";
+                                }
+                            }
+                        }
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: Theme.px(22)
+                            width: shotEditLbl.implicitWidth + Theme.px(12)
+                            radius: height / 2
+                            color: shotEditMa.containsMouse ? Qt.rgba(1, 1, 1, 0.18) : Qt.rgba(1, 1, 1, 0.09)
+                            scale: shotEditMa.pressed ? 0.90 : 1.0
+                            Behavior on scale { Spring { epsilon: 0.01 } }
+
+                            Text {
+                                id: shotEditLbl
+                                anchors.centerIn: parent
+                                text: "Edit"
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.Bold
+                            }
+                            MouseArea {
+                                id: shotEditMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: mouse => {
+                                    mouse.accepted = true;
+                                    Quickshell.execDetached(["sh", "-c", "if command -v satty >/dev/null 2>&1; then wl-paste -t image/png | satty -f -; elif command -v swappy >/dev/null 2>&1; then wl-paste -t image/png | swappy -f -; fi"]);
+                                    win.osd = "";
+                                }
+                            }
+                        }
                     }
                 }
 
-                // timer_done — compact popup when countdown finishes
+                // timer_done — interactive popup when countdown finishes
                 OsdSlot {
                     id: timerDoneSlot
                     kind: "timer_done"
@@ -2132,10 +2250,19 @@ PanelWindow {
                         spacing: Theme.px(8)
 
                         Icon {
+                            id: timerDoneIcon
                             anchors.verticalCenter: parent.verticalCenter
                             name: "alarm"
                             size: Theme.px(15)
                             color: Theme.orange
+                            SequentialAnimation on rotation {
+                                running: timerDoneSlot.active && win.mode === "osd"
+                                loops: Animation.Infinite
+                                NumberAnimation { to: 14; duration: 110; easing.type: Easing.InOutSine }
+                                NumberAnimation { to: -14; duration: 110; easing.type: Easing.InOutSine }
+                                NumberAnimation { to: 0; duration: 110; easing.type: Easing.InOutSine }
+                                PauseAnimation { duration: 350 }
+                            }
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
@@ -2144,6 +2271,68 @@ PanelWindow {
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(13)
                             font.weight: Font.Bold
+                        }
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: Theme.px(22)
+                            width: tPlusLbl.implicitWidth + Theme.px(12)
+                            radius: height / 2
+                            color: tPlusMa.containsMouse ? Qt.rgba(1, 1, 1, 0.18) : Qt.rgba(1, 1, 1, 0.09)
+                            scale: tPlusMa.pressed ? 0.90 : 1.0
+                            Behavior on scale { Spring { epsilon: 0.01 } }
+
+                            Text {
+                                id: tPlusLbl
+                                anchors.centerIn: parent
+                                text: "+1m"
+                                color: Theme.orange
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.Bold
+                            }
+                            MouseArea {
+                                id: tPlusMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: mouse => {
+                                    mouse.accepted = true;
+                                    Timers.setPreset(60);
+                                    Timers.toggleStart();
+                                    win.osd = "";
+                                }
+                            }
+                        }
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: Theme.px(22)
+                            width: tRepLbl.implicitWidth + Theme.px(12)
+                            radius: height / 2
+                            color: tRepMa.containsMouse ? Qt.rgba(1, 1, 1, 0.18) : Qt.rgba(1, 1, 1, 0.09)
+                            scale: tRepMa.pressed ? 0.90 : 1.0
+                            Behavior on scale { Spring { epsilon: 0.01 } }
+
+                            Text {
+                                id: tRepLbl
+                                anchors.centerIn: parent
+                                text: "Repeat"
+                                color: Theme.text
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.Bold
+                            }
+                            MouseArea {
+                                id: tRepMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: mouse => {
+                                    mouse.accepted = true;
+                                    Timers.reset();
+                                    Timers.toggleStart();
+                                    win.osd = "";
+                                }
+                            }
                         }
                     }
                 }
@@ -2450,12 +2639,94 @@ PanelWindow {
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Video Saved · " + win.lastSavedRecDur
+                            text: "Saved · " + win.lastSavedRecDur
                             color: Theme.text
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(13)
                             font.weight: Font.DemiBold
                             font.features: { "tnum": 1 }
+                        }
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: Theme.px(22)
+                            width: Theme.px(22)
+                            radius: height / 2
+                            color: recPlayMa.containsMouse ? Qt.rgba(1, 1, 1, 0.18) : Qt.rgba(1, 1, 1, 0.09)
+                            scale: recPlayMa.pressed ? 0.90 : 1.0
+                            Behavior on scale { Spring { epsilon: 0.01 } }
+
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "play_arrow"
+                                size: Theme.px(13)
+                                color: Theme.green
+                            }
+                            MouseArea {
+                                id: recPlayMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: mouse => {
+                                    mouse.accepted = true;
+                                    if (win.lastSavedRecFile !== "") Quickshell.execDetached(["xdg-open", win.lastSavedRecFile]);
+                                    win.osd = "";
+                                }
+                            }
+                        }
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: Theme.px(22)
+                            width: Theme.px(22)
+                            radius: height / 2
+                            color: recDirMa.containsMouse ? Qt.rgba(1, 1, 1, 0.18) : Qt.rgba(1, 1, 1, 0.09)
+                            scale: recDirMa.pressed ? 0.90 : 1.0
+                            Behavior on scale { Spring { epsilon: 0.01 } }
+
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "folder_open"
+                                size: Theme.px(12)
+                                color: Theme.text
+                            }
+                            MouseArea {
+                                id: recDirMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: mouse => {
+                                    mouse.accepted = true;
+                                    Quickshell.execDetached(["xdg-open", Recorder.outDir]);
+                                    win.osd = "";
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // submap — instant feedback when entering Hyprland submap
+                OsdSlot {
+                    id: submapOsdSlot
+                    kind: "submap"
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: Theme.px(8)
+
+                        Icon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: Keyboard.submap.toLowerCase().indexOf("resize") !== -1 ? "open_with"
+                                : Keyboard.submap.toLowerCase().indexOf("pass") !== -1 ? "lock_open"
+                                : "keyboard_command_key"
+                            size: Theme.px(15)
+                            color: Theme.orange
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Submap: " + Keyboard.submap.toUpperCase()
+                            color: Theme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.px(13)
+                            font.weight: Font.DemiBold
                         }
                     }
                 }
@@ -2824,6 +3095,11 @@ PanelWindow {
         notchHidden: win.notchHidden
         x: notch.x + notch.width + Theme.px(8)
         y: (Theme.compactH - height) / 2
+        onShownChanged: {
+            if (win.armed && win.mode === "compact") {
+                notch.triggerImpulse(shown ? Theme.px(6) : -Theme.px(5), Theme.px(12), 0);
+            }
+        }
     }
 
     component StripDivider: Rectangle {

@@ -166,4 +166,23 @@ Singleton {
             Quickshell.execDetached(["sh", "-c", "command -v wpctl >/dev/null 2>&1 && wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"]);
         }
     }
+
+    function cycleSink() {
+        const nodes = Pipewire.nodes ? Pipewire.nodes.values : [];
+        const sinks = [];
+        for (let i = 0; i < nodes.length; i++) {
+            const n = nodes[i];
+            if (n && n.isSink && !n.isStream && n.audio) sinks.push(n);
+        }
+        if (sinks.length <= 1) return;
+        let idx = -1;
+        for (let i = 0; i < sinks.length; i++) {
+            if (root.sink && (sinks[i].id === root.sink.id || sinks[i].name === root.sink.name)) {
+                idx = i;
+                break;
+            }
+        }
+        const next = sinks[(idx + 1) % sinks.length];
+        if (next) setSink(next);
+    }
 }
