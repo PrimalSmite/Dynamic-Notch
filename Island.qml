@@ -704,8 +704,13 @@ PanelWindow {
             id: notchHover
             enabled: !win.notchHidden
             onHoveredChanged: {
-                if (hovered) collapseTimer.stop();
-                else if (win.mode === "dashboard" && IslandPrefs.autoCollapse && !win.trayMenuOpen) collapseTimer.restart();
+                if (hovered) {
+                    collapseTimer.stop();
+                    if (win.mode === "osd" && win.osd !== "rec_countdown") osdTimer.stop();
+                } else {
+                    if (win.mode === "dashboard" && IslandPrefs.autoCollapse && !win.trayMenuOpen) collapseTimer.restart();
+                    else if (win.mode === "osd" && win.osd !== "rec_countdown") osdTimer.restart();
+                }
             }
         }
 
@@ -846,6 +851,12 @@ PanelWindow {
                 }
                 onWheel: w => {
                     if (win.mode === "panel") return;
+                    if (win.mode === "osd" && win.lastOsd === "volume") {
+                        Audio.step(w.angleDelta.y > 0 ? 0.05 : -0.05);
+                        osdTimer.restart();
+                        w.accepted = true;
+                        return;
+                    }
                     acc += w.angleDelta.y;
                     if (Math.abs(acc) < 120) return;
                     wsCompact.go(wsCompact.activeId + (acc > 0 ? -1 : 1));
@@ -2091,7 +2102,7 @@ PanelWindow {
                         Item {
                             id: cardArea
                             anchors.left: parent.left
-                            anchors.right: trackOsdWave.left
+                            anchors.right: trackRightBox.left
                             anchors.rightMargin: Theme.px(10)
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
@@ -2115,15 +2126,73 @@ PanelWindow {
                             }
                         }
 
-                        AudioWave {
-                            id: trackOsdWave
+                        Item {
+                            id: trackRightBox
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            active: Media.playing && trackSlot.active
-                            color: Media.trackAccent
-                            Behavior on color { ColorAnimation { duration: 280 } }
-                            maxH: Theme.px(16)
-                            minH: Theme.px(3)
+                            width: notchHover.hovered ? trackCtrlRow.implicitWidth : trackOsdWave.implicitWidth
+                            height: Theme.px(28)
+                            Behavior on width { Spring { epsilon: 0.2 } }
+
+                            AudioWave {
+                                id: trackOsdWave
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                active: Media.playing && trackSlot.active && !notchHover.hovered
+                                opacity: notchHover.hovered ? 0 : 1
+                                Behavior on opacity { NumberAnimation { duration: 140 } }
+                                color: Media.trackAccent
+                                Behavior on color { ColorAnimation { duration: 280 } }
+                                maxH: Theme.px(16)
+                                minH: Theme.px(3)
+                            }
+
+                            Row {
+                                id: trackCtrlRow
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: Theme.px(4)
+                                opacity: notchHover.hovered ? 1 : 0
+                                visible: opacity > 0.01
+                                Behavior on opacity { NumberAnimation { duration: 150 } }
+
+                                Repeater {
+                                    model: [
+                                        { icon: "skip_previous", act: "prev" },
+                                        { icon: Media.playing ? "pause" : "play_arrow", act: "play" },
+                                        { icon: "skip_next", act: "next" }
+                                    ]
+                                    Rectangle {
+                                        required property var modelData
+                                        width: Theme.px(24)
+                                        height: Theme.px(24)
+                                        radius: width / 2
+                                        color: tcMa.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.06)
+                                        scale: tcMa.pressed ? 0.86 : 1.0
+                                        Behavior on scale { Spring { epsilon: 0.01 } }
+                                        Behavior on color { ColorAnimation { duration: 120 } }
+
+                                        Icon {
+                                            anchors.centerIn: parent
+                                            name: parent.modelData.icon
+                                            size: Theme.px(14)
+                                            color: Theme.text
+                                        }
+                                        MouseArea {
+                                            id: tcMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: mouse => {
+                                                mouse.accepted = true;
+                                                if (parent.modelData.act === "prev") Media.prev();
+                                                else if (parent.modelData.act === "play") Media.togglePlay();
+                                                else Media.next();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -2384,7 +2453,40 @@ PanelWindow {
                 // notification matching screenshot #3:
                 // Dark pill with circular letter badge (or app icon), appName/summary in subtitle, large bold summary/body
                 OsdSlot {
+                    id: notifSlot
                     kind: "notif"
+
+                    property real _rollY: 0
+                    Connections {
+                        target: win
+                        function onNotifChanged() {
+                            if (notifSlot.active && win.mode === "osd") {
+                                notifIconPop.restart();
+                                notifRollAnim.restart();
+                            }
+                        }
+                    }
+                    NumberAnimation {
+                        id: notifRollAnim
+                        target: notifSlot
+                        property: "_rollY"
+                        from: Theme.px(14)
+                        to: 0
+                        duration: 200
+                        easing.type: Easing.OutCubic
+                    }
+
+                    // Right-click anywhere on toast dismisses the notification immediately
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.RightButton
+                        onClicked: mouse => {
+                            if (mouse.button === Qt.RightButton) {
+                                Notifs.dismiss(win.notif);
+                                win.osd = "";
+                            }
+                        }
+                    }
 
                     // Circular Avatar / Badge matching screenshot #3
                     Rectangle {
@@ -2396,6 +2498,17 @@ PanelWindow {
                         height: width
                         radius: width / 2
                         color: "#181D1C"
+
+                        SpringAnimation {
+                            id: notifIconPop
+                            target: notifIcon
+                            property: "scale"
+                            from: 0.72
+                            to: 1.0
+                            spring: Theme.springK
+                            damping: Theme.springDamp
+                            epsilon: 0.01
+                        }
 
                         // If app icon is available, display it; otherwise show circular initial letter with mint tint
                         Text {
@@ -2440,9 +2553,10 @@ PanelWindow {
                     Column {
                         anchors.left: notifIcon.right
                         anchors.leftMargin: Theme.px(12)
-                        anchors.right: parent.right
-                        anchors.rightMargin: Theme.px(18)
+                        anchors.right: notifActionsRow.visible ? notifActionsRow.left : parent.right
+                        anchors.rightMargin: notifActionsRow.visible ? Theme.px(8) : Theme.px(18)
                         anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: notifSlot._rollY
                         spacing: Theme.px(1)
 
                         Text {
@@ -2473,6 +2587,55 @@ PanelWindow {
                             color: "#A2ABA8"
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.px(11)
+                        }
+                    }
+
+                    // Action buttons (if notification provides actions)
+                    Row {
+                        id: notifActionsRow
+                        anchors.right: parent.right
+                        anchors.rightMargin: Theme.px(14)
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Theme.px(6)
+                        readonly property var acts: (win.notif && win.notif.actions)
+                            ? win.notif.actions.filter(a => a && a.id !== "default" && a.text).slice(0, 2)
+                            : []
+                        visible: acts.length > 0
+
+                        Repeater {
+                            model: notifActionsRow.acts
+                            Rectangle {
+                                required property var modelData
+                                height: Theme.px(24)
+                                width: Math.min(actLbl.implicitWidth + Theme.px(16), Theme.px(88))
+                                radius: height / 2
+                                color: actMa.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.08)
+                                scale: actMa.pressed ? 0.90 : 1.0
+                                Behavior on scale { Spring { epsilon: 0.01 } }
+
+                                Text {
+                                    id: actLbl
+                                    anchors.centerIn: parent
+                                    width: Math.min(implicitWidth, parent.width - Theme.px(10))
+                                    elide: Text.ElideRight
+                                    text: parent.modelData.text
+                                    color: Theme.text
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.px(11)
+                                    font.weight: Font.DemiBold
+                                }
+                                MouseArea {
+                                    id: actMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: mouse => {
+                                        mouse.accepted = true;
+                                        Notifs.invoke(win.notif, parent.modelData.id);
+                                        win.osd = "";
+                                    }
+                                }
+                            }
                         }
                     }
                 }

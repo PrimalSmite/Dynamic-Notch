@@ -143,8 +143,24 @@ Item {
             width: implicitWidth
             height: implicitHeight
 
-            scale: (wingMa.pressed ? 0.92 : 1.0) * root._slotScale
+            scale: (wingMa.pressed ? 0.90 : (wingMa.containsMouse ? 1.07 : 1.0)) * root._slotScale
             Behavior on scale { Spring { epsilon: 0.01 } }
+
+            readonly property color _hoverTint: root.activeKind === "media" ? Media.trackAccent
+                                              : (root.activeKind === "recorder" || root.activeKind === "thermal" || root.activeKind === "muted") ? Theme.red
+                                              : (root.activeKind === "timer" || root.activeKind === "mic") ? Theme.orange
+                                              : Theme.text
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width + Theme.px(10)
+                height: Theme.px(26)
+                radius: height / 2
+                color: contentBox._hoverTint
+                opacity: wingMa.containsMouse ? 0.16 : 0
+                Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                Behavior on color { ColorAnimation { duration: 220 } }
+            }
 
             LiveSlotContent {
                 id: slotContent
@@ -187,6 +203,9 @@ Item {
                         if (Math.abs(_wheelAcc) < 80) return;
                         root.cycleSecondary(_wheelAcc > 0 ? -1 : 1);
                         _wheelAcc = 0;
+                    } else if (LiveActivity.wheelAction(root.activeKind, w.angleDelta.y)) {
+                        slotPulse.restart();
+                        w.accepted = true;
                     } else {
                         w.accepted = false;
                     }

@@ -71,23 +71,6 @@ Row {
                     sourceSize: Qt.size(48, 48)
                     visible: status === Image.Ready && source !== ""
                 }
-
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    height: Theme.px(2)
-                    color: Qt.rgba(0, 0, 0, 0.45)
-                    visible: root.mediaProgress > 0
-
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        width: parent.width * root.mediaProgress
-                        color: Theme.text
-                    }
-                }
             }
 
             AudioWave {

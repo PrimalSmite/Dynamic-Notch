@@ -207,4 +207,25 @@ Singleton {
         }
         return false;
     }
+
+    // Wheel scroll actions directly on Live Activity wings
+    function wheelAction(kind, stepDir) {
+        if (!kind || !stepDir) return false;
+        const dir = stepDir > 0 ? 1 : -1;
+        if (kind === "media" || kind === "muted") {
+            Audio.step(dir * 0.05);
+            return true;
+        }
+        if (kind === "timer" && Timers.mode === "timer") {
+            Timers.addSeconds(dir * 30);
+            return true;
+        }
+        if (kind === "mic" && Audio.sourceReady) {
+            const cur = Audio.source.audio.muted ? 0 : Audio.source.audio.volume;
+            Audio.source.audio.muted = false;
+            Audio.source.audio.volume = Math.max(0, Math.min(1, cur + dir * 0.05));
+            return true;
+        }
+        return false;
+    }
 }

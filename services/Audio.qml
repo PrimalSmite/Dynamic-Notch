@@ -53,11 +53,7 @@ Singleton {
         const out = [];
         for (let i = 0; i < nodes.length; i++) {
             const n = nodes[i];
-            if (!n || n.isSink || n.isStream) continue;
-            const props = n.properties || ({});
-            const mclass = String(props["media.class"] || "");
-            if (mclass !== "" && mclass.indexOf("Audio/Source") === -1) continue;
-            out.push(n);
+            if (n && !n.isSink && !n.isStream) out.push(n);
         }
         return out;
     }
@@ -155,10 +151,12 @@ Singleton {
         const devs = root._inputDevices;
         for (let i = 0; i < devs.length; i++) {
             const n = devs[i];
-            if (n && n.ready && n.audio) {
-                n.audio.muted = targetMuted;
-                touched = true;
-            }
+            if (!n || !n.ready || !n.audio) continue;
+            const props = n.properties || ({});
+            const mclass = String(props["media.class"] || "");
+            if (mclass !== "" && mclass.indexOf("Audio/Source") === -1) continue;
+            n.audio.muted = targetMuted;
+            touched = true;
         }
         if (sourceReady) {
             source.audio.muted = targetMuted;
