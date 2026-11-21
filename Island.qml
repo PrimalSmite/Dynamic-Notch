@@ -653,8 +653,8 @@ PanelWindow {
                                               : win.lastOsd === "track" ? win.trackOsdW
                                               : win.lastOsd === "timer_done" ? Theme.px(254)
                                               : win.lastOsd === "screenshot" ? Theme.px(268)
-                                              : (win.lastOsd === "clipboard" && Clipboard.lastKind === "url") ? Theme.px(258)
-                                              : (win.lastOsd === "clipboard" && Clipboard.lastPreview !== "") ? Theme.px(244)
+                                              : (win.lastOsd === "clipboard" && IslandPrefs.liveClipboardPreview && Clipboard.lastKind === "url") ? Theme.px(258)
+                                              : (win.lastOsd === "clipboard" && IslandPrefs.liveClipboardPreview && Clipboard.lastPreview !== "") ? Theme.px(244)
                                               : win.lastOsd === "rec_saved" ? Theme.px(264)
                                               : win.lastOsd === "sink" ? Theme.px(244)
                                               : win.isInstantOsd ? win.instantOsdW
@@ -1656,8 +1656,8 @@ PanelWindow {
                      : win.lastOsd === "track" ? win.trackOsdW
                      : win.lastOsd === "timer_done" ? Theme.px(254)
                      : win.lastOsd === "screenshot" ? Theme.px(268)
-                     : (win.lastOsd === "clipboard" && Clipboard.lastKind === "url") ? Theme.px(258)
-                     : (win.lastOsd === "clipboard" && Clipboard.lastPreview !== "") ? Theme.px(244)
+                     : (win.lastOsd === "clipboard" && IslandPrefs.liveClipboardPreview && Clipboard.lastKind === "url") ? Theme.px(258)
+                     : (win.lastOsd === "clipboard" && IslandPrefs.liveClipboardPreview && Clipboard.lastPreview !== "") ? Theme.px(244)
                      : win.lastOsd === "rec_saved" ? Theme.px(264)
                      : win.lastOsd === "sink" ? Theme.px(244)
                      : win.isInstantOsd ? win.instantOsdW
@@ -1944,7 +1944,7 @@ PanelWindow {
                         spacing: Theme.px(8)
 
                         Rectangle {
-                            visible: Clipboard.lastKind === "color" && Clipboard.lastColorHex !== ""
+                            visible: IslandPrefs.liveClipboardPreview && Clipboard.lastKind === "color" && Clipboard.lastColorHex !== ""
                             anchors.verticalCenter: parent.verticalCenter
                             width: Theme.px(14)
                             height: width
@@ -1954,19 +1954,21 @@ PanelWindow {
                             border.color: Qt.rgba(1, 1, 1, 0.55)
                         }
                         Icon {
-                            visible: Clipboard.lastKind !== "color"
+                            visible: !IslandPrefs.liveClipboardPreview || Clipboard.lastKind !== "color"
                             anchors.verticalCenter: parent.verticalCenter
-                            name: Clipboard.lastKind === "url" ? "link"
+                            name: !IslandPrefs.liveClipboardPreview ? "content_paste"
+                                : Clipboard.lastKind === "url" ? "link"
                                 : Clipboard.lastKind === "image" ? "image"
                                 : "content_paste"
                             size: Theme.px(15)
-                            color: Clipboard.lastKind === "url" ? Theme.blue : Theme.mint
+                            color: (IslandPrefs.liveClipboardPreview && Clipboard.lastKind === "url") ? Theme.blue : Theme.mint
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: Math.min(implicitWidth, Clipboard.lastKind === "url" ? Theme.px(140) : Theme.px(185))
+                            width: Math.min(implicitWidth, (IslandPrefs.liveClipboardPreview && Clipboard.lastKind === "url") ? Theme.px(140) : Theme.px(185))
                             elide: Text.ElideRight
-                            text: Clipboard.lastKind === "image" ? "Image Copied"
+                            text: !IslandPrefs.liveClipboardPreview ? "Copied"
+                                : Clipboard.lastKind === "image" ? "Image Copied"
                                 : Clipboard.lastPreview !== "" ? ("Copied · " + Clipboard.lastPreview)
                                 : "Copied"
                             color: Theme.text
@@ -1975,7 +1977,7 @@ PanelWindow {
                             font.weight: Font.DemiBold
                         }
                         Rectangle {
-                            visible: Clipboard.lastKind === "url"
+                            visible: IslandPrefs.liveClipboardPreview && Clipboard.lastKind === "url"
                             anchors.verticalCenter: parent.verticalCenter
                             height: Theme.px(22)
                             width: clipOpenLbl.implicitWidth + Theme.px(14)

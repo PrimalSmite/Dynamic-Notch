@@ -29,6 +29,7 @@ Singleton {
     property bool liveMediaEnabled: true
     property bool liveMediaShowTitle: false
     property bool liveClipboardPulse: true
+    property bool liveClipboardPreview: false
     property bool liveMicPrivacy: true
     property bool liveThermalAlert: true
     property bool liveSystemModes: true
@@ -45,7 +46,7 @@ Singleton {
     readonly property var _toggleableBoolKeys: [
         "showSeconds", "showVolumeOsd", "showLayoutOsd", "autoCollapse",
         "hideInGames", "showOsdInGames", "liveWingsEnabled", "liveMediaEnabled",
-        "liveMediaShowTitle", "liveClipboardPulse", "liveMicPrivacy",
+        "liveMediaShowTitle", "liveClipboardPulse", "liveClipboardPreview", "liveMicPrivacy",
         "liveThermalAlert", "liveSystemModes", "liveAudioMuted", "liveCapsLock",
         "liveTrackOsd", "liveModeOsd", "liveAmbientGlow"
     ]
@@ -91,6 +92,7 @@ Singleton {
                 if (data.liveMediaEnabled !== undefined) root.liveMediaEnabled = !!data.liveMediaEnabled;
                 if (data.liveMediaShowTitle !== undefined) root.liveMediaShowTitle = !!data.liveMediaShowTitle;
                 if (data.liveClipboardPulse !== undefined) root.liveClipboardPulse = !!data.liveClipboardPulse;
+                if (data.liveClipboardPreview !== undefined) root.liveClipboardPreview = !!data.liveClipboardPreview;
                 if (data.liveMicPrivacy !== undefined) root.liveMicPrivacy = !!data.liveMicPrivacy;
                 if (data.liveThermalAlert !== undefined) root.liveThermalAlert = !!data.liveThermalAlert;
                 if (data.liveSystemModes !== undefined) root.liveSystemModes = !!data.liveSystemModes;
@@ -125,6 +127,7 @@ Singleton {
             liveMediaEnabled: root.liveMediaEnabled,
             liveMediaShowTitle: root.liveMediaShowTitle,
             liveClipboardPulse: root.liveClipboardPulse,
+            liveClipboardPreview: root.liveClipboardPreview,
             liveMicPrivacy: root.liveMicPrivacy,
             liveThermalAlert: root.liveThermalAlert,
             liveSystemModes: root.liveSystemModes,

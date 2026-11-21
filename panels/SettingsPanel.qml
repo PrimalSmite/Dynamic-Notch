@@ -884,7 +884,8 @@ Item {
                             model: [
                                 { key: "liveMediaEnabled",   name: "Media Art & Wave", icon: "music_note" },
                                 { key: "liveMediaShowTitle", name: "Track Title",      icon: "title" },
-                                { key: "liveClipboardPulse", name: "Clipboard OSD",    icon: "content_paste" },
+                                { key: "liveClipboardPulse",   name: "Clipboard OSD",     icon: "content_paste" },
+                                { key: "liveClipboardPreview", name: "Clipboard Preview", icon: "preview" },
                                 { key: "liveMicPrivacy",     name: "Mic Privacy",      icon: "mic" },
                                 { key: "liveThermalAlert",   name: "Thermal / Load",   icon: "local_fire_department" },
                                 { key: "liveSystemModes",    name: "System Modes",     icon: "coffee" },
