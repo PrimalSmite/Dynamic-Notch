@@ -161,6 +161,9 @@ PanelWindow {
         grabArmTimer.restart();
     }
 
+    property int panelSwitchDir: 1
+    property int panelSwitchSeq: 0
+
     // Open dedicated panel directly in notch (calling again collapses back into notch)
     function openPanel(name) {
         osd = "";
@@ -168,6 +171,12 @@ PanelWindow {
             if (panel === "auth") Auth.cancel();
             collapse();
             return;
+        }
+        if (panel !== "" && panel !== name) {
+            const oldIdx = panelOrder.indexOf(panel);
+            const newIdx = panelOrder.indexOf(name);
+            panelSwitchDir = (oldIdx >= 0 && newIdx >= 0 && newIdx < oldIdx) ? -1 : 1;
+            panelSwitchSeq++;
         }
         panel = name;
         loadedPanel = name;
@@ -223,6 +232,10 @@ PanelWindow {
         let next = 0;
         if (cur < 0) next = delta > 0 ? 0 : list.length - 1;
         else next = (cur + delta + list.length) % list.length;
+        if (panel !== "" && panel !== list[next]) {
+            panelSwitchDir = delta >= 0 ? 1 : -1;
+            panelSwitchSeq++;
+        }
         panel = list[next];
         loadedPanel = panel;
         armGrab();
@@ -1234,6 +1247,11 @@ PanelWindow {
                             height: Theme.px(32)
                             radius: Theme.px(10)
                             color: medMa.containsMouse ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(1, 1, 1, 0.05)
+                            border.width: 1
+                            border.color: Media.playing
+                                ? Qt.rgba(Media.trackAccent.r, Media.trackAccent.g, Media.trackAccent.b, 0.38)
+                                : Qt.rgba(1, 1, 1, 0.07)
+                            Behavior on border.color { ColorAnimation { duration: 260 } }
                             scale: medMa.pressed ? 0.94 : (medMa.containsMouse ? 1.02 : 1.0)
                             Behavior on scale { Spring { epsilon: 0.01 } }
 
@@ -1247,6 +1265,10 @@ PanelWindow {
                                     width: Theme.px(22); height: width
                                     radius: Theme.px(6)
                                     color: Qt.rgba(1, 1, 1, 0.10)
+                                    scale: Media.playing ? 1.0 : 0.86
+                                    opacity: Media.playing ? 1.0 : 0.68
+                                    Behavior on scale { Spring { epsilon: 0.01 } }
+                                    Behavior on opacity { NumberAnimation { duration: 160 } }
 
                                     Icon {
                                         anchors.centerIn: parent
@@ -1259,7 +1281,7 @@ PanelWindow {
                                         id: medThumb
                                         anchors.fill: parent
                                         source: Media.trackArtUrl
-                                        cache: false
+                                        cache: true
                                         fillMode: Image.PreserveAspectCrop
                                         asynchronous: true
                                         sourceSize: Qt.size(64, 64)
@@ -1268,6 +1290,7 @@ PanelWindow {
                                 }
 
                                 Text {
+                                    id: medTitleTxt
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: Math.min(implicitWidth, Theme.px(120))
                                     elide: Text.ElideRight
@@ -1276,13 +1299,25 @@ PanelWindow {
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.px(12)
                                     font.weight: Font.Medium
+                                    property real _slideY: 0
+                                    transform: Translate { y: medTitleTxt._slideY }
+                                    onTextChanged: {
+                                        if (homeView.isDash && text !== "") medTitleRoll.restart();
+                                    }
+                                    ParallelAnimation {
+                                        id: medTitleRoll
+                                        NumberAnimation { target: medTitleTxt; property: "_slideY"; from: Theme.px(8); to: 0; duration: 180; easing.type: Easing.OutCubic }
+                                        NumberAnimation { target: medTitleTxt; property: "opacity"; from: 0.2; to: 1.0; duration: 180; easing.type: Easing.OutCubic }
+                                    }
                                 }
 
-                                Icon {
+                                AudioWave {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    name: Media.playing ? "equalizer" : "pause"
-                                    size: Theme.px(14)
-                                    color: Media.playing ? Theme.accent : Theme.text3
+                                    active: Media.playing && homeView.isDash
+                                    color: Media.playing ? Media.trackAccent : Theme.text3
+                                    Behavior on color { ColorAnimation { duration: 260 } }
+                                    maxH: Theme.px(12)
+                                    minH: Theme.px(3)
                                 }
                             }
 
@@ -1293,8 +1328,10 @@ PanelWindow {
                                 acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: mouse => {
-                                    if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton) {
+                                    if (mouse.button === Qt.RightButton) {
                                         Media.togglePlay();
+                                    } else if (mouse.button === Qt.MiddleButton) {
+                                        Media.next();
                                     } else {
                                         win.openPanel("media");
                                     }
@@ -1306,13 +1343,13 @@ PanelWindow {
                         }
                     }
 
-                    // 8. Keyboard Layout pill
+                    // 8. Keyboard Layout pill (with mechanical vertical drum roll)
                     Item {
                         id: layoutItem
                         anchors.verticalCenter: parent.verticalCenter
                         readonly property bool shouldShow: Keyboard.shortCode !== ""
-                        readonly property real compactW: shouldShow ? kbTxt.implicitWidth : 0
-                        readonly property real dashW: shouldShow ? (kbTxt.implicitWidth + Theme.px(12) + (SystemTray.items.values.length > 0 ? Theme.px(12) : 0)) : 0
+                        readonly property real compactW: shouldShow ? kbNewTxt.implicitWidth : 0
+                        readonly property real dashW: shouldShow ? (kbNewTxt.implicitWidth + Theme.px(12) + (SystemTray.items.values.length > 0 ? Theme.px(12) : 0)) : 0
                         width: Math.max(0, compactW + (dashW - compactW) * homeView.p)
                         height: Theme.px(38)
                         opacity: shouldShow ? 1 : 0
@@ -1322,17 +1359,77 @@ PanelWindow {
                             id: kbPill
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
-                            width: kbTxt.implicitWidth + Theme.px(12) * homeView.p
+                            width: kbNewTxt.implicitWidth + Theme.px(12) * homeView.p
                             height: Theme.px(20) + Theme.px(4) * homeView.p
                             radius: Theme.px(7)
+                            clip: true
                             color: homeView.isDash ? (kbMa.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.07)) : Qt.rgba(1, 1, 1, 0.07 * homeView.p)
-                            scale: (homeView.isDash && kbMa.pressed) ? 0.90 : (homeView.isDash && kbMa.containsMouse ? 1.05 : 1.0)
+                            property real _popScale: 1.0
+                            scale: ((homeView.isDash && kbMa.pressed) ? 0.90 : (homeView.isDash && kbMa.containsMouse ? 1.05 : 1.0)) * _popScale
                             Behavior on scale { Spring { epsilon: 0.01 } }
 
+                            property string _curCode: Keyboard.shortCode
+                            property string _prevCode: Keyboard.shortCode
+                            property real _oldY: 0
+                            property real _newY: 0
+
+                            Connections {
+                                target: Keyboard
+                                function onShortCodeChanged() {
+                                    const next = Keyboard.shortCode;
+                                    if (!next || next === kbPill._curCode) return;
+                                    kbPill._prevCode = kbPill._curCode;
+                                    kbPill._curCode = next;
+                                    kbRollAnim.stop();
+                                    const dir = (next === "RU") ? -1 : 1;
+                                    const dist = Theme.px(13);
+                                    kbPill._oldY = 0;
+                                    kbOldTxt.opacity = 1;
+                                    kbPill._newY = dir * dist;
+                                    kbNewTxt.opacity = 0;
+                                    kbRollAnim.outY = -dir * dist;
+                                    kbRollAnim.restart();
+                                    kbPopAnim.restart();
+                                }
+                            }
+
+                            SpringAnimation {
+                                id: kbPopAnim
+                                target: kbPill
+                                property: "_popScale"
+                                from: 0.86
+                                to: 1.0
+                                spring: Theme.springK
+                                damping: Theme.springDamp
+                                epsilon: 0.01
+                            }
+
+                            ParallelAnimation {
+                                id: kbRollAnim
+                                property real outY: -Theme.px(13)
+                                NumberAnimation { target: kbPill; property: "_oldY"; to: kbRollAnim.outY; duration: 165; easing.type: Easing.OutCubic }
+                                NumberAnimation { target: kbOldTxt; property: "opacity"; to: 0; duration: 140; easing.type: Easing.OutCubic }
+                                NumberAnimation { target: kbPill; property: "_newY"; to: 0; duration: 185; easing.type: Easing.OutCubic }
+                                NumberAnimation { target: kbNewTxt; property: "opacity"; to: 1; duration: 170; easing.type: Easing.OutCubic }
+                            }
+
                             Text {
-                                id: kbTxt
+                                id: kbOldTxt
                                 anchors.centerIn: parent
-                                text: Keyboard.shortCode
+                                anchors.verticalCenterOffset: kbPill._oldY
+                                text: kbPill._prevCode
+                                color: Theme.text2
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.px(11)
+                                font.weight: Font.Bold
+                                opacity: 0
+                                visible: opacity > 0.01
+                            }
+                            Text {
+                                id: kbNewTxt
+                                anchors.centerIn: parent
+                                anchors.verticalCenterOffset: kbPill._newY
+                                text: kbPill._curCode
                                 color: Theme.text2
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.px(11)
@@ -2667,6 +2764,26 @@ PanelWindow {
                         anchors.centerIn: parent
                         width: win.activePanelInnerW
                         height: panelLoader.item ? panelLoader.item.implicitHeight : 0
+                        property real _slideX: 0
+                        transform: Translate { x: panelArea._slideX }
+
+                        Connections {
+                            target: win
+                            function onPanelSwitchSeqChanged() {
+                                panelSlideAnim.stop();
+                                panelArea._slideX = win.panelSwitchDir * Theme.px(24);
+                                panelArea.scale = 0.96;
+                                panelArea.opacity = 0.25;
+                                panelSlideAnim.restart();
+                            }
+                        }
+
+                        ParallelAnimation {
+                            id: panelSlideAnim
+                            NumberAnimation { target: panelArea; property: "_slideX"; to: 0; duration: 210; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: panelArea; property: "scale"; to: 1.0; duration: 210; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: panelArea; property: "opacity"; to: 1.0; duration: 170; easing.type: Easing.OutCubic }
+                        }
 
                         Loader {
                             id: panelLoader
