@@ -21,7 +21,7 @@ Item {
             Audio.toggleMute();
             event.accepted = true;
         } else if (event.key === Qt.Key_I || t === "i" || t === "ш") {
-            if (sourceReady) defaultSource.audio.muted = !defaultSource.audio.muted;
+            Audio.toggleMic();
             event.accepted = true;
         } else if (event.key === Qt.Key_Left || event.key === Qt.Key_Down) {
             Audio.step(-0.04);
@@ -32,10 +32,10 @@ Item {
         }
     }
 
-    readonly property PwNode defaultSource: Pipewire.defaultAudioSource
-    readonly property bool sourceReady: defaultSource !== null && defaultSource.ready && defaultSource.audio !== null
+    readonly property PwNode defaultSource: Audio.source
+    readonly property bool sourceReady: Audio.sourceReady
     readonly property real sourceVol: sourceReady ? defaultSource.audio.volume : 0
-    readonly property bool sourceMuted: sourceReady ? defaultSource.audio.muted : false
+    readonly property bool sourceMuted: Audio.micMuted
 
     readonly property var streams: Pipewire.nodes.values.filter(n => n.isStream && n.isSink && n.audio)
 
@@ -125,7 +125,7 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: if (root.sourceReady) root.defaultSource.audio.muted = !root.defaultSource.audio.muted
+                        onClicked: Audio.toggleMic()
                     }
                 }
 
@@ -172,11 +172,12 @@ Item {
         Rectangle {
             visible: root.streams.length > 0
             width: parent.width
-            height: streamHeader.implicitHeight + streamScroll.height + Theme.px(20)
+            height: streamSectionCol.implicitHeight + Theme.px(20)
             radius: Theme.px(16)
             color: Theme.card
 
             Column {
+                id: streamSectionCol
                 anchors.fill: parent
                 anchors.margins: Theme.px(10)
                 spacing: Theme.px(8)
@@ -220,18 +221,22 @@ Item {
                 }
 
                 // Scrollable stream container (keeps notch compact)
-                Flickable {
-                    id: streamScroll
+                Item {
                     width: parent.width
                     height: Math.min(Theme.px(105), streamCol.implicitHeight)
-                    contentHeight: streamCol.implicitHeight
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
 
-                    Column {
-                        id: streamCol
-                        width: parent.width
-                        spacing: Theme.px(6)
+                    Flickable {
+                        id: streamScroll
+                        anchors.fill: parent
+                        contentWidth: width
+                        contentHeight: streamCol.implicitHeight
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        Column {
+                            id: streamCol
+                            width: parent.width
+                            spacing: Theme.px(6)
 
                         Repeater {
                             model: root.streams
@@ -243,16 +248,6 @@ Item {
 
                                 readonly property real vol: modelData.audio ? modelData.audio.volume : 0
                                 readonly property bool muted: modelData.audio ? modelData.audio.muted : false
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    acceptedButtons: Qt.NoButton
-                                    onWheel: w => {
-                                        if (!sRow.modelData.audio) return;
-                                        sRow.modelData.audio.muted = false;
-                                        sRow.modelData.audio.volume = Math.max(0, Math.min(1, sRow.vol + (w.angleDelta.y > 0 ? 0.04 : -0.04)));
-                                    }
-                                }
 
                                 Row {
                                     anchors.fill: parent
@@ -332,6 +327,21 @@ Item {
                                         font.features: { "tnum": 1 }
                                     }
                                 }
+                            }
+                        }
+                    }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.NoButton
+                        onWheel: w => {
+                            if (streamScroll.contentHeight > streamScroll.height) {
+                                const maxY = streamScroll.contentHeight - streamScroll.height;
+                                streamScroll.contentY = Math.max(0, Math.min(maxY, streamScroll.contentY - w.angleDelta.y * 0.5));
+                                w.accepted = true;
+                            } else {
+                                w.accepted = false;
                             }
                         }
                     }

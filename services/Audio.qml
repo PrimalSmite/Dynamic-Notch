@@ -12,7 +12,24 @@ Singleton {
     readonly property real volume: ready ? sink.audio.volume : 0
     readonly property bool muted: ready ? sink.audio.muted : false
 
-    readonly property PwNode source: Pipewire.defaultAudioSource
+    readonly property PwNode _rawSource: Pipewire.defaultAudioSource
+    readonly property PwNode source: {
+        const s = root._rawSource;
+        if (!s) return null;
+        const sClass = s.properties ? String(s.properties["media.class"] || "") : "";
+        if (sClass === "Audio/Sink" && s.name && Pipewire.nodes) {
+            const nodes = Pipewire.nodes.values;
+            for (let i = 0; i < nodes.length; i++) {
+                const n = nodes[i];
+                if (!n || n.isStream || n.name !== s.name) continue;
+                const nc = n.properties ? String(n.properties["media.class"] || "") : "";
+                if (nc.indexOf("Audio/Duplex") !== -1 || nc.indexOf("Audio/Source") !== -1) {
+                    return n;
+                }
+            }
+        }
+        return s;
+    }
     readonly property bool sourceReady: source !== null && source.ready && source.audio !== null
     readonly property bool micMuted: sourceReady ? source.audio.muted : false
 
@@ -53,22 +70,18 @@ Singleton {
         const out = [];
         for (let i = 0; i < nodes.length; i++) {
             const n = nodes[i];
-            if (n && !n.isSink && !n.isStream) out.push(n);
+            if (!n || n.isStream) continue;
+            const props = n.properties || ({});
+            const mclass = String(props["media.class"] || "");
+            if (!n.isSink || mclass.indexOf("Audio/Source") !== -1 || mclass.indexOf("Audio/Duplex") !== -1) {
+                out.push(n);
+            }
         }
         return out;
     }
 
     PwObjectTracker {
-        objects: {
-            const arr = [];
-            if (root.sink) arr.push(root.sink);
-            if (root.source) arr.push(root.source);
-            const devs = root._inputDevices;
-            for (let i = 0; i < devs.length; i++) arr.push(devs[i]);
-            const streams = root._inputStreams;
-            for (let i = 0; i < streams.length; i++) arr.push(streams[i]);
-            return arr;
-        }
+        objects: Pipewire.nodes ? Pipewire.nodes.values : []
     }
 
     readonly property string sinkName: {
@@ -154,7 +167,7 @@ Singleton {
             if (!n || !n.ready || !n.audio) continue;
             const props = n.properties || ({});
             const mclass = String(props["media.class"] || "");
-            if (mclass !== "" && mclass.indexOf("Audio/Source") === -1) continue;
+            if (mclass !== "" && mclass.indexOf("Audio/Source") === -1 && mclass.indexOf("Audio/Duplex") === -1) continue;
             n.audio.muted = targetMuted;
             touched = true;
         }
@@ -162,9 +175,30 @@ Singleton {
             source.audio.muted = targetMuted;
             touched = true;
         }
-        if (!touched) {
-            Quickshell.execDetached(["sh", "-c", "command -v wpctl >/dev/null 2>&1 && wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"]);
+        // Also mute any sibling nodes sharing source.name (e.g. audiorelay-virtual-mic-sink Audio/Sink + Audio/Duplex + input.* loopback)
+        const sName = source ? source.name : "";
+        if (sName && Pipewire.nodes) {
+            const all = Pipewire.nodes.values;
+            for (let i = 0; i < all.length; i++) {
+                const n = all[i];
+                if (!n || !n.ready || !n.audio) continue;
+                if (n.name === sName || n.name === ("input." + sName)) {
+                    n.audio.muted = targetMuted;
+                    touched = true;
+                }
+            }
         }
+        const muteArg = targetMuted ? "1" : "0";
+        Quickshell.execDetached([
+            "sh", "-c",
+            "if command -v pactl >/dev/null 2>&1; then " +
+            "  for id in $(pactl list sources short 2>/dev/null | awk '$2 !~ /\\.monitor$/ {print $1}'); do " +
+            "    pactl set-source-mute \"$id\" " + muteArg + " 2>/dev/null; " +
+            "  done; " +
+            "elif command -v wpctl >/dev/null 2>&1; then " +
+            "  wpctl set-mute @DEFAULT_AUDIO_SOURCE@ " + muteArg + "; " +
+            "fi"
+        ]);
     }
 
     function cycleSink() {
