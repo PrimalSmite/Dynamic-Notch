@@ -12,7 +12,7 @@ Singleton {
 
     // ── Fonts ──
     readonly property string fontFamily: IslandPrefs.fontFamily
-    readonly property string monoFamily: "JetBrainsMono Nerd Font Mono"
+    readonly property string monoFamily: "SF Mono"
     readonly property string iconFamily: "Material Symbols Rounded"
     readonly property string glyphFamily: "Hack Nerd Font Propo"
 

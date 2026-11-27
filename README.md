@@ -160,21 +160,56 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
 - `libnotify` (`notify-send` for desktop toast notifications)
 
 ### Recommended Fonts
-- **Interface**: *Inter*, *Roboto*, *SF Pro Rounded*, or *Adwaita Sans* (configurable via Settings panel)
-- **Monospace**: *JetBrainsMono Nerd Font*
-- **Icons**: *Material Symbols Rounded*
-- **Glyphs**: *Hack Nerd Font Propo*
+- **Interface**: *SF Pro Display* (`apple-fonts`, configurable via Settings panel)
+- **Monospace**: *SF Mono* (`apple-fonts`)
+- **Icons**: *Material Symbols Rounded* (bundled in `assets/fonts/MaterialSymbolsRounded.ttf`; installed automatically by the Arch package, or copy to `~/.local/share/fonts/` for manual setup)
+- **Glyphs**: *Hack Nerd Font Propo* (`ttf-hack-nerd`)
 
 ---
 
 ## Installation & Running
 
-### 1. Clone the repository
+### Option A: Arch Linux (AUR / Local Package) — *Experimental / Testing*
+
+> [!NOTE]
+> The AUR/package setup in `packaging/aur/` is currently **experimental** and may not work out-of-the-box on all setups yet.
+
+1. **Build & install locally** (or via an AUR helper once published):
+   ```bash
+   cd packaging/aur
+   makepkg -si
+   ```
+
+2. **Optional: link or copy config to `~/.config/quickshell/dynamic-notch`:**
+   ```bash
+   dynamic-notch init          # symlink to /etc/xdg/quickshell/dynamic-notch
+   # or
+   dynamic-notch init --copy   # editable local copy
+   ```
+
+3. **Run & Autostart in Hyprland:**
+   ```bash
+   # Manual test run
+   dynamic-notch
+   # or: qs -c dynamic-notch
+   ```
+   ```ini
+   # ~/.config/hypr/hyprland.conf
+   exec-once = dynamic-notch -d
+   ```
+   ```lua
+   -- ~/.config/hypr/hyprland.lua (v0.57+)
+   hl.exec("dynamic-notch -d")
+   ```
+
+### Option B: Manual Installation (Git Clone)
+
+#### 1. Clone the repository
 ```bash
-git clone https://github.com/your-username/dynamic-notch.git ~/.config/quickshell/dynamic-notch
+git clone https://github.com/PrimalSmite/Dynamic-Notch.git ~/.config/quickshell/dynamic-notch
 ```
 
-### 2. Manual Test Run
+#### 2. Manual Test Run
 ```bash
 # Standard run
 qs -p ~/.config/quickshell/dynamic-notch
@@ -183,15 +218,15 @@ qs -p ~/.config/quickshell/dynamic-notch
 ~/.config/quickshell/dynamic-notch/scripts/run.sh
 ```
 
-### 3. Autostart in Hyprland
+#### 3. Autostart in Hyprland
 
-#### Hyprland Lua (`hyprland.lua` / v0.57+)
+##### Hyprland Lua (`hyprland.lua` / v0.57+)
 ```lua
 hl.exec("~/.config/quickshell/dynamic-notch/scripts/run.sh -d")
 -- or: hl.exec("qs -d -p ~/.config/quickshell/dynamic-notch")
 ```
 
-#### Classic `hyprland.conf`
+##### Classic `hyprland.conf`
 ```ini
 exec-once = ~/.config/quickshell/dynamic-notch/scripts/run.sh -d
 # or: exec-once = qs -d -p ~/.config/quickshell/dynamic-notch
@@ -205,6 +240,9 @@ export SUDO_ASKPASS="$HOME/.config/quickshell/dynamic-notch/scripts/sudo-askpass
 ---
 
 ## IPC Keybindings & Hotkeys
+
+> [!TIP]
+> If you installed via the Arch package (`Option A`), use `qs -c dynamic-notch ipc call island ...` instead of `qs -p ~/.config/quickshell/dynamic-notch ipc call island ...`.
 
 ### Hyprland Lua (`hyprland.lua` / v0.57+)
 

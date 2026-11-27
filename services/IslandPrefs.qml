@@ -21,7 +21,7 @@ Singleton {
     // ── Appearance Preferences ──
     property real uiScale: 1.15
     property int fontSize: 13
-    property string fontFamily: "Inter"
+    property string fontFamily: "SF Pro Display"
 
     // ── Live Activity Wings Preferences ──
     property bool liveWingsEnabled: true

@@ -1,0 +1,65 @@
+post_install() {
+    cat <<'EOF'
+
+==> Dynamic Notch installed to /etc/xdg/quickshell/dynamic-notch
+    Quickshell detects it automatically via `qs -c dynamic-notch` (or `dynamic-notch`).
+
+==> Optional: link or copy config into ~/.config/quickshell/dynamic-notch
+    (Arch packages cannot write to $HOME directly during pacman install)
+      Symlink (updates with package):  dynamic-notch init
+      Local editable copy:             dynamic-notch init --copy
+
+==> Quick test run:
+      dynamic-notch
+
+==> 1. Autostart in Hyprland:
+    [~/.config/hypr/hyprland.conf]
+      exec-once = dynamic-notch -d
+
+    [~/.config/hypr/hyprland.lua (Hyprland v0.57+)]
+      hl.exec("dynamic-notch -d")
+
+==> 2. Keybindings in Hyprland:
+    [~/.config/hypr/hyprland.conf]
+      bind = SUPER, Space,  exec, qs -c dynamic-notch ipc call island toggle
+      bind = SUPER, D,      exec, qs -c dynamic-notch ipc call island open launcher
+      bind = SUPER, V,      exec, qs -c dynamic-notch ipc call island open clipboard
+      bind = SUPER, N,      exec, qs -c dynamic-notch ipc call island open notifications
+      bind = SUPER, M,      exec, qs -c dynamic-notch ipc call island open mixer
+      bind = SUPER, W,      exec, qs -c dynamic-notch ipc call island open weather
+      bind = SUPER, S,      exec, qs -c dynamic-notch ipc call island open settings
+      bind = SUPER, Escape, exec, qs -c dynamic-notch ipc call island close
+
+      bindel = , XF86AudioRaiseVolume, exec, qs -c dynamic-notch ipc call island volUp
+      bindel = , XF86AudioLowerVolume, exec, qs -c dynamic-notch ipc call island volDown
+      bindl  = , XF86AudioMute,        exec, qs -c dynamic-notch ipc call island mute
+      bindl  = , XF86AudioPlay,        exec, qs -c dynamic-notch ipc call island playPause
+      bindl  = , XF86AudioNext,        exec, qs -c dynamic-notch ipc call island nextTrack
+      bindl  = , XF86AudioPrev,        exec, qs -c dynamic-notch ipc call island prevTrack
+
+    [~/.config/hypr/hyprland.lua]
+      local notch = function(cmd)
+          return hl.dsp.exec_cmd("qs -c dynamic-notch ipc call island " .. cmd)
+      end
+      hl.bind("SUPER + Space", notch("toggle"))
+      hl.bind("SUPER + D",     notch("open launcher"))
+      hl.bind("SUPER + V",     notch("open clipboard"))
+      hl.bind("SUPER + N",     notch("open notifications"))
+      hl.bind("SUPER + M",     notch("open mixer"))
+      hl.bind("SUPER + W",     notch("open weather"))
+      hl.bind("SUPER + S",     notch("open settings"))
+      hl.bind("SUPER + Escape", notch("close"))
+
+==> 3. Optional integrated sudo askpass (add to ~/.bashrc or ~/.zshrc):
+      export SUDO_ASKPASS="/usr/bin/dynamic-notch-askpass"
+
+EOF
+}
+
+post_upgrade() {
+    cat <<'EOF'
+==> Dynamic Notch upgraded in /etc/xdg/quickshell/dynamic-notch.
+    Restart it to apply changes:  pkill -x qs; dynamic-notch -d
+    If you used `dynamic-notch init --copy`, update your local copy in ~/.config/quickshell/dynamic-notch.
+EOF
+}

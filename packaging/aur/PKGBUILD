@@ -1,0 +1,105 @@
+# Maintainer: Artemy Kartashov <https://github.com/PrimalSmite>
+pkgname=dynamic-notch-git
+pkgver=r77.a629ab2
+pkgrel=1
+pkgdesc="Dynamic Island and Control Center for Wayland (Hyprland) built with Quickshell"
+arch=('any')
+url="https://github.com/PrimalSmite/Dynamic-Notch"
+license=('MIT')
+depends=(
+  'quickshell'
+  'hyprland'
+  'pipewire'
+  'wireplumber'
+  'cliphist'
+  'wl-clipboard'
+  'imagemagick'
+  'grim'
+  'slurp'
+  'gpu-screen-recorder'
+  'cava'
+  'brightnessctl'
+  'hyprsunset'
+  'curl'
+  'libnotify'
+  'apple-fonts'
+  'ttf-hack-nerd'
+)
+makedepends=('git')
+provides=('dynamic-notch')
+conflicts=('dynamic-notch')
+install=dynamic-notch.install
+source=("${pkgname}::git+https://github.com/PrimalSmite/Dynamic-Notch.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$srcdir/$pkgname"
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+package() {
+  cd "$srcdir/$pkgname"
+
+  local _dest="$pkgdir/etc/xdg/quickshell/dynamic-notch"
+  install -dm755 "$_dest"
+
+  # Core QML entrypoints
+  install -Dm644 shell.qml "$_dest/shell.qml"
+  install -Dm644 Island.qml "$_dest/Island.qml"
+
+  # QML modules (components, panels, services)
+  local _dir
+  for _dir in components panels services; do
+    cp -a "$_dir" "$_dest/"
+  done
+
+  # Helper scripts & ImageMagick sandbox policy
+  install -dm755 "$_dest/scripts/magick-policy"
+  install -Dm755 scripts/run.sh "$_dest/scripts/run.sh"
+  install -Dm755 scripts/cliphist-thumbs.sh "$_dest/scripts/cliphist-thumbs.sh"
+  install -Dm755 scripts/sudo-askpass.sh "$_dest/scripts/sudo-askpass.sh"
+  install -Dm644 scripts/magick-policy/policy.xml "$_dest/scripts/magick-policy/policy.xml"
+
+  # Main launcher wrapper in /usr/bin/dynamic-notch
+  install -Dm755 /dev/stdin "$pkgdir/usr/bin/dynamic-notch" <<'EOF'
+#!/usr/bin/env sh
+# Dynamic Notch launcher (low-memory glibc tuning + optional ~/.config/quickshell setup)
+
+SYS_DIR="/etc/xdg/quickshell/dynamic-notch"
+USER_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/dynamic-notch"
+
+if [ "${1:-}" = "init" ]; then
+    mkdir -p "$(dirname "$USER_DIR")"
+    if [ -e "$USER_DIR" ] || [ -L "$USER_DIR" ]; then
+        printf 'Already exists: %s\n' "$USER_DIR" >&2
+        exit 1
+    fi
+    if [ "${2:-}" = "--copy" ]; then
+        cp -a "$SYS_DIR" "$USER_DIR"
+        printf 'Copied Dynamic Notch config to %s\n' "$USER_DIR"
+    else
+        ln -s "$SYS_DIR" "$USER_DIR"
+        printf 'Linked %s -> %s\n' "$USER_DIR" "$SYS_DIR"
+    fi
+    exit 0
+fi
+
+export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
+export GLIBC_TUNABLES="${GLIBC_TUNABLES:-glibc.malloc.hugetlb=0}"
+
+exec qs -c dynamic-notch "$@"
+EOF
+
+  # Convenience symlink for SUDO_ASKPASS
+  install -dm755 "$pkgdir/usr/bin"
+  ln -s /etc/xdg/quickshell/dynamic-notch/scripts/sudo-askpass.sh \
+    "$pkgdir/usr/bin/dynamic-notch-askpass"
+
+  # Bundled icon font
+  install -Dm644 assets/fonts/MaterialSymbolsRounded.ttf \
+    "$pkgdir/usr/share/fonts/TTF/MaterialSymbolsRounded.ttf"
+
+  # License & docs
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
