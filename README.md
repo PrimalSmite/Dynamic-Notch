@@ -63,6 +63,10 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
 | :---: | :---: |
 | <img src="assets/screenshots/22-instant-osd-dnd-on.png" width="400" alt="Do Not Disturb OSD" /><br><sub>**DND Enabled**: Instant full-notch feedback when toggling Do Not Disturb</sub> | <img src="assets/screenshots/23-instant-osd-dnd-off.png" width="400" alt="Notifications On OSD" /><br><sub>**Notifications On**: Matching full-notch feedback when DND is disabled</sub> |
 
+| Track Change ILA | Timer Finished ILA |
+| :---: | :---: |
+| <img src="assets/screenshots/27-instant-osd-media.png" width="400" alt="Track Change Instant Live Activity" /><br><sub>**Track Change ILA**: Album art, track title, artist and 4-band `cava` wave on track change</sub> | <img src="assets/screenshots/28-instant-osd-timer.png" width="400" alt="Timer Finished Instant Live Activity" /><br><sub>**Timer Finished ILA**: Interactive `Time's Up!` banner with `+1m` and `Repeat` quick actions</sub> |
+
 ### Interactive Panels
 
 | Launcher & App Search | Integrated Scientific Calculator |
