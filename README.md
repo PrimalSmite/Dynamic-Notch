@@ -173,11 +173,14 @@ Dynamic Notch and comprehensive Control Center for Wayland (**Hyprland**), built
 
 > [!NOTE]
 > The AUR/package setup in `packaging/aur/` is currently **experimental** and may not work out-of-the-box on all setups yet.
+> Also, the package is **not published on AUR yet** because new AUR account registration is currently closed — for now, use the local build below.
 
 1. **Build & install locally** (or via an AUR helper once published):
    ```bash
    cd packaging/aur
    makepkg -si
+   # or via yay (also resolves AUR dependencies like quickshell & apple-fonts):
+   yay -Bi .
    ```
 
 2. **Optional: link or copy config to `~/.config/quickshell/dynamic-notch`:**
